@@ -62,6 +62,7 @@ const getInitialLanguage = (): string => {
 /**
  * ADIRES GLOBAL DATA STORE
  * Persists critical identity and operational state to localStorage.
+ * Optimized to prevent "Read Explosions" for merchants.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -96,36 +97,50 @@ export const useAppStore = create<AppState>()(
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        // CRITICAL GUARD: Do not fetch if already loading OR already initialized
         if (get().loading || get().isInitialized) return;
         
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of system metadata and store directory
-          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')).catch(() => ({ docs: [] })),
-            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
-            getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
-          ]);
-
-          const allStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
-          get().incrementReadCount((storesSnap as any).docs.length);
-
-          let userStore = get().userStore;
+          // 1. Fetch User Profile to determine role (1 Read)
+          let userProfile = null;
           if (userId) {
-              const freshUserStore = allStores.find((s: Store) => s.ownerId === userId);
-              if (freshUserStore) {
-                  userStore = freshUserStore;
-              } else {
-                  userStore = null;
+              const uSnap = await getDoc(doc(db, 'users', userId));
+              if (uSnap.exists()) {
+                  userProfile = uSnap.data();
+                  get().incrementReadCount(1);
               }
           }
 
-          if (!get().deviceId) {
-              const newId = Math.random().toString(36).substring(2, 15);
-              set({ deviceId: newId });
+          const isMerchant = userProfile?.accountType === 'restaurant';
+          const isEmployee = userProfile?.accountType === 'employee';
+          const isAdmin = userId && ['shanmuka7073@gmail.com'].includes(userProfile?.email || '');
+
+          // 2. Optimized Store Fetching Strategy
+          let storesSnap;
+          if (isMerchant) {
+              // Only fetch the merchant's own store (1 Read)
+              const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+              storesSnap = await getDocs(q);
+          } else if (isEmployee && userProfile?.storeId) {
+              // Only fetch the employee's assigned store (1 Read)
+              const sDoc = await getDoc(doc(db, 'stores', userProfile.storeId));
+              storesSnap = { docs: sDoc.exists() ? [sDoc] : [] };
+          } else {
+              // Guest or Admin or Customer needs the directory (N Reads)
+              storesSnap = await getDocs(collection(db, 'stores'));
           }
+
+          const allFetchedStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          get().incrementReadCount((storesSnap as any).docs.length);
+
+          const userStore = allFetchedStores.find((s: Store) => s.ownerId === userId) || null;
+
+          // 3. Parallel fetch of system metadata
+          const [aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
+            getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
+          ]);
 
           const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
@@ -139,8 +154,13 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(locales); 
 
+          if (!get().deviceId) {
+              const newId = Math.random().toString(36).substring(2, 15);
+              set({ deviceId: newId });
+          }
+
           set({
-            stores: allStores,
+            stores: allFetchedStores,
             userStore,
             locales,
             commands: enrichedCommands,
@@ -150,7 +170,7 @@ export const useAppStore = create<AppState>()(
           });
           
         } catch (error) {
-          console.error("fetchInitialData critical failure:", error);
+          console.error("fetchInitialData failure:", error);
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -164,7 +184,7 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'adires-ops-storage-v6',
+      name: 'adires-ops-storage-v7', // Version bump to clear stale global stores
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -180,12 +200,10 @@ export const useInitializeApp = () => {
     const { fetchInitialData, loading, isInitialized, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
-        // Unlock UI immediately if we have persisted data
         if (isInitialized || userStore) {
             setAppReady(true);
         }
         
-        // Only trigger fetch if we aren't already initialized and not currently loading
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }

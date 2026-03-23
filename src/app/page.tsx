@@ -30,7 +30,6 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
     const { isCartOpen, setCartOpen } = useAppStore();
 
     useEffect(() => {
-        // Deferred to prevent hydration mismatch and improve TBT
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
@@ -151,7 +150,7 @@ export default function LocalBasketHomepage() {
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
 
-  // REDIRECT MERCHANTS AWAY FROM CUSTOMER HOMEPAGE
+  // REDIRECT MERCHANTS AWAY FROM CUSTOMER HOMEPAGE IMMEDIATELY
   useLayoutEffect(() => {
     if (!isRoleLoading && isRestaurantOwner) {
       router.replace('/dashboard/restaurant');
@@ -182,8 +181,16 @@ export default function LocalBasketHomepage() {
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
+  // If merchant/admin, return null to prevent any customer UI from flickering during redirect
   if (isRoleLoading || isRestaurantOwner || isAdmin) {
-    return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>;
+    return (
+        <div className="flex h-screen items-center justify-center bg-background">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Verifying Identity...</p>
+            </div>
+        </div>
+    );
   }
 
   return (
