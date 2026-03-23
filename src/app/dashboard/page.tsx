@@ -2,7 +2,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getProductImage } from '@/lib/data';
@@ -12,6 +12,7 @@ import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const allRoleCards = [
     {
