@@ -1,7 +1,7 @@
 {
-  "name": "LocalBasket",
-  "short_name": "LocalBasket",
-  "description": "Your local grocery delivery app.",
+  "name": "Adires",
+  "short_name": "Adires",
+  "description": "Local Digital impowerment.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

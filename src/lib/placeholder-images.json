@@ -2,37 +2,37 @@
   "placeholderImages": [
     {
       "id": "store-1",
-      "imageUrl": "https://images.unsplash.com/photo-1554223745-ad862492c213?w=600&h=400&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "organic market"
     },
     {
       "id": "store-2",
-      "imageUrl": "https://images.unsplash.com/photo-1591586116988-62fe65164f8d?w=600&h=400&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "farmers market"
     },
     {
       "id": "store-3",
-      "imageUrl": "https://images.unsplash.com/photo-1534804101463-987ef0c79d54?w=600&h=400&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "corner store"
     },
     {
       "id": "dash-shopping",
-      "imageUrl": "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?w=400&h=300&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "grocery aisle"
     },
     {
       "id": "dash-voice",
-      "imageUrl": "https://images.unsplash.com/photo-1589903137919-8e439294b4e9?w=400&h=300&fit=crop&q=80",
+      "imageUrl": "hhttps://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "sound waves"
     },
     {
       "id": "dash-owner",
-      "imageUrl": "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=400&h=300&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "shopkeeper payment"
     },
     {
       "id": "dash-delivery",
-      "imageUrl": "https://images.unsplash.com/photo-1617206869356-b7e3b5e4c6f3?w=400&h=300&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "delivery scooter"
     },
     {
@@ -42,7 +42,7 @@
     },
     {
       "id": "cat-fresh-cut",
-      "imageUrl": "https://images.unsplash.com/photo-1628585352373-8b2b524d77a8?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "raw chicken"
     },
     {
@@ -57,7 +57,7 @@
     },
     {
       "id": "cat-grains-&-cereals",
-      "imageUrl": "https://images.unsplash.com/photo-1501959915551-4e8d30928317?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "grains cereals"
     },
     {
@@ -77,7 +77,7 @@
     },
     {
       "id": "cat-sauces-&-condiments",
-      "imageUrl": "https://images.unsplash.com/photo-1606852395343-cd1959e97e41?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "sauces condiments"
     },
     {
@@ -87,7 +87,7 @@
     },
     {
       "id": "cat-snacks-&-breakfast",
-      "imageUrl": "https://images.unsplash.com/photo-1559058296-6b836c644a48?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "cereal snacks"
     },
     {
@@ -97,12 +97,12 @@
     },
     {
       "id": "cat-frozen-food",
-      "imageUrl": "https://images.unsplash.com/photo-1621800971860-72ffb1a83f6b?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "frozen vegetables"
     },
     {
       "id": "cat-instant-mixes",
-      "imageUrl": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "instant noodles"
     },
     {
@@ -117,17 +117,17 @@
     },
     {
       "id": "cat-pooja-needs",
-      "imageUrl": "https://images.unsplash.com/photo-1599030032319-d78295597e0d?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "incense sticks"
     },
     {
       "id": "cat-pet-care",
-      "imageUrl": "https://images.unsplash.com/photo-1598134493179-51332e56807f?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "pet food"
     },
     {
       "id": "cat-kitchen-essentials",
-      "imageUrl": "https://images.unsplash.com/photo-1618615580649-1a4bc3bea1e5?w=128&h=128&fit=crop&q=80",
+      "imageUrl": "https://i.ibb.co/WWPbhNnp/file-00000000c4a87208a532eceb8d06e715.png",
       "imageHint": "aluminium foil"
     }
   ]
