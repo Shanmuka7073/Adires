@@ -36,7 +36,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { Store, MenuItem, Menu, MenuTheme } from '@/lib/types';
 import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit } from 'firebase/firestore';
+import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit, deleteDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -58,7 +58,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Save, CheckCircle2, Upload as UploadIcon } from 'lucide-react';
+import { Share2, MapPin, Trash2, AlertCircle, ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Save, CheckCircle2, Upload as UploadIcon, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -66,7 +66,7 @@ import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 
@@ -186,18 +186,33 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                 });
 
                 const result = await extractMenuItems({ menuImage: imageData });
-                if (result && result.items) {
+                if (result && result.items && result.items.length > 0) {
                     setExtractedData({
                         items: result.items.map(i => ({ ...i, id: i.name.toLowerCase().replace(/\s+/g, '-'), isAvailable: true })),
                         theme: result.theme,
                         businessType: result.businessType
                     });
-                    toast({ title: "Menu Scanned!", description: `AI detected a ${result.businessType} vertical.` });
+                    toast({ title: "Menu Scanned!", description: `AI detected ${result.items.length} items.` });
+                } else {
+                    toast({ variant: 'destructive', title: "Scan Failed", description: "No items detected. Try a clearer photo." });
                 }
             } catch (error: any) {
                 toast({ variant: 'destructive', title: 'Extraction Failed', description: error.message });
             }
         });
+    };
+
+    const updatePreviewItem = (index: number, field: keyof MenuItem, value: any) => {
+        if (!extractedData) return;
+        const newItems = [...extractedData.items];
+        newItems[index] = { ...newItems[index], [field]: value };
+        setExtractedData({ ...extractedData, items: newItems });
+    };
+
+    const removePreviewItem = (index: number) => {
+        if (!extractedData) return;
+        const newItems = extractedData.items.filter((_, i) => i !== index);
+        setExtractedData({ ...extractedData, items: newItems });
     };
 
     const handleSaveMenu = () => {
@@ -242,33 +257,60 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
             <CardContent className="p-8">
                 {extractedData ? (
                     <div className="space-y-6">
-                        <ScrollArea className="h-64 rounded-2xl border bg-white shadow-inner">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest opacity-40">Review & Correct Scanned Items</h3>
+                            <Button variant="ghost" size="sm" onClick={() => setExtractedData(null)} className="h-7 text-[8px] font-black uppercase">Cancel</Button>
+                        </div>
+                        <ScrollArea className="h-80 rounded-2xl border bg-white shadow-inner">
                             <Table>
-                                <TableHeader className="bg-black/5">
+                                <TableHeader className="bg-black/5 sticky top-0 z-10">
                                     <TableRow>
-                                        <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
-                                        <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase w-32">Category</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Item Name</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase w-24">Price (₹)</TableHead>
+                                        <TableHead className="w-10"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {extractedData.items.map((i, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell className="text-[10px] font-bold opacity-40 uppercase">{i.category}</TableCell>
-                                            <TableCell className="font-bold text-xs">{i.name}</TableCell>
-                                            <TableCell className="text-right font-black text-xs">₹{i.price}</TableCell>
+                                        <TableRow key={idx} className="group border-black/5">
+                                            <TableCell className="p-2">
+                                                <Input 
+                                                    value={i.category} 
+                                                    onChange={e => updatePreviewItem(idx, 'category', e.target.value)}
+                                                    className="h-8 text-[9px] font-bold uppercase rounded-lg border-0 bg-transparent focus:bg-white"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="p-2">
+                                                <Input 
+                                                    value={i.name} 
+                                                    onChange={e => updatePreviewItem(idx, 'name', e.target.value)}
+                                                    className="h-8 text-[11px] font-bold rounded-lg border-0 bg-transparent focus:bg-white"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="p-2">
+                                                <Input 
+                                                    type="number"
+                                                    value={i.price} 
+                                                    onChange={e => updatePreviewItem(idx, 'price', Number(e.target.value))}
+                                                    className="h-8 text-[11px] font-black rounded-lg border-0 bg-transparent focus:bg-white text-primary"
+                                                />
+                                            </TableCell>
+                                            <TableCell className="p-2">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removePreviewItem(idx)}>
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
+                            <ScrollBar orientation="vertical" />
                         </ScrollArea>
-                        <div className="flex gap-2">
-                            <Button onClick={handleSaveMenu} disabled={isSaving} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                                Go Live Now
-                            </Button>
-                            <Button variant="ghost" onClick={() => setExtractedData(null)} disabled={isSaving} className="rounded-xl h-12 px-6">Cancel</Button>
-                        </div>
+                        <Button onClick={handleSaveMenu} disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                            {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            Publish Menu ({extractedData.items.length} Items)
+                        </Button>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center">
@@ -497,6 +539,11 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
 }
 
 function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
+    const { firestore } = useFirebase();
+    const menuQuery = useMemoFirebase(() => (firestore && store.id) ? query(collection(firestore, `stores/${store.id}/menus`), limit(1)) : null, [firestore, store.id]);
+    const { data: menus } = useCollection<Menu>(menuQuery);
+    const menu = menus?.[0];
+
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
         {!store.latitude && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
@@ -506,11 +553,22 @@ function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: 
             <div className="space-y-8">
                 <Card className="rounded-3xl border-0 shadow-lg overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Promote Business</CardTitle></CardHeader>
-                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> Share with Contacts</Button></CardContent>
+                    <CardContent className="p-6">
+                        <Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}>
+                            <Share2 className="mr-2 h-4 w-4" /> Share with Contacts
+                        </Button>
+                    </CardContent>
                 </Card>
+                {menu && (
+                    <Button asChild variant="outline" className="w-full h-14 rounded-2xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[10px] tracking-widest hover:bg-primary/10">
+                        <Link href="/dashboard/owner/menu-manager">
+                            <Edit className="mr-2 h-4 w-4" /> Edit Digital Menu
+                        </Link>
+                    </Button>
+                )}
             </div>
         </div>
-        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
+        {!menu && <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />}
     </div>
     )
 }
@@ -521,7 +579,6 @@ export default function MyStorePage() {
     const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const { stores, userStore, fetchInitialData } = useAppStore();
 
-    // Force a fresh fetch on mount to ensure we aren't showing stale local storage data
     useEffect(() => {
         if (firestore && user) {
             fetchInitialData(firestore, user.uid);
@@ -529,7 +586,6 @@ export default function MyStorePage() {
     }, [firestore, user, fetchInitialData]);
 
     const myStore = useMemo(() => {
-        // Find the store owned by the current user
         if (userStore && userStore.ownerId === user?.uid) return userStore;
         return stores.find(s => s.ownerId === user?.uid) || null;
     }, [userStore, stores, user?.uid]);

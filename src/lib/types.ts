@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -280,6 +281,7 @@ export type SiteConfig = {
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
+    isOrderVideoEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
 };
 
