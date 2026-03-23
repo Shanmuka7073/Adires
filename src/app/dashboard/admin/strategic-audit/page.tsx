@@ -30,21 +30,21 @@ export default function StrategicAuditPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-6xl">
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12 border-b pb-10 border-black/5">
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+                        <div className="h-12 w-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner shrink-0">
                             <Drama className="h-6 w-6" />
                         </div>
-                        <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">Strategic Audit</h1>
+                        <h1 className="text-3xl md:text-5xl font-black font-headline tracking-tight uppercase italic leading-none truncate">Strategic Audit</h1>
                     </div>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">FOUNDER & INVESTOR ANALYSIS</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                     <Button onClick={handleDownload} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2">
-                        <Download className="mr-2 h-4 w-4" /> Export Audit
+                        <Download className="mr-2 h-4 w-4" /> Export
                     </Button>
                     <Button variant="ghost" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest hover:bg-black/5">
-                        <Share2 className="mr-2 h-4 w-4" /> Share with Board
+                        <Share2 className="mr-2 h-4 w-4" /> Share
                     </Button>
                 </div>
             </div>

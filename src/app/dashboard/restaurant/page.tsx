@@ -139,22 +139,21 @@ export default function ServiceDashboardPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-6xl">
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5 mb-12">
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                        <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner shrink-0">
                             <DashboardIcon className="h-6 w-6" />
                         </div>
-                        <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">{dashboardTitle}</h1>
+                        <h1 className="text-3xl md:text-5xl font-black font-headline tracking-tight uppercase italic leading-none truncate">{dashboardTitle}</h1>
                     </div>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">OPERATIONAL AUTHORITY</p>
                 </div>
-                <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10">
+                <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 px-4 py-2 rounded-full border border-primary/10 shrink-0">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     Business Status: Online
                 </div>
             </div>
 
-            {/* Prominent Installation Card (Outside Menu) */}
             {canInstall && (
                 <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-primary text-white p-8 relative overflow-hidden group mb-12">
                     <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">

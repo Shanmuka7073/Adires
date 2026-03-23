@@ -22,7 +22,7 @@ import {
     Bug,
     Info
 } from 'lucide-react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -220,17 +220,16 @@ export default function OfflineAuditPage() {
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-4xl space-y-12 pb-32">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
-                <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">System Audit</h1>
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-3xl md:text-6xl font-black font-headline tracking-tight uppercase italic leading-none text-gray-950 truncate">System Audit</h1>
                     <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Exact Error Diagnostics</p>
                 </div>
-                <Button onClick={performAudit} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2">
+                <Button onClick={performAudit} variant="outline" className="rounded-full h-12 px-6 font-black uppercase text-[10px] tracking-widest border-2 shrink-0">
                     <RefreshCw className="mr-2 h-4 w-4" /> Re-Scan
                 </Button>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-                {/* SW CHECK (THE "EXACT ERROR" SECTION) */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white col-span-full">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <div className="flex justify-between items-center">
@@ -280,7 +279,6 @@ export default function OfflineAuditPage() {
                     </CardContent>
                 </Card>
 
-                {/* DOMAIN CHECK */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
@@ -300,7 +298,6 @@ export default function OfflineAuditPage() {
                     </CardContent>
                 </Card>
 
-                {/* SYNC TEST */}
                 <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white border-2 border-primary/20">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">

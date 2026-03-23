@@ -817,12 +817,12 @@ export default function MenuManagerPage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
-            <div className="flex justify-between items-end border-b pb-10 border-black/5">
-                <div className="space-y-1">
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
+            <div className="flex flex-col justify-end border-b pb-10 border-black/5 min-w-0">
+                <div className="space-y-1 min-w-0">
+                    <h1 className="text-3xl md:text-6xl font-black font-headline tracking-tight uppercase leading-none text-gray-950 truncate">{myStore.name}</h1>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Menu Management Hub</p>
                 </div>
-                <div className="hidden sm:block">
+                <div className="hidden sm:block mt-4">
                     <Badge variant="outline" className="rounded-full border-2 border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-4 py-1.5 bg-primary/5">
                         <CheckCircle2 className="h-3 w-3 mr-2 fill-current" /> Store Active
                     </Badge>

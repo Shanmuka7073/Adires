@@ -134,8 +134,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="container mx-auto px-4 py-10 space-y-12 max-w-7xl pb-32 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
-        <div>
-            <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Hub</h1>
+        <div className="min-w-0 flex-1">
+            <h1 className="text-3xl md:text-6xl font-black font-headline tracking-tight uppercase italic leading-none text-gray-950 truncate">Decision Hub</h1>
             <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System Administration & Intelligence</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
