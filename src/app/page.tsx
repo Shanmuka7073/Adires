@@ -7,7 +7,7 @@ import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
+import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2, Mic, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
@@ -200,15 +200,20 @@ export default function LocalBasketHomepage() {
       {!searchTerm && <HubNavigation />}
 
       <main className="p-4 space-y-8">
-        <div className="rounded-3xl overflow-hidden shadow-2xl relative aspect-[2/1] w-full">
-            <Image 
-                src="https://i.ibb.co/ZQC3c3h/file-00000000f15871fab9942ef91d9c2021.png" 
-                alt="Promotional Banner" 
-                fill 
-                priority 
-                className="object-cover" 
-            />
-        </div>
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-primary text-white p-8 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">
+                <Mic className="h-32 w-32" />
+            </div>
+            <div className="relative z-10 space-y-4">
+                <div>
+                    <h2 className="text-4xl font-black font-headline tracking-tighter uppercase italic leading-none">Voice Groceries App</h2>
+                    <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-2">India's First AI Grocery Voice Assistant</p>
+                </div>
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest bg-white/20 w-fit px-3 py-1 rounded-full border border-white/10">
+                    <Sparkles className="h-3 w-3" /> Powered by Genkit AI
+                </div>
+            </div>
+        </Card>
 
         {isAppLoading && !isInitialized ? (
             <div className="space-y-6">
