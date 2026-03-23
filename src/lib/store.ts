@@ -61,6 +61,7 @@ const getInitialLanguage = (): string => {
 
 /**
  * ADIRES GLOBAL DATA STORE
+ * Persists critical identity and operational state to localStorage.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -99,24 +100,23 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of system metadata with defensive error handling per collection
-          const [aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'voiceAliasGroups')).catch(err => {
-                console.warn("Permission denied for voiceAliasGroups. Using empty set.");
-                return { docs: [] };
-            }),
-            getDocs(collection(db, 'voiceCommands')).catch(err => {
-                console.warn("Permission denied for voiceCommands. Using empty set.");
-                return { docs: [] };
-            })
+          // Parallel fetch of system metadata and store directory
+          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')).catch(() => ({ docs: [] })),
+            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
+            getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
           ]);
+
+          const allStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          get().incrementReadCount((storesSnap as any).docs.length);
 
           let userStore = get().userStore;
           if (userId) {
-              const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              const storeSnap = await getDocs(q).catch(() => ({ empty: true, docs: [] }));
-              if (!(storeSnap as any).empty) {
-                  userStore = { id: (storeSnap as any).docs[0].id, ...(storeSnap as any).docs[0].data() } as Store;
+              const freshUserStore = allStores.find((s: Store) => s.ownerId === userId);
+              if (freshUserStore) {
+                  userStore = freshUserStore;
+              } else {
+                  userStore = null;
               }
           }
 
@@ -125,10 +125,10 @@ export const useAppStore = create<AppState>()(
               set({ deviceId: newId });
           }
 
-          const voiceAliasGroups = aliasDocs.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const dbCommands = commandDocs.docs.reduce((acc: any, doc: any) => {
+          const dbCommands = (commandDocs as any).docs.reduce((acc: any, doc: any) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -138,6 +138,7 @@ export const useAppStore = create<AppState>()(
           initializeTranslations(locales); 
 
           set({
+            stores: allStores,
             userStore,
             locales,
             commands: enrichedCommands,
@@ -148,7 +149,6 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData critical failure:", error);
-          // Unlock app even on error to prevent white screen for non-admin users
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -162,7 +162,7 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'adires-ops-storage-v5',
+      name: 'adires-ops-storage-v6',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -182,7 +182,7 @@ export const useInitializeApp = () => {
             setAppReady(true);
         }
         
-        if (firestore && !isUserLoading && !loading && !isInitialized) {
+        if (firestore && !isUserLoading && !loading) {
             fetchInitialData(firestore, user?.uid);
         }
     }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, userStore, setAppReady]);

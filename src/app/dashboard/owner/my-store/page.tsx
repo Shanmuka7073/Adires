@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, MenuItem, Menu, MenuTheme } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, limit } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -72,18 +72,6 @@ import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
-
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
   teluguName: z.string().optional(),
@@ -106,6 +94,7 @@ type LocationFormValues = z.infer<typeof locationSchema>;
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
@@ -127,6 +116,7 @@ function StoreImageUploader({ store }: { store: Store }) {
             updateDoc(storeRef, updateData)
                 .then(() => {
                     toast({ title: 'Identity Visual Updated!' });
+                    incrementWriteCount(1);
                 })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -139,7 +129,7 @@ function StoreImageUploader({ store }: { store: Store }) {
     };
 
     return (
-        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
+        <Card className="rounded-3xl border-0 shadow-lg overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 border-b border-black/5">
                 <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950">Storefront Visual</CardTitle>
                 <CardDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Public profile image URL</CardDescription>
@@ -177,6 +167,7 @@ function StoreImageUploader({ store }: { store: Store }) {
 function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isProcessing, startProcessing] = useTransition();
     const [isSaving, startSave] = useTransition();
     const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
@@ -197,7 +188,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                 const result = await extractMenuItems({ menuImage: imageData });
                 if (result && result.items) {
                     setExtractedData({
-                        items: result.items.map(i => ({ ...i, id: createSlug(i.name), isAvailable: true })),
+                        items: result.items.map(i => ({ ...i, id: i.name.toLowerCase().replace(/\s+/g, '-'), isAvailable: true })),
                         theme: result.theme,
                         businessType: result.businessType
                     });
@@ -228,16 +219,16 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
             try {
                 await batch.commit();
+                incrementWriteCount(2);
                 toast({ title: "Business Live!", description: "Digital menu and vertical synced successfully." });
                 setExtractedData(null);
                 onComplete();
             } catch (error: any) {
-                const permissionError = new FirestorePermissionError({
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: `stores/${storeId}/menus`,
                     operation: 'create',
                     requestResourceData: { items: extractedData.items }
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                }));
             }
         });
     };
@@ -256,7 +247,6 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                 <TableHeader className="bg-black/5">
                                     <TableRow>
                                         <TableHead className="text-[10px] font-black uppercase">Category</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase">Dietary</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Item</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase">Price</TableHead>
                                     </TableRow>
@@ -265,13 +255,6 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                     {extractedData.items.map((i, idx) => (
                                         <TableRow key={idx}>
                                             <TableCell className="text-[10px] font-bold opacity-40 uppercase">{i.category}</TableCell>
-                                            <TableCell>
-                                                {i.dietary ? (
-                                                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase", i.dietary === 'veg' ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600')}>
-                                                        {i.dietary}
-                                                    </Badge>
-                                                ) : '—'}
-                                            </TableCell>
                                             <TableCell className="font-bold text-xs">{i.name}</TableCell>
                                             <TableCell className="text-right font-black text-xs">₹{i.price}</TableCell>
                                         </TableRow>
@@ -310,6 +293,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
 function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
@@ -318,6 +302,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
         defaultValues: {
             name: store.name,
+            teluguName: store.teluguName || '',
             description: store.description,
             address: store.address,
         },
@@ -330,6 +315,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             updateDoc(storeRef, data)
                 .then(() => {
                     toast({ title: "Business Identity Updated!" });
+                    incrementWriteCount(1);
                     setIsOpen(false);
                     onUpdate();
                 })
@@ -364,10 +350,32 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
                                 <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name="teluguName" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Name in Telugu</FormLabel>
+                                        <FormControl><Input {...field} placeholder="e.g., చంద్రా మోహన్" className="h-12 rounded-xl border-2" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                 )}/>
                                 <FormField control={form.control} name="description" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Description</FormLabel><FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl><FormMessage /></FormItem>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Description</FormLabel>
+                                        <FormControl><Textarea {...field} className="min-h-[100px] rounded-xl border-2" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name="address" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Address</FormLabel>
+                                        <FormControl><Input {...field} className="h-12 rounded-xl border-2" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                 )}/>
                                 <DialogFooter>
                                     <Button type="submit" disabled={isPending} className="h-12 rounded-xl font-black uppercase tracking-widest text-[10px] w-full shadow-xl">
@@ -403,27 +411,9 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
-function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
-    return (
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
-        {!store.latitude && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
-        <StoreDetails store={store} onUpdate={onUpdate} />
-        <div className="grid md:grid-cols-2 gap-8">
-            <StoreImageUploader store={store} />
-            <div className="space-y-8">
-                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden">
-                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Promote Business</CardTitle></CardHeader>
-                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> Share with Contacts</Button></CardContent>
-                </Card>
-            </div>
-        </div>
-        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
-    </div>
-    )
-}
-
 function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
 
@@ -456,15 +446,15 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
             const storeRef = doc(firestore, 'stores', store.id);
             try {
                 await updateDoc(storeRef, data);
+                incrementWriteCount(1);
                 toast({ title: "Store Location Updated!" });
                 onUpdate();
             } catch (error) {
-                const permissionError = new FirestorePermissionError({
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: storeRef.path,
                     operation: 'update',
                     requestResourceData: data,
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                }));
             }
         });
     };
@@ -506,13 +496,43 @@ function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () =>
     );
 }
 
+function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
+    return (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+        {!store.latitude && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
+        <StoreDetails store={store} onUpdate={onUpdate} />
+        <div className="grid md:grid-cols-2 gap-8">
+            <StoreImageUploader store={store} />
+            <div className="space-y-8">
+                <Card className="rounded-3xl border-0 shadow-lg overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b border-black/5"><CardTitle className="text-sm font-black uppercase tracking-tight">Promote Business</CardTitle></CardHeader>
+                    <CardContent className="p-6"><Button className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" onClick={() => {}}><Share2 className="mr-2 h-4 w-4" /> Share with Contacts</Button></CardContent>
+                </Card>
+            </div>
+        </div>
+        <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
+    </div>
+    )
+}
+
 export default function MyStorePage() {
     const { user, isUserLoading, firestore } = useFirebase();
     const router = useRouter();
     const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
     const { stores, userStore, fetchInitialData } = useAppStore();
 
-    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
+    // Force a fresh fetch on mount to ensure we aren't showing stale local storage data
+    useEffect(() => {
+        if (firestore && user) {
+            fetchInitialData(firestore, user.uid);
+        }
+    }, [firestore, user, fetchInitialData]);
+
+    const myStore = useMemo(() => {
+        // Find the store owned by the current user
+        if (userStore && userStore.ownerId === user?.uid) return userStore;
+        return stores.find(s => s.ownerId === user?.uid) || null;
+    }, [userStore, stores, user?.uid]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
 
@@ -524,7 +544,7 @@ export default function MyStorePage() {
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div className="space-y-1">
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name}</h1>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 truncate max-w-[600px]">{myStore.name || 'Your Business'}</h1>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Dashboard</p>
                 </div>
                 <div className="hidden sm:block">
