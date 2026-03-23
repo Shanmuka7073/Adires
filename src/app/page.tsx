@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
