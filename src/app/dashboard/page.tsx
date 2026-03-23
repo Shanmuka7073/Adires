@@ -74,7 +74,7 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
                         data-ai-hint={image.imageHint}
                     />
                 </div>
-                <div className="p-5 flex-1 flex flex-col justify-between">
+  <div className="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <h3 className="text-xl font-black font-headline uppercase tracking-tight text-gray-900 leading-none mb-2">{t(card.title)}</h3>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight leading-tight">{t(card.description)}</p>
