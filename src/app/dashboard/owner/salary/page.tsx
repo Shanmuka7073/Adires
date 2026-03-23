@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -99,7 +100,7 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedRequest(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={() => handleApproval(selectedRequest!, false)} disabled={isUpdating || !rejectionReason.trim()}>
+                        <Button variant="destructive" onClick={handleApproval.bind(null, selectedRequest!, false)} disabled={isUpdating || !rejectionReason.trim()}>
                             {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Confirm Rejection
                         </Button>
@@ -223,11 +224,19 @@ export default function SalaryReportsPage() {
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[] | null>(null);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
 
-    const storeQuery = useMemoFirebase(() => ((user && firestore) ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null), [user, firestore]);
+    const storeQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
+    }, [user, firestore]);
+
     const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
     const myStore = useMemo(() => stores?.[0], [stores]);
 
-    const employeesQuery = useMemoFirebase(() => ((myStore && firestore) ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
+    const employeesQuery = useMemoFirebase(() => {
+        if (!myStore || !firestore) return null;
+        return query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id));
+    }, [myStore, firestore]);
+
     const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);

@@ -83,10 +83,18 @@ function SalarySlipCard({ slip, employeeProfile, storeName }: { slip: SalarySlip
 export default function EmployeeSalarySlipsPage() {
     const { user, firestore } = useFirebase();
 
-    const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+    const employeeProfileRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return doc(firestore, 'employeeProfiles', user.uid);
+    }, [user, firestore]);
+
     const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
     
-    const storeRef = useMemoFirebase(() => (employeeProfile?.storeId ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
+    const storeRef = useMemoFirebase(() => {
+        if (!employeeProfile?.storeId || !firestore) return null;
+        return doc(firestore, 'stores', employeeProfile.storeId);
+    }, [employeeProfile, firestore]);
+
     const { data: storeData } = useDoc<Store>(storeRef);
 
     const salarySlipsQuery = useMemoFirebase(() => {

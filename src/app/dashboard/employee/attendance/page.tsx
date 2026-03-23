@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -148,15 +149,25 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const employeeProfileRef = useMemoFirebase(() => ((user && firestore) ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+  const employeeProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'employeeProfiles', user.uid);
+  }, [user, firestore]);
+
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
-  const storeRef = useMemoFirebase(() => ((employeeProfile?.storeId && firestore) ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
+  const storeRef = useMemoFirebase(() => {
+    if (!employeeProfile?.storeId || !firestore) return null;
+    return doc(firestore, 'stores', employeeProfile.storeId);
+  }, [employeeProfile, firestore]);
+
   const { data: storeData } = useDoc<Store>(storeRef);
 
-  const managerDocRef = useMemoFirebase(() => 
-    (firestore && employeeProfile?.reportingTo) ? doc(firestore, 'users', employeeProfile.reportingTo) : null
-  , [firestore, employeeProfile?.reportingTo]);
+  const managerDocRef = useMemoFirebase(() => {
+    if (!firestore || !employeeProfile?.reportingTo) return null;
+    return doc(firestore, 'users', employeeProfile.reportingTo);
+  }, [firestore, employeeProfile?.reportingTo]);
+
   const { data: managerData } = useDoc<User>(managerDocRef);
 
   const [authReady, setAuthReady] = useState(false);

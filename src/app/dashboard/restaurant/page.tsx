@@ -109,9 +109,10 @@ export default function ServiceDashboardPage() {
     const { userStore } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
-    const storeQuery = useMemoFirebase(() => 
-        user && isRestaurantOwner ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null
-    , [user, isRestaurantOwner, firestore]);
+    const storeQuery = useMemoFirebase(() => {
+        if (!user || !isRestaurantOwner || !firestore) return null;
+        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
+    }, [user, isRestaurantOwner, firestore]);
 
     const { data: stores, isLoading: isStoreLoading } = useCollection<StoreType>(storeQuery);
     const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
