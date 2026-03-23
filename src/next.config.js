@@ -1,10 +1,15 @@
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: false, // DISABLED: We handle registration manually in ServiceWorkerRegister.tsx to avoid conflicts
+  register: false, // DISABLED: We handle registration manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
   disable: false, // Force enabled for production stability
-  buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
+  // Explicitly ignore manifest files that might 404 during precaching
+  buildExcludes: [
+    /middleware-manifest\.json$/, 
+    /app-build-manifest\.json$/,
+    /precache-manifest\..*\.js$/
+  ],
 });
 
 /** @type {import('next').NextConfig} */
@@ -41,9 +46,15 @@ const nextConfig = {
         };
     }
     
-    // Externalize problematic Genkit dependencies to prevent "Critical dependency" build warnings
+    // Externalize heavy AI and telemetry dependencies to reduce main bundle size
     if (isServer) {
-        config.externals.push('@genkit-ai/google-genai', 'genkit', '@opentelemetry/api', 'require-in-the-middle', 'import-in-the-middle');
+        config.externals.push(
+            '@genkit-ai/google-genai', 
+            'genkit', 
+            '@opentelemetry/api', 
+            'require-in-the-middle', 
+            'import-in-the-middle'
+        );
     }
     
     // Rule to handle raw file imports for .rules files

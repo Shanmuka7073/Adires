@@ -1,3 +1,4 @@
+
 'use client';
 
 import { getClientFirebaseConfig } from '@/firebase/config';
@@ -32,9 +33,9 @@ export async function initializeFirebase() {
   // Initialize App Check only on the client
   if (typeof window !== 'undefined' && !appCheckInitialized) {
     try {
-        // SYNCHRONIZED KEY: Matching the provider in client-root.tsx
+        // SYNCHRONIZED KEY: Production reCAPTCHA v3 site key
         const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw'),
+            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
             isTokenAutoRefreshEnabled: true,
         });
         // Expose instance for diagnostic tools
@@ -42,7 +43,7 @@ export async function initializeFirebase() {
         appCheckInitialized = true;
         console.log("App Check initialized successfully with reCAPTCHA v3.");
     } catch (e) {
-        console.error("App Check failed to initialize:", e);
+        console.warn("App Check failed to initialize:", e);
     }
   }
 

@@ -5,19 +5,19 @@
 
 @layer base {
   :root {
-    --background: 90 60% 95%;
+    --background: 90 60% 98%; /* Lightened for better contrast */
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 120 73% 45%;
+    --primary: 120 73% 35%; /* Darkened for better contrast ratio */
     --primary-foreground: 0 0% 100%;
     --secondary: 120 20% 92%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 90 20% 92%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 25 95% 53%;
+    --accent: 25 95% 45%; /* Slightly darkened for contrast */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -80,7 +80,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-gradient-to-br from-[#f0fff4] to-[#e8f5e9] text-foreground;
+    @apply bg-gradient-to-br from-[#f0fff4] to-[#e8f5e9] text-foreground antialiased;
   }
 
   /* Custom styles for the calendar day with a 'present' dot */

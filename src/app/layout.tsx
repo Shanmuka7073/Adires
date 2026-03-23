@@ -32,9 +32,6 @@ export const metadata: Metadata = {
     locale: "en_IN",
     type: "website",
   },
-  verification: {
-    google: 'add-your-google-verification-code-here',
-  },
   icons: {
     apple: "/apple-touch-icon.png",
   },
@@ -44,7 +41,8 @@ export const viewport: Viewport = {
   themeColor: "#90EE90",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Accessible: Allow users to zoom
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -55,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={ptSans.variable}>
        <head>
+        <meta charSet="utf-8" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <script dangerouslySetInnerHTML={{
             __html: `
