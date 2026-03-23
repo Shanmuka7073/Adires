@@ -39,7 +39,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
   return (
-    <GoogleReCaptchaProvider reCaptchaKey="6Lf9MJUsAAAAAHt2fkZ0pZjd9gUf0bQkVV_LUufV">
+    <GoogleReCaptchaProvider reCaptchaKey="6LfCA5UsAAAAAHbhXpVksdpRTfzRkUP-2gTPfwAh">
         <FirebaseClientProvider>
             <AppContent>{children}</AppContent>
         </FirebaseClientProvider>
