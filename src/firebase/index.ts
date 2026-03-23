@@ -34,7 +34,7 @@ export async function initializeFirebase() {
     try {
         // SYNCHRONIZED KEY: Matching the provider in client-root.tsx
         const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
+            provider: new ReCaptchaV3Provider('6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw'),
             isTokenAutoRefreshEnabled: true,
         });
         // Expose instance for diagnostic tools
