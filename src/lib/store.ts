@@ -96,7 +96,9 @@ export const useAppStore = create<AppState>()(
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        if (get().loading) return;
+        // CRITICAL GUARD: Do not fetch if already loading OR already initialized
+        if (get().loading || get().isInitialized) return;
+        
         set({ loading: true, error: null });
         
         try {
@@ -178,11 +180,13 @@ export const useInitializeApp = () => {
     const { fetchInitialData, loading, isInitialized, userStore, setAppReady } = useAppStore();
 
     useEffect(() => {
+        // Unlock UI immediately if we have persisted data
         if (isInitialized || userStore) {
             setAppReady(true);
         }
         
-        if (firestore && !isUserLoading && !loading) {
+        // Only trigger fetch if we aren't already initialized and not currently loading
+        if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
     }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, userStore, setAppReady]);

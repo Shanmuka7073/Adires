@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order, Store, OrderItem, Menu, MenuItem } from '@/lib/types';
@@ -611,7 +612,7 @@ export default function StoreOrdersPage() {
   const [liveFilter, setLiveFilter] = useState('all');
   const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-  const { stores, userStore, loading: isAppLoading, fetchInitialData } = useAppStore();
+  const { stores, userStore, loading: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
 
   const myStore = useMemo(() => {
       if (userStore) return userStore;
@@ -623,7 +624,7 @@ export default function StoreOrdersPage() {
     if (myStore.businessType === 'salon') return { isSalon: true, isRestaurant: false };
     if (myStore.businessType === 'restaurant') return { isSalon: false, isRestaurant: true };
     const pool = `${myStore.name} ${myStore.description}`.toLowerCase();
-    const isS = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'massage', 'style', 'makeup', 'barber'].some(kw => pool.includes(kw));
+    const isS = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'makeup', 'barber'].some(kw => pool.includes(kw));
     return { isSalon: isS, isRestaurant: !isS };
   }, [myStore]);
 
@@ -829,7 +830,7 @@ export default function StoreOrdersPage() {
     if (!activeOrders) return;
 
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+        Notification.permission === 'default' && Notification.requestPermission();
     }
 
     const currentIds = new Set(activeOrders.map(o => o.id));
@@ -861,6 +862,12 @@ export default function StoreOrdersPage() {
   };
 
   const isLoading = (ordersLoading || menusLoading) && !activeOrders;
+
+  useEffect(() => {
+    if (firestore && user && !isInitialized) {
+        fetchInitialData(firestore, user.uid);
+    }
+  }, [firestore, user, isInitialized, fetchInitialData]);
 
   if (isLoading) return (
     <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]">

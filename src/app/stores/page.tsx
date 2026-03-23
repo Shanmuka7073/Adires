@@ -35,6 +35,7 @@ export default function StoresPage() {
   
   const allStores = useAppStore((state) => state.stores);
   const loading = useAppStore((state) => state.loading);
+  const isInitialized = useAppStore((state) => state.isInitialized);
   const fetchInitialData = useAppStore((state) => state.fetchInitialData);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,8 +43,8 @@ export default function StoresPage() {
   const [sortedStores, setSortedStores] = useState<Store[]>([]);
 
   useEffect(() => {
-    if (firestore) fetchInitialData(firestore);
-  }, [firestore, fetchInitialData]);
+    if (firestore && !isInitialized) fetchInitialData(firestore);
+  }, [firestore, fetchInitialData, isInitialized]);
 
   useEffect(() => {
     if (categoryParam) {
@@ -141,7 +142,7 @@ export default function StoresPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-0">
-            {loading ? (
+            {loading && !isInitialized ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <Skeleton className="h-64 w-full rounded-3xl" />
                     <Skeleton className="h-64 w-full rounded-3xl" />
