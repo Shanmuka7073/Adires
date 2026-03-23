@@ -514,6 +514,7 @@ export default function PublicMenuPage() {
   const searchParams = useSearchParams(); const { firestore } = useFirebase(); const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [vegOnly, setVegOnly] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
@@ -669,26 +670,46 @@ export default function PublicMenuPage() {
       
       <div className="min-h-screen pb-40 bg-[#FDFCF7]">
           <div className="container mx-auto py-4 px-3 max-w-2xl">
-            <div className="space-y-6">
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5"><Link href="/"><ArrowLeft className="h-4 w-4 text-gray-950" /></Link></Button>
-                      <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 shadow-sm" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
-                      <div className="min-w-0">
-                          <h1 className="text-base font-black truncate leading-tight text-gray-950 uppercase">{store.name}</h1>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                              {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
-                              <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity text-gray-900">Change</button>
-                          </div>
+                  {isSearchVisible ? (
+                      <div className="flex-1 flex items-center gap-2 animate-in fade-in slide-in-from-right-2">
+                          <Input 
+                              autoFocus
+                              placeholder="Search..." 
+                              value={searchTerm} 
+                              onChange={e => setSearchTerm(e.target.value)}
+                              className="h-9 rounded-xl border-2 border-gray-950 bg-white text-xs font-bold"
+                          />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full shrink-0" onClick={() => { setIsSearchVisible(false); setSearchTerm(''); }}>
+                              <X className="h-4 w-4" />
+                          </Button>
                       </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5 shrink-0"><Link href="/"><ArrowLeft className="h-4 w-4 text-gray-950" /></Link></Button>
+                        <div className="relative h-10 w-10 rounded-xl overflow-hidden border-2 shadow-sm shrink-0" style={{ borderColor: theme?.primaryColor || '#FBC02D' }}><Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" /></div>
+                        <div className="min-w-0">
+                            <h1 className="text-base font-black truncate leading-tight text-gray-950 uppercase">{store.name}</h1>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                {tableNumber === 'Counter' ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-green-600 text-white border-0">Counter</Badge> : tableNumber ? <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>{isSalon ? `Chair ${tableNumber}` : `T-${tableNumber}`}</Badge> : <Badge className="px-1.5 py-0 text-[8px] font-black uppercase tracking-widest bg-blue-600 text-white border-0">{isSalon ? 'Home' : 'Delivery'}</Badge>}
+                                <button onClick={() => setIsModeDialogOpen(true)} className="text-[8px] font-black uppercase tracking-widest underline opacity-40 hover:opacity-100 transition-opacity text-gray-900">Change</button>
+                            </div>
+                        </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
+                      {!isSearchVisible && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5 shrink-0" onClick={() => setIsSearchVisible(true)}>
+                              <Search className="h-4 w-4 text-gray-950" />
+                          </Button>
+                      )}
                       {canInstall && (
-                        <Button onClick={triggerInstall} size="sm" className="h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
-                            <Download className="mr-2 h-4 w-4" /> Install App
+                        <Button onClick={triggerInstall} size="sm" className="h-9 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl shadow-primary/20" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>
+                            <Download className="mr-1.5 h-3.5 w-3.5" /> Install
                         </Button>
                       )}
-                      {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && (
+                      {store.liveVideoUrl && placedOrders && placedOrders.length > 0 && !isSearchVisible && (
                         <Button asChild variant="outline" size="sm" className="h-8 rounded-xl border-2 px-3 font-black text-[9px] uppercase tracking-widest" style={{ color: theme?.primaryColor || '#FBC02D', borderColor: theme?.primaryColor || '#FBC02D' }}>
                             <Link href={`/live-order/${placedOrders[0].id}`}><Video className="mr-1.5 h-3.5 w-3.5" /> Live</Link>
                         </Button>
@@ -717,17 +738,10 @@ export default function PublicMenuPage() {
                         {availableCategories.map(cat => (<button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", selectedCategory === cat ? "bg-primary border-primary text-white shadow-md" : "bg-transparent border-transparent text-gray-400")} style={selectedCategory === cat ? { backgroundColor: theme?.primaryColor } : {}}>{cat}</button>))}
                     </div>
 
-                    <div className="relative group px-1">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-950 opacity-40" />
-                        <Input placeholder="Search dishes or services..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-11 rounded-2xl bg-white border-2 border-gray-950 pl-11 text-xs font-black text-gray-950 placeholder:text-gray-300 shadow-xl focus:ring-0 transition-all" />
-                        {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute right-5 top-1/2 -translate-y-1/2 h-6 w-6 bg-black/5 rounded-full flex items-center justify-center"><X className="h-3 w-3 text-gray-400" /></button>)}
-                    </div>
-
                     {!searchTerm && !selectedCategory && personalizedRecommendations.length > 0 && (
                         <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                             <div className="flex items-center gap-2 px-1"><Sparkles className="h-4 w-4 text-amber-500" /><h2 className="text-xl font-black uppercase tracking-tighter text-gray-950">Recommended</h2></div>
-                            <ScrollArea className="w-full whitespace-nowrap pb-4"><div className="flex gap-4 px-1">{personalizedRecommendations.map(item => (<div key={item.id} className="w-40 flex-shrink-0"><MenuCard item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} isPersonalized={true}/></div>))}</div><ScrollBar orientation="horizontal" className="opacity-0" /></ScrollArea>
-                        </section>
+                            <ScrollArea className="w-full whitespace-nowrap pb-4"><div className="flex gap-4 px-1">{personalizedRecommendations.map(item => (<div key={item.id} className="w-40 flex-shrink-0"><MenuCard item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} recentlyAdded={recentlyAdded.has(item.id)} theme={theme} isPersonalized={true}/></div>))}</div><ScrollBar orientation="horizontal" className="opacity-0" /></section>
                     )}
 
                     {Object.keys(groupedMenu).length > 0 ? (
@@ -742,7 +756,7 @@ export default function PublicMenuPage() {
                             </section>
                         ))
                     ) : (
-                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40 mx-1"><AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" /><p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p><button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); }}>Clear Filters</button></div>
+                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40 mx-1"><AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" /><p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p><button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); setIsSearchVisible(false); }}>Clear Filters</button></div>
                     )}
                 </div>
               )}
@@ -751,8 +765,6 @@ export default function PublicMenuPage() {
 
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-t-2 border-black/5 pb-8 pt-4 px-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
               <div className="max-w-[400px] mx-auto space-y-4">
-                  {!canInstall && (<Link href="/dashboard/admin/offline-audit" className="block text-[10px] font-black uppercase tracking-[0.2em] opacity-60 text-center hover:opacity-100 transition-opacity bg-black/5 py-2 rounded-lg text-gray-900">Install missing? Tap for setup help.</Link>)}
-                  {canInstall && (<Button onClick={triggerInstall} className="w-full h-14 rounded-2xl bg-primary text-white shadow-2xl text-[11px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all border-0"><Download className="mr-2 h-5 w-5" /> Install {store.name} App</Button>)}
                   <div className="flex gap-2">
                     {tableNumber && tableNumber !== 'Counter' && placedOrders && placedOrders.length > 0 && (
                         <DropdownMenu>
