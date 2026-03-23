@@ -1,18 +1,20 @@
 
 'use client';
+
 import { getClientFirebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // Keep a client-side cache of the initialized app
 let clientFirebaseApp: FirebaseApp | null = null;
+let appCheckInitialized = false;
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export async function initializeFirebase() {
@@ -27,13 +29,21 @@ export async function initializeFirebase() {
   // Initialize the app with the fetched config
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   clientFirebaseApp = app;
-  if (typeof window !== "undefined") {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider('YOUR_SITE_KEY'),
-      isTokenAutoRefreshEnabled: true,
-    });
-  
-    console.log("✅ App Check Initialized");
+
+  // Initialize App Check only on the client
+  if (typeof window !== 'undefined' && !appCheckInitialized) {
+    try {
+        const appCheck = initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
+            isTokenAutoRefreshEnabled: true,
+        });
+        // Expose instance for diagnostic tools
+        (window as any).firebaseAppCheckInstance = appCheck;
+        appCheckInitialized = true;
+        console.log("App Check initialized successfully with reCAPTCHA v3.");
+    } catch (e) {
+        console.error("App Check failed to initialize:", e);
+    }
   }
 
   return getSdks(app);
@@ -49,7 +59,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
         ignoreUndefinedProperties: true,
         experimentalForceLongPolling: true,
     }),
-    storage: getStorage(firebaseApp), // Initialize and export storage
+    storage: getStorage(firebaseApp),
   };
 }
 
@@ -61,5 +71,4 @@ export * from './non-blocking-updates';
 export * from './errors';
 export * from './error-emitter';
 
-// Explicitly export useFirestore for clarity
 export { useFirestore } from './provider';

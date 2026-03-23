@@ -22,9 +22,6 @@ import { CartIcon } from '@/components/cart/cart-icon';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-/**
- * Optimized Header for performance.
- */
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
     const { isCartOpen, setCartOpen } = useAppStore();
@@ -150,7 +147,6 @@ export default function LocalBasketHomepage() {
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
 
-  // REDIRECT MERCHANTS AWAY FROM CUSTOMER HOMEPAGE IMMEDIATELY
   useLayoutEffect(() => {
     if (!isRoleLoading && isRestaurantOwner) {
       router.replace('/dashboard/restaurant');
@@ -181,7 +177,6 @@ export default function LocalBasketHomepage() {
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  // If merchant/admin, return null to prevent any customer UI from flickering during redirect
   if (isRoleLoading || isRestaurantOwner || isAdmin) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
