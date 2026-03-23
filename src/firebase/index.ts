@@ -1,4 +1,3 @@
-
 'use client';
 
 import { getClientFirebaseConfig } from '@/firebase/config';
@@ -33,8 +32,9 @@ export async function initializeFirebase() {
   // Initialize App Check only on the client
   if (typeof window !== 'undefined' && !appCheckInitialized) {
     try {
+        // SYNCHRONIZED KEY: Matching the provider in client-root.tsx
         const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6Lf9MJUsAAAAAHt2fkZ0pZjd9gUf0bQkVV_LUufV'),
+            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
             isTokenAutoRefreshEnabled: true,
         });
         // Expose instance for diagnostic tools
