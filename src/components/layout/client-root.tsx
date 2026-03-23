@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -9,10 +8,12 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAppStore, useInitializeApp } from '@/lib/store';
 import GlobalLoader from '@/components/layout/global-loader';
 import { InstallProvider } from '@/components/install-provider';
+import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 
 /**
  * Consolidated Client Root.
  * Optimized for "Shell-First" rendering to drastically reduce LCP.
+ * Now includes Google reCAPTCHA v3 protection.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
@@ -38,8 +39,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
   return (
-    <FirebaseClientProvider>
-        <AppContent>{children}</AppContent>
-    </FirebaseClientProvider>
+    <GoogleReCaptchaProvider reCaptchaKey="6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh">
+        <FirebaseClientProvider>
+            <AppContent>{children}</AppContent>
+        </FirebaseClientProvider>
+    </GoogleReCaptchaProvider>
   );
 }
