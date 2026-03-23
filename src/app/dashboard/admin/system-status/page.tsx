@@ -2,12 +2,14 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Server, BrainCircuit, Database, ShieldAlert, RefreshCw, Users, Store as StoreIcon, Globe, Lock, Key, Settings, ExternalLink } from 'lucide-react';
+import { Server, BrainCircuit, Database, ShieldAlert, RefreshCw, Users, Store as StoreIcon, Globe, Lock, Key, Settings, ExternalLink, ShieldCheck, ShieldAlert as ShieldIcon } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getToken } from 'firebase/app-check';
+import { useFirebase } from '@/firebase';
 
 interface ServerStatus {
     status: 'ok' | 'error' | 'loading';
@@ -75,14 +77,38 @@ function ConnectionRepairGuide() {
 }
 
 export default function SystemStatusPage() {
+  const { firebaseApp } = useFirebase();
   const [status, setStatus] = useState<ServerStatus>({ 
     status: 'loading',
     llmStatus: 'Unknown', 
     serverDbStatus: 'Loading',
     counts: { users: 0, stores: 0 }
   });
+  const [appCheckStatus, setAppCheckStatus] = useState<'checking' | 'verified' | 'failed'>('checking');
   const [isFetching, startFetchingTransition] = useTransition();
   const [hostName, setHostName] = useState('');
+
+  const checkAppCheck = useCallback(async () => {
+      if (typeof window === 'undefined') return;
+      setAppCheckStatus('checking');
+      try {
+          // Attempt to get a token. This forces App Check to validate with reCAPTCHA.
+          const { initializeAppCheck } = await import('firebase/app-check');
+          const { getApp } = await import('firebase/app');
+          const app = getApp();
+          // We don't initialize here, we just check if it's working via the already initialized instance
+          const { getToken } = await import('firebase/app-check');
+          const result = await getToken(window.firebaseAppCheckInstance || (window as any).appCheck, false);
+          if (result.token) {
+              setAppCheckStatus('verified');
+          } else {
+              setAppCheckStatus('failed');
+          }
+      } catch (e) {
+          console.warn("App Check Diagnostic:", e);
+          setAppCheckStatus('failed');
+      }
+  }, []);
 
   const fetchStatus = useCallback(async () => {
     startFetchingTransition(async () => {
@@ -97,6 +123,7 @@ export default function SystemStatusPage() {
             isCredentialError: (result as any).isCredentialError,
             counts: result.counts,
         });
+        checkAppCheck();
       } catch (error) {
         console.error("Failed to fetch system status", error);
         setStatus({ 
@@ -109,7 +136,7 @@ export default function SystemStatusPage() {
         });
       }
     });
-  }, []);
+  }, [checkAppCheck]);
 
   useEffect(() => {
     fetchStatus();
@@ -161,23 +188,23 @@ export default function SystemStatusPage() {
             </CardContent>
         </Card>
 
-         <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
+         <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
                 <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
-                    <Database className="h-4 w-4 text-primary" />
-                    Firestore OPS
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    Security Integrity
                 </CardTitle>
             </CardHeader>
             <CardContent className="pt-8">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <p className="text-[8px] font-black uppercase opacity-40">User Records</p>
-                        <p className="text-3xl font-black tracking-tighter">{status.counts.users}</p>
-                    </div>
-                    <div>
-                        <p className="text-[8px] font-black uppercase opacity-40">Business Hubs</p>
-                        <p className="text-3xl font-black tracking-tighter">{status.counts.stores}</p>
-                    </div>
+                <p className={cn(
+                    "font-black text-4xl uppercase tracking-tighter",
+                    appCheckStatus === 'verified' ? 'text-green-500' : appCheckStatus === 'failed' ? 'text-red-500' : 'text-gray-400'
+                )}>
+                    {appCheckStatus === 'verified' ? 'VERIFIED' : appCheckStatus === 'failed' ? 'UNSECURED' : 'CHECKING...'}
+                </p>
+                <div className="mt-4 space-y-1">
+                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">App Check Provider</p>
+                    <p className="text-xs font-black text-gray-700">reCAPTCHA v3 (Invisible)</p>
                 </div>
             </CardContent>
         </Card>

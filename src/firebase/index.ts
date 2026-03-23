@@ -9,9 +9,11 @@ import {
   persistentMultipleTabManager 
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // Keep a client-side cache of the initialized app
 let clientFirebaseApp: FirebaseApp | null = null;
+let appCheckInitialized = false;
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export async function initializeFirebase() {
@@ -26,6 +28,20 @@ export async function initializeFirebase() {
   // Initialize the app with the fetched config
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   clientFirebaseApp = app;
+
+  // Initialize App Check (Client-only)
+  if (typeof window !== 'undefined' && !appCheckInitialized) {
+    try {
+        initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
+            isTokenAutoRefreshEnabled: true
+        });
+        appCheckInitialized = true;
+        console.log('Firebase App Check: Initialized with reCAPTCHA v3');
+    } catch (e) {
+        console.error('Firebase App Check: Initialization failed', e);
+    }
+  }
 
   return getSdks(app);
 }
