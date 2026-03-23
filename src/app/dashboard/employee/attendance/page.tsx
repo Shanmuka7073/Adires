@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -38,7 +37,8 @@ function AttendanceDetails({ record }: { record: AttendanceRecord }) {
         }
 
         startProcessing(async () => {
-            const recordRef = doc(firestore, `stores/${record.storeId}/attendance`, record.id);
+            const db = firestore!;
+            const recordRef = doc(db, `stores/${record.storeId}/attendance`, record.id);
             const newReasonEntry: ReasonEntry = {
                 text: approvalReason.trim(),
                 timestamp: new Date(),
@@ -148,10 +148,10 @@ export default function EmployeeAttendancePage() {
   const [isProcessing, startProcessing] = useTransition();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   
-  const employeeProfileRef = useMemoFirebase(() => (user ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
+  const employeeProfileRef = useMemoFirebase(() => ((user && firestore) ? doc(firestore, 'employeeProfiles', user.uid) : null), [user, firestore]);
   const { data: employeeProfile, isLoading: profileLoading } = useDoc<EmployeeProfile>(employeeProfileRef);
   
-  const storeRef = useMemoFirebase(() => (employeeProfile?.storeId ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
+  const storeRef = useMemoFirebase(() => ((employeeProfile?.storeId && firestore) ? doc(firestore, 'stores', employeeProfile.storeId) : null), [employeeProfile, firestore]);
   const { data: storeData } = useDoc<Store>(storeRef);
 
   const managerDocRef = useMemoFirebase(() => 
@@ -261,6 +261,7 @@ export default function EmployeeAttendancePage() {
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 const { latitude, longitude } = position.coords;
+                const db = firestore!;
                 
                 // PROXIMITY CHECK
                 if (storeData && storeData.latitude && storeData.longitude) {
@@ -298,7 +299,7 @@ export default function EmployeeAttendancePage() {
                 } as any;
 
                 try {
-                    await addDoc(collection(firestore, 'stores', employeeProfile.storeId, 'attendance'), newRecordData);
+                    await addDoc(collection(db, 'stores', employeeProfile.storeId, 'attendance'), newRecordData);
                     toast({ title: 'Punch In Successful!', description: 'Attendance marked based on location verification.' });
                 } catch(e: any) {
                     const permissionError = new FirestorePermissionError({ path: `stores/${employeeProfile.storeId}/attendance`, operation: 'create', requestResourceData: newRecordData });
@@ -313,7 +314,7 @@ export default function EmployeeAttendancePage() {
   };
 
   const punchOut = async () => {
-    if (!user || !employeeProfile?.storeId || !todaysRecord || !todaysRecord.punchInTime) return;
+    if (!user || !employeeProfile?.storeId || !todaysRecord || !todaysRecord.punchInTime || !firestore) return;
     
     if (todaysRecord.status !== 'partially_present') {
         toast({ title: 'Already Punched Out', description: `Your status is already '${todaysRecord.status}'.` });
@@ -322,7 +323,8 @@ export default function EmployeeAttendancePage() {
 
     startProcessing(async () => {
         // PROCEED WITH UPDATE
-        const recordRef = doc(firestore, 'stores', employeeProfile.storeId, 'attendance', todaysRecord.id);
+        const db = firestore!;
+        const recordRef = doc(db, 'stores', employeeProfile.storeId, 'attendance', todaysRecord.id);
         const punchInTime = toDateSafe(todaysRecord.punchInTime);
         const punchOutTime = new Date();
         const minutesDiff = differenceInMinutes(punchOutTime, punchInTime);
@@ -353,6 +355,7 @@ export default function EmployeeAttendancePage() {
 
     startProcessing(async() => {
         try {
+            const db = firestore!;
             const selectedDayStart = startOfDay(selectedDate);
             const newRequestData: Omit<AttendanceRecord, 'id'> = {
                 employeeId: user.uid, storeId: employeeProfile.storeId,
@@ -362,7 +365,7 @@ export default function EmployeeAttendancePage() {
                 status: 'pending_approval', workHours: 0, rejectionCount: 0,
                 reasonHistory: [{ text: approvalReason.trim(), timestamp: new Date(), status: 'submitted' }],
             };
-            await addDoc(collection(firestore, `stores/${employeeProfile.storeId}/attendance`), newRequestData);
+            await addDoc(collection(db, `stores/${employeeProfile.storeId}/attendance`), newRequestData);
             toast({ title: 'Request Sent', description: 'Your manager has been notified.' });
             
             setIsRequestDialogOpen(false);

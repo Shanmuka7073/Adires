@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -224,11 +223,11 @@ export default function SalaryReportsPage() {
     const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[] | null>(null);
     const [attendanceLoading, setAttendanceLoading] = useState(false);
 
-    const storeQuery = useMemoFirebase(() => (user ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null), [user, firestore]);
+    const storeQuery = useMemoFirebase(() => ((user && firestore) ? query(collection(firestore, 'stores'), where('ownerId', '==', user.uid)) : null), [user, firestore]);
     const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
     const myStore = useMemo(() => stores?.[0], [stores]);
 
-    const employeesQuery = useMemoFirebase(() => (myStore ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
+    const employeesQuery = useMemoFirebase(() => ((myStore && firestore) ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null), [myStore, firestore]);
     const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
     const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
@@ -334,6 +333,7 @@ export default function SalaryReportsPage() {
         }
         
         startGeneration(async () => {
+            const db = firestore!;
             const slipId = `${myStore.id}_${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
             const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
                 employeeId: selectedEmployee.userId, storeId: myStore.id,
@@ -344,12 +344,12 @@ export default function SalaryReportsPage() {
 
             try {
                 // First, save the slip data to Firestore
-                const slipRef = doc(firestore, `stores/${myStore.id}/salarySlips`, slipId);
+                const slipRef = doc(db, `stores/${myStore.id}/salarySlips`, slipId);
                 await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
                 toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
                 
                 // Now, fetch the full user data for the DOCX generation
-                const userDoc = await getDoc(doc(firestore, 'users', selectedEmployee.userId));
+                const userDoc = await getDoc(doc(db, 'users', selectedEmployee.userId));
                 if (!userDoc.exists()) {
                     throw new Error("Could not retrieve full employee details for DOCX generation.");
                 }
