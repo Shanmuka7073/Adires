@@ -34,7 +34,7 @@ export async function initializeFirebase() {
   if (typeof window !== 'undefined' && !appCheckInitialized) {
     try {
         const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw'),
+            provider: new ReCaptchaV3Provider('6LfCA5UsAAAAHBhXpVksdpRTfzRkUP-2gTPfwAh'),
             isTokenAutoRefreshEnabled: true,
         });
         // Expose instance for diagnostic tools
