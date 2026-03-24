@@ -62,6 +62,7 @@ interface Session {
 function toDateSafe(d: any): Date {
     if (!d) return new Date();
     if (d instanceof Date) return d;
+    if (d instanceof Timestamp) return d.toDate();
     if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
     if (typeof d === 'string') return new Date(d);
     return new Date();
