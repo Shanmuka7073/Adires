@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { useFirebase, getFirestoreInstance } from '@/firebase';
 import { 
   GoogleAuthProvider,
@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 /**
  * MERCHANT LOGIN PORTAL
  * Dedicated Google-only entry point for Business Owners and Employees.
- * Optimized to load Firestore only after successful auth interaction.
+ * Hardened to handle singleton Firestore initialization.
  */
 export function NonBlockingLogin() {
   const [isPending, startTransition] = useTransition();
@@ -31,12 +31,11 @@ export function NonBlockingLogin() {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // Lazy load firestore only after login is initiated
+        // Ensure Firestore is initialized safely using the hardened getter
         const db = await getFirestoreInstance();
         
         if (!db) {
-            console.error("Firestore initialization failed during login.");
-            return;
+            throw new Error("Critical database failure.");
         }
 
         const userDocRef = doc(db, 'users', user.uid);
@@ -58,10 +57,14 @@ export function NonBlockingLogin() {
         }
       } catch (err: any) {
         console.error("Auth failed:", err);
+        let msg = 'Could not connect to Google Services. Please try again.';
+        if (err.code === 'auth/popup-closed-by-user') msg = 'Login cancelled.';
+        if (err.message?.includes('initializeFirestore')) msg = 'System busy. Please refresh and try again.';
+        
         toast({ 
             variant: 'destructive', 
             title: 'Authentication Failed', 
-            description: 'Could not connect to Google Services. Please try again.' 
+            description: msg 
         });
       }
     });

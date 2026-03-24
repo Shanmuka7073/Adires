@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -13,24 +12,23 @@ import GlobalLoader from './global-loader';
 
 /**
  * Optimized App Content.
- * Hardened hasHydrated state to prevent hydration errors and double-refresh cycles.
+ * Hardened to prevent hydration mismatches (Error #418, #423).
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [hasHydrated, setHasHydrated] = useState(false);
     const { appReady, isInitialized } = useAppStore();
     
+    // Core bootstrap logic
     useInitializeApp();
 
     useEffect(() => {
         setHasHydrated(true);
     }, []);
     
-    // Server-side and hydration safety check
-    if (!hasHydrated) {
-        return <div className="fixed inset-0 bg-background" />;
-    }
-
-    if (!isInitialized || !appReady) {
+    // PREVENT HYDRATION MISMATCH:
+    // The server doesn't know if the client has data in localStorage.
+    // We force a consistent initial render (GlobalLoader) until hydration is confirmed.
+    if (!hasHydrated || !isInitialized || !appReady) {
         return <GlobalLoader />;
     }
 
@@ -41,7 +39,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
                 async: true,
                 defer: true,
                 appendTo: 'head',
-                nonce: undefined,
             }}
         >
             <InstallProvider>
