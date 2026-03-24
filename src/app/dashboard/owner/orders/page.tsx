@@ -18,12 +18,13 @@ import {
   History,
   Check,
   X,
+  TrendingUp,
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, setDoc, Timestamp
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -33,6 +34,7 @@ import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { playTickSound } from '@/lib/cart';
+import { getStoreSalesReport } from '@/app/actions';
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: 'bg-red-500',
@@ -217,6 +219,55 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
     )
 }
 
+function InsightsTab({ storeId }: { storeId: string }) {
+    const [report, setReport] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchReport = async () => {
+            const res = await getStoreSalesReport({ storeId, period: 'daily' });
+            if (res.success) setReport(res.report);
+            setIsLoading(false);
+        };
+        fetchReport();
+    }, [storeId]);
+
+    if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+
+    return (
+        <div className="p-4 space-y-6 animate-in fade-in duration-500">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-3xl bg-primary/5 border-2 border-primary/10">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Today Revenue</p>
+                    <p className="text-2xl font-black tracking-tighter text-primary">₹{report?.totalSales.toFixed(0)}</p>
+                </div>
+                <div className="p-4 rounded-3xl bg-blue-50 border-2 border-blue-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Total Orders</p>
+                    <p className="text-2xl font-black tracking-tighter text-blue-600">{report?.totalOrders}</p>
+                </div>
+            </div>
+
+            <section className="space-y-3">
+                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 flex items-center gap-2">
+                    <TrendingUp className="h-3 w-3" /> Top Performers
+                </h4>
+                <div className="space-y-2">
+                    {report?.topProducts.map((p: any) => (
+                        <div key={p.name} className="p-3 bg-white rounded-2xl border-2 border-black/5 flex justify-between items-center">
+                            <span className="text-xs font-black uppercase truncate leading-none">{p.name}</span>
+                            <Badge variant="secondary" className="text-[8px] font-black uppercase">{p.count} sold</Badge>
+                        </div>
+                    ))}
+                </div>
+            </section>
+            
+            <Button asChild variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2">
+                <Link href="/dashboard/owner/sales-report">View Full Analytics</Link>
+            </Button>
+        </div>
+    )
+}
+
 export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
   const [activeTab, setActiveTab] = useState('live');
@@ -302,35 +353,41 @@ export default function StoreOrdersPage() {
                 <button onClick={() => setActiveTab('history')} className={cn("flex-1 h-8 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'history' ? "bg-white shadow-sm text-primary" : "text-gray-400")}>Insights</button>
             </div>
 
-            <div className="space-y-3 mb-4">
-                <div className="flex gap-2 text-[10px]">
-                    <div className="px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
-                    <div className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
-                    <div className="px-2.5 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
-                </div>
+            {activeTab === 'live' ? (
+                <>
+                    <div className="space-y-3 mb-4">
+                        <div className="flex gap-2 text-[10px]">
+                            <div className="px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
+                            <div className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
+                            <div className="px-2.5 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
+                        </div>
 
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-20" />
-                    <Input placeholder="Search orders..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-9 rounded-xl border-2 bg-white pl-9 text-[11px] font-bold" />
-                </div>
-            </div>
-
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-4">
-                {['all', 'pending', 'processing', 'billed'].map(f => (
-                    <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-3 h-7 rounded-lg font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white" : "bg-white border-black/5 text-gray-400")}>{f}</button>
-                ))}
-            </div>
-
-            <div className="space-y-0.5 rounded-[1.5rem] overflow-hidden border-2 border-black/5 shadow-xl bg-white">
-                {sessions.length > 0 ? (
-                    sessions.map(s => <SessionRow key={s.id} session={s} isSalon={true} onClick={() => setSelectedSession(s)} />)
-                ) : (
-                    <div className="bg-white p-12 text-center flex flex-col items-center gap-3 opacity-20">
-                        <ShoppingBag className="h-8 w-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">No active sessions</p>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-40 text-gray-950" />
+                            <Input placeholder="Search orders..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-9 rounded-xl border-2 border-black/10 bg-white pl-9 text-[11px] font-bold" />
+                        </div>
                     </div>
-                )}
-            </div>
+
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-4">
+                        {['all', 'pending', 'processing', 'billed'].map(f => (
+                            <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-3 h-7 rounded-lg font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white" : "bg-white border-black/5 text-gray-400")}>{f}</button>
+                        ))}
+                    </div>
+
+                    <div className="space-y-0.5 rounded-[1.5rem] overflow-hidden border-2 border-black/5 shadow-xl bg-white">
+                        {sessions.length > 0 ? (
+                            sessions.map(s => <SessionRow key={s.id} session={s} isSalon={true} onClick={() => setSelectedSession(s)} />)
+                        ) : (
+                            <div className="bg-white p-12 text-center flex flex-col items-center gap-3 opacity-20">
+                                <ShoppingBag className="h-8 w-8" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">No matching orders</p>
+                            </div>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <InsightsTab storeId={myStore?.id || ''} />
+            )}
         </main>
 
         <Button onClick={() => setIsNewSaleOpen(true)} className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
@@ -343,5 +400,6 @@ export default function StoreOrdersPage() {
 function toDateSafe(d: any): Date {
     if (!d) return new Date();
     if (d instanceof Timestamp) return d.toDate();
+    if (d instanceof Date) return d;
     return new Date(d);
 }

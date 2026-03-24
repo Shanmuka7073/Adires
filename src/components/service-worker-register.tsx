@@ -5,20 +5,12 @@ import { useEffect } from 'react';
 
 /**
  * Aggressively registers and manages the Service Worker lifecycle.
- * Implements "skipWaiting" and "claim" logic to ensure the PWA is active immediately.
+ * Removed automatic reload on controllerchange to prevent "double-refresh" logic loops.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       
-      // 1. Handle automatic reload when a new worker takes control
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
-
       const register = async () => {
         try {
           const registration = await navigator.serviceWorker.register('/sw.js', {
@@ -35,21 +27,13 @@ export default function ServiceWorkerRegister() {
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed') {
                   if (navigator.serviceWorker.controller) {
-                    console.log('New content available; pushing update.');
-                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
-                  } else {
-                    console.log('Content is cached for offline use.');
+                    console.log('New content available; update cached.');
+                    // Note: We no longer force a reload here to protect operational dashboard state
                   }
                 }
               };
             }
           };
-
-          // 3. If a worker is already waiting, force it to activate
-          if (registration.waiting) {
-              console.log('Update waiting. Pushing activation.');
-              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
 
         } catch (error) {
           console.error('PWA Registration failed:', error);

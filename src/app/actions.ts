@@ -338,8 +338,99 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
     return null;
 }
 
-export async function getStoreSalesReport(input: any) {
-    return { success: true, report: {}, error: null };
+/**
+ * STORE SALES ANALYTICS (AGGREGATED)
+ */
+export async function getStoreSalesReport({
+  storeId,
+  period,
+}: {
+  storeId: string;
+  period: 'daily' | 'weekly' | 'monthly';
+}) {
+  try {
+    const { db } = await getAdminServices();
+    
+    // Time boundary calculation
+    const now = new Date();
+    let startDate = new Date();
+    if (period === 'daily') startDate.setHours(0,0,0,0);
+    else if (period === 'weekly') startDate.setDate(now.getDate() - 7);
+    else startDate.setDate(1); // Monthly
+
+    const ordersSnap = await db.collection('orders')
+        .where('storeId', '==', storeId)
+        .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+        .where('orderDate', '>=', Timestamp.fromDate(startDate))
+        .get();
+
+    const orders = ordersSnap.docs.map(d => d.data());
+    
+    // Aggregation Logic
+    let totalSales = 0;
+    let totalOrders = orders.length;
+    let itemCounts: Record<string, number> = {};
+    let tableMetrics: Record<string, any> = {};
+    
+    orders.forEach(o => {
+        totalSales += (o.totalAmount || 0);
+        
+        // Product performance
+        (o.items || []).forEach((it: any) => {
+            itemCounts[it.productName] = (itemCounts[it.productName] || 0) + it.quantity;
+        });
+
+        // Zone/Table performance
+        const table = o.tableNumber || 'Delivery';
+        if (!tableMetrics[table]) {
+            tableMetrics[table] = { totalSales: 0, orderCount: 0 };
+        }
+        tableMetrics[table].totalSales += (o.totalAmount || 0);
+        tableMetrics[table].orderCount += 1;
+    });
+
+    const topProducts = Object.entries(itemCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+
+    // Mock Profit Calculations (Target Margin is 55%)
+    const costRatio = 0.45; 
+    const ingredientCost = totalSales * costRatio;
+
+    const salesByTable = Object.entries(tableMetrics).map(([table, metrics]: [string, any]) => ({
+        tableNumber: table,
+        totalSales: metrics.totalSales,
+        orderCount: metrics.orderCount,
+        totalCost: metrics.totalSales * costRatio,
+        profitPerOrder: (metrics.totalSales * (1 - costRatio)) / metrics.orderCount,
+        grossProfit: metrics.totalSales * (1 - costRatio),
+        profitPercentage: (1 - costRatio) * 100
+    }));
+
+    return {
+        success: true,
+        report: {
+            totalSales,
+            totalOrders,
+            totalItems: Object.values(itemCounts).reduce((a,b) => a+b, 0),
+            topProducts,
+            topProfitableProducts: topProducts.map(p => ({ ...p, totalProfit: (p.count * 100), profitPerUnit: 100 })), // Mock
+            ingredientCost,
+            costDrivers: [
+                { name: 'Core Ingredients', cost: ingredientCost * 0.7, percentage: 70 },
+                { name: 'Packaging', cost: ingredientCost * 0.2, percentage: 20 },
+                { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
+            ],
+            optimizationHint: totalOrders > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
+            salesByTable
+        },
+        error: null
+    };
+  } catch (error: any) {
+    console.error("Sales Report aggregation failed:", error);
+    return { success: false, error: error.message };
+  }
 }
 
 export async function approveRegularization(id: string, storeId: string, approve: boolean) {

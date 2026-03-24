@@ -62,6 +62,7 @@ const getInitialLanguage = (): string => {
 /**
  * ADIRES GLOBAL DATA STORE (OPTIMIZED)
  * Persists identity and minimal operational state.
+ * Version 9: Hardened to prevent redundant loading cycles.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -96,46 +97,26 @@ export const useAppStore = create<AppState>()(
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        if (get().loading) return;
+        const state = get();
+        if (state.loading) return;
         
         set({ loading: true, error: null });
         
         try {
-          // 1. Fetch User Profile (1 Read)
-          let userProfile = null;
-          if (userId) {
-              const uSnap = await getDoc(doc(db, 'users', userId));
-              if (uSnap.exists()) {
-                  userProfile = uSnap.data();
-                  get().incrementReadCount(1);
-              }
-          }
-
-          const isMerchant = userProfile?.accountType === 'restaurant';
-          const isEmployee = userProfile?.accountType === 'employee';
-
-          // 2. Optimized Store Fetching
-          let storesSnap;
-          if (isMerchant) {
-              const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
-              storesSnap = await getDocs(q);
-          } else if (isEmployee && userProfile?.storeId) {
-              const sDoc = await getDoc(doc(db, 'stores', userProfile.storeId));
-              storesSnap = { docs: sDoc.exists() ? [sDoc] : [] };
-          } else {
-              storesSnap = await getDocs(collection(db, 'stores'));
-          }
-
-          const allFetchedStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
-          get().incrementReadCount((storesSnap as any).docs.length);
-
-          const userStore = allFetchedStores.find((s: Store) => s.ownerId === userId) || null;
-
-          // 3. Parallel fetch of system metadata
-          const [aliasDocs, commandDocs] = await Promise.all([
+          // 1. Parallel fetch of system metadata
+          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
             getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
           ]);
+
+          const allFetchedStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          state.incrementReadCount((storesSnap as any).docs.length + 2);
+
+          let userStore = null;
+          if (userId) {
+              userStore = allFetchedStores.find((s: Store) => s.ownerId === userId) || null;
+          }
 
           const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
@@ -149,7 +130,7 @@ export const useAppStore = create<AppState>()(
 
           initializeTranslations(locales); 
 
-          if (!get().deviceId) {
+          if (!state.deviceId) {
               const newId = Math.random().toString(36).substring(2, 15);
               set({ deviceId: newId });
           }
@@ -179,12 +160,13 @@ export const useAppStore = create<AppState>()(
       getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'adires-ops-storage-v8', 
+      name: 'adires-ops-storage-v9', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           deviceId: state.deviceId,
+          isInitialized: state.isInitialized,
       }),
     }
   )
