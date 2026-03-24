@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Globe, LogOut, Download, LayoutDashboard } from 'lucide-react';
+import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -150,26 +150,30 @@ export function Header() {
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
   
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
-  const brandName = userStore?.name || "Adires";
+  const brandName = (isAdmin || isRestaurantOwner) ? "ADIRES" : (userStore?.name || "Adires");
 
   return (
     <header className="sticky top-0 z-50 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
-      <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
-        <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shrink-0">
+      <Link href={homeHref} className="flex items-center gap-3 group shrink-0 min-w-0">
+        <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-primary/20 bg-white shrink-0 shadow-sm">
           <Image 
             src={logoUrl} 
-            alt={brandName} 
-            width={36} 
-            height={36} 
+            alt="Logo" 
+            width={40} 
+            height={40} 
             className="object-cover w-full h-full" 
             priority 
           />
         </div>
         <div className="flex flex-col min-w-0 overflow-hidden">
-            <span className="font-headline font-black text-gray-950 text-[11px] sm:text-sm leading-none tracking-tight truncate max-w-[80px] xs:max-w-[120px] md:max-w-[300px] uppercase">
+            <span className="font-headline font-black text-gray-950 text-sm sm:text-base leading-none tracking-tighter truncate uppercase">
                 {brandName}
             </span>
-            <span className="text-[7px] font-black text-primary uppercase tracking-widest mt-0.5 opacity-60 truncate">Verified Store</span>
+            {(isAdmin || isRestaurantOwner) && (
+                <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Verified Store</span>
+                </div>
+            )}
         </div>
       </Link>
       
