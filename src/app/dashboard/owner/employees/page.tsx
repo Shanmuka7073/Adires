@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
+import { collection, query, where, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Store, EmployeeProfile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,6 +74,8 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
         resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
             ...employee,
+            upiId: employee.upiId ?? '',
+            reportingTo: employee.reportingTo ?? undefined,
             accountHolderName: employee.bankDetails?.accountHolderName || '',
             accountNumber: employee.bankDetails?.accountNumber || '',
             ifscCode: employee.bankDetails?.ifscCode || '',
@@ -136,7 +138,7 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
                              <FormField control={form.control} name="reportingTo" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Reporting To</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             <SelectItem value={myStore.ownerId}>Store Owner</SelectItem>
@@ -262,7 +264,6 @@ export default function ManageEmployeesPage() {
       return;
     }
     
-    // Narrow type for password to avoid TypeScript error
     const password = data.password;
     if (!password) {
         toast({ variant: 'destructive', title: 'Error', description: 'Password is required for new employees.'});
@@ -397,7 +398,7 @@ export default function ManageEmployeesPage() {
                                    <FormField control={form.control} name="reportingTo" render={({ field }) => (
                                       <FormItem>
                                           <FormLabel>Reporting To</FormLabel>
-                                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                          <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
                                               <FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl>
                                               <SelectContent>
                                                   <SelectItem value={user!.uid}>Store Owner</SelectItem>

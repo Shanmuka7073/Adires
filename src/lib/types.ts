@@ -339,6 +339,7 @@ export type SiteConfig = {
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isOrderVideoEnabled?: boolean;
+    isOrderVideoEnabled_V2?: boolean;
     isAliasSuggesterEnabled?: boolean;
 };
 

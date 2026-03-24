@@ -234,7 +234,7 @@ function InsightsTab({ storeId }: { storeId: string }) {
         fetchReport();
     }, [storeId]);
 
-    if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+    if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
     const totalSales = report?.totalSales || 0;
     const totalOrders = report?.totalOrders || 0;
