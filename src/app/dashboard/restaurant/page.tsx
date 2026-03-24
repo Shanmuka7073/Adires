@@ -14,8 +14,6 @@ import {
     WifiOff, 
     Download, 
     Smartphone,
-    Database,
-    Pencil,
     CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
@@ -32,34 +30,18 @@ import { useInstall } from '@/components/install-provider';
 
 const serviceLinks = [
     { title: 'MY STORE', description: 'Manage products & orders', href: '/dashboard/owner/my-store', icon: Store },
-    { title: 'STORE ORDERS', description: 'Manage live orders', href: '/dashboard/owner/orders', icon: ShoppingBag, showStats: true },
+    { title: 'STORE ORDERS', description: 'Manage live orders', href: '/dashboard/owner/orders', icon: ShoppingBag },
     { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3, highlight: true },
-    { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff, showStats: true },
+    { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff },
     { title: 'EMPLOYEES', description: 'Manage staff', href: '/dashboard/owner/employees', icon: Users },
     { title: 'SALARY', description: 'Salary reports', href: '/dashboard/owner/salary', icon: FileText }
 ];
-
-function UsageBadge() {
-    const { readCount, writeCount } = useAppStore();
-    return (
-        <div className="bg-gray-900 text-white text-[8px] font-black uppercase tracking-widest rounded-full px-2 py-1 flex items-center gap-2 shadow-lg">
-            <div className="flex items-center gap-1">
-                <Database className="h-2.5 w-2.5 text-primary" />
-                <span>R: {readCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-                <Pencil className="h-2.5 w-2.5 text-amber-500" />
-                <span>W: {writeCount}</span>
-            </div>
-        </div>
-    );
-}
 
 export default function ServiceDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { userStore, fetchInitialData } = useAppStore();
+    const { userStore } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
     const storeQuery = useMemoFirebase(() => {
@@ -147,8 +129,6 @@ export default function ServiceDashboardPage() {
                                         {card.description}
                                     </p>
                                 </div>
-
-                                {card.showStats && <UsageBadge />}
 
                                 <ArrowRight className="h-3.5 w-3.5 text-primary opacity-20 group-hover:opacity-100 transition-opacity shrink-0" />
                             </div>
