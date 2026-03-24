@@ -369,7 +369,7 @@ export async function getStoreSalesReport({
         return {
             ...data,
             orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate
-        };
+        } as any;
     });
     
     // Aggregation Logic
@@ -409,7 +409,7 @@ export async function getStoreSalesReport({
         totalSales: metrics.totalSales,
         orderCount: metrics.orderCount,
         totalCost: metrics.totalSales * costRatio,
-        profitPerOrder: (metrics.totalSales * (1 - costRatio)) / metrics.orderCount,
+        profitPerOrder: metrics.orderCount > 0 ? (metrics.totalSales * (1 - costRatio)) / metrics.orderCount : 0,
         grossProfit: metrics.totalSales * (1 - costRatio),
         profitPercentage: (1 - costRatio) * 100
     }));
