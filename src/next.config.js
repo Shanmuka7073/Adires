@@ -1,14 +1,28 @@
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: false, // DISABLED: We handle registration manually in ServiceWorkerRegister.tsx
+  register: false, // Handled manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
-  disable: false, // Force enabled for production stability
-  // Explicitly ignore manifest files that might 404 during precaching
+  disable: process.env.NODE_ENV === 'development',
   buildExcludes: [
     /middleware-manifest\.json$/, 
     /app-build-manifest\.json$/,
-    /precache-manifest\..*\.js$/
+    /precache-manifest\..*\.js$/,
+    // EXCLUDE HEAVY SOURCE HELP PAGES FROM PRECACHE
+    /dashboard\/admin\/.*-help.*/
+  ],
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/i\.ibb\.co\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'external-images',
+        expiration: {
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
+        },
+      },
+    },
   ],
 });
 
@@ -30,12 +44,8 @@ const nextConfig = {
     },
   },
 
-  webpack: (
-    config,
-    { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }
-  ) => {
+  webpack: (config, { isServer }) => {
     if (!isServer) {
-        // Prevent bundling of server-only modules on the client
         config.resolve.fallback = {
             ...config.resolve.fallback,
             net: false,
@@ -46,38 +56,15 @@ const nextConfig = {
         };
     }
     
-    // Externalize heavy AI and telemetry dependencies to reduce main bundle size
     if (isServer) {
         config.externals.push(
             '@genkit-ai/google-genai', 
             'genkit', 
-            '@opentelemetry/api', 
-            'require-in-the-middle', 
-            'import-in-the-middle'
+            '@opentelemetry/api'
         );
     }
     
-    // Rule to handle raw file imports for .rules files
-    config.module.rules.push({
-      test: /\.rules$/,
-      type: 'asset/source',
-    });
-
-    // Suppress specific warnings during build
-    config.ignoreWarnings = [
-        { module: /require-in-the-middle/ },
-        { message: /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/ }
-    ];
-
-    return config
-  },
-
-  typescript: {
-    ignoreBuildErrors: false,
-  },
-
-  eslint: {
-    ignoreDuringBuilds: false,
+    return config;
   },
 };
 

@@ -3,12 +3,12 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, doc, getDoc, limit } from 'firebase/firestore';
-import { Store, Product, VoiceAliasGroup } from './types';
+import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
+import { Store, VoiceAliasGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useFirebase } from '@/firebase';
-import { buildLocalesFromAliasGroups, initializeTranslations } from './locales';
+import { buildLocalesFromAliasGroups, initializeTranslations, Locales } from './locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
 
 export interface ProfileFormValues {
@@ -42,14 +42,9 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void; 
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  // LEGACY STUBS
-  masterProducts: any[];
-  productPrices: any;
-  locales: any;
-  commands: any;
-  getAllAliases: (key: string) => Record<string, string[]>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  getProductName: (product: any) => string;
+  // METADATA (Loaded on demand, not persisted to save localStorage space)
+  locales: Locales;
+  commands: Record<string, CommandGroup>;
 }
 
 const getInitialLanguage = (): string => {
@@ -60,15 +55,17 @@ const getInitialLanguage = (): string => {
 };
 
 /**
- * ADIRES GLOBAL DATA STORE (OPTIMIZED)
- * Persists identity and minimal operational state.
- * Version 9: Hardened to prevent redundant loading cycles.
+ * ADIRES GLOBAL DATA STORE (OPTIMIZED V10)
+ * IDENTITY PERSISTENCE ONLY
+ * We no longer persist locales or commands to save ~2MB of synchronous I/O.
  */
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
       userStore: null,
+      locales: {},
+      commands: {},
       loading: false,
       isInitialized: false,
       appReady: false,
@@ -103,7 +100,6 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // 1. Parallel fetch of system metadata
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
             getDocs(collection(db, 'stores')),
             getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
@@ -150,23 +146,16 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
-      
-      masterProducts: [],
-      productPrices: {},
-      locales: {},
-      commands: {},
-      getAllAliases: (key: string) => ({}),
-      fetchProductPrices: async () => {},
-      getProductName: (product: any) => product?.name || '',
     }),
     {
-      name: 'adires-ops-storage-v9', 
+      name: 'adires-ops-storage-v10', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           deviceId: state.deviceId,
-          isInitialized: state.isInitialized,
+          // We intentionally EXCLUDE stores, locales, and commands from persistence to minimize 
+          // synchronous startup I/O and memory pressure.
       }),
     }
   )
@@ -174,17 +163,17 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, loading, isInitialized, userStore, setAppReady } = useAppStore();
+    const { fetchInitialData, loading, isInitialized, setAppReady } = useAppStore();
 
     useEffect(() => {
-        if (isInitialized || userStore) {
+        if (isInitialized) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, userStore, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
 
     return { isLoading: loading };
 };

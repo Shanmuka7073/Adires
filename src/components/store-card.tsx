@@ -6,8 +6,8 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Store } from '@/lib/types';
 import { getStoreImage } from '@/lib/data';
-import { Star, Clock, MapPin, LayoutGrid, Scissors, Utensils, ArrowRight } from 'lucide-react';
-import { useEffect, useState, useMemo } from 'react';
+import { Star, Clock, ArrowRight, Scissors, Utensils } from 'lucide-react';
+import { useEffect, useState, memo } from 'react';
 import { Skeleton } from './ui/skeleton';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
@@ -19,7 +19,12 @@ interface StoreCardProps {
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function StoreCard({ store, priority = false }: StoreCardProps) {
+/**
+ * OPTIMIZED STORE CARD
+ * Uses React.memo to prevent re-renders when parent state changes.
+ * Implements fetchPriority for LCP images.
+ */
+const StoreCard = memo(function StoreCard({ store, priority = false }: StoreCardProps) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
     const [rating, setRating] = useState<string | null>(null);
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
@@ -32,8 +37,6 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
             }
         }
         fetchImage();
-        
-        // Defer random values until after hydration to avoid Error #418
         setRating((4 + Math.random()).toFixed(1));
         setDeliveryTime(Math.floor(Math.random() * 20) + 20);
     }, [store]);
@@ -53,7 +56,8 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
                         data-ai-hint={image.imageHint}
                         fill
                         priority={priority}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        loading={priority ? "eager" : "lazy"}
+                        sizes="(max-width: 768px) 100vw, 33vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                 ) : (
@@ -103,6 +107,6 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
         </Card>
     </Link>
   );
-}
+});
 
 export default StoreCard;

@@ -5,16 +5,12 @@ import { useState, useEffect, useTransition, useMemo } from 'react';
 import {
   Users,
   Store,
-  ArrowUpRight,
-  ArrowDownRight,
   DollarSign,
   ShoppingBag,
   Target,
-  Zap,
   RefreshCw,
   Rocket,
   Shield,
-  CheckCircle2,
   Server,
   FileSignature,
   Loader2,
@@ -53,7 +49,6 @@ function KPICard({ title, value, subValue, trendValue = 0, icon: Icon, color }: 
                 "flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full",
                 isPositive ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
             )}>
-                {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {Math.abs(trendValue).toFixed(1)}%
             </div>
         </div>
@@ -115,16 +110,6 @@ export default function AdminDashboardPage() {
       <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
       <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Connecting to Ops Data...</p>
   </div>;
-
-  if (!data) return (
-      <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4">
-          <AlertTriangle className="h-10 w-10 text-destructive opacity-40" />
-          <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Failed to load system state.</p>
-          <Button onClick={handleRefresh} variant="outline" size="sm" className="rounded-xl font-black uppercase text-[10px] tracking-widest">
-              Retry Sync
-          </Button>
-      </div>
-  );
 
   const currentMetrics = data?.periods?.[activePeriod] || data?.periods?.today || { 
       revenue: 0, orders: 0, aov: 0, userReach: 0, 
@@ -189,7 +174,7 @@ export default function AdminDashboardPage() {
         <KPICard 
             title="Market Reach" 
             value={currentMetrics.userReach || 0} 
-            subValue={`${data.activeSessions || 0} Real-time Visitors`} 
+            subValue={`${data?.activeSessions || 0} Real-time Visitors`} 
             trendValue={currentMetrics.trends?.userReach || 0} 
             icon={Users} 
             color="bg-purple-600" 
@@ -220,7 +205,7 @@ export default function AdminDashboardPage() {
 
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                     <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
                     <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
@@ -250,7 +235,7 @@ export default function AdminDashboardPage() {
                         <Alert className="bg-amber-50 border-amber-100 p-3 rounded-xl">
                             <Info className="h-3 w-3 text-amber-600" />
                             <AlertDescription className="text-[9px] font-bold text-amber-800 leading-tight">
-                                Reminder: Ensure this domain is added to <strong>Authentication &gt; Settings &gt; Authorized Domains</strong> in Firebase Console.
+                                Ensure domain is authorized in Firebase Console.
                             </AlertDescription>
                         </Alert>
                         <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
