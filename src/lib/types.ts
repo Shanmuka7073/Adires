@@ -40,8 +40,8 @@ export type Store = {
   isClosed?: boolean;
   tables?: string[]; // For restaurant table numbers
   liveVideoUrl?: string; // URL for live kitchen stream
-  upiId?: string; // NEW: The UPI ID for receiving payments
-  businessType?: 'restaurant' | 'salon' | 'grocery'; // NEW: Business categorization
+  upiId?: string; // The UPI ID for receiving payments
+  businessType?: 'restaurant' | 'salon' | 'grocery'; // Business categorization
 };
 
 export type User = {
@@ -131,10 +131,10 @@ export type Order = {
   paymentMode?: string;
   updatedAt?: any;
   zoneId?: string; // Geographic partition ID derived from pincode
-  isActive?: boolean; // NEW: Flag for Operational Indexing optimization
-  appointmentTime?: string; // NEW: For salons
-  needsService?: boolean; // NEW: Waiter call flag
-  serviceType?: string; // NEW: Reason for waiter call
+  isActive?: boolean; // Flag for Operational Indexing optimization
+  appointmentTime?: string; // For salons
+  needsService?: boolean; // Waiter call flag
+  serviceType?: string; // Reason for waiter call
   deviceId?: string; // For persistent device-level activity
 };
 
@@ -347,8 +347,8 @@ export type ChatMessage = {
   id?: string;
   role: 'user' | 'model';
   text: string;
-  proposedCode?: string; // NEW: Code suggested by Asha for direct application
-  targetPath?: string; // NEW: File to be edited
+  proposedCode?: string; // Code suggested by Asha for direct application
+  targetPath?: string; // File to be edited
   timestamp?: any;
 };
 
@@ -392,8 +392,8 @@ export type MenuItem = {
   category: string;
   ingredients?: Ingredient[];
   imageUrl?: string; // URL for AI-generated dish image
-  dietary?: 'veg' | 'non-veg'; // NEW: Dietary indicator
-  isAvailable: boolean; // NEW: Stock toggle
+  dietary?: 'veg' | 'non-veg'; // Dietary indicator
+  isAvailable: boolean; // Stock toggle
   customizations?: CustomizationGroup[];
   recommendations?: string[]; // IDs of related items
 };

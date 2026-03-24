@@ -1,30 +1,28 @@
 
 'use client';
 
-import { Order, Store, MenuItem, Menu } from '@/lib/types';
+import { Order, MenuItem, Menu } from '@/lib/types';
 import {
   Badge
 } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Search,
-  Plus,
   ChevronRight,
   Loader2,
   MapPin,
   Phone,
   Navigation,
   ShoppingBag,
-  History,
-  Check,
+  Plus,
   X,
   TrendingUp,
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, setDoc, Timestamp
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useTransition, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -32,7 +30,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { playTickSound } from '@/lib/cart';
 import { getStoreSalesReport } from '@/app/actions';
 import Link from 'next/link';
@@ -191,44 +188,6 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
     );
 }
 
-function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: string, menuItems: MenuItem[], onComplete: () => void }) {
-    const { firestore } = useFirebase();
-    const [cart, setCart] = useState<{item: MenuItem, qty: number}[]>([]);
-    const total = cart.reduce((acc, i) => acc + (i.item.price * i.qty), 0);
-
-    const handleGenerateBill = () => {
-        if (cart.length === 0 || !firestore) return;
-        const orderId = `counter-${Date.now()}`;
-        const orderRef = doc(firestore, 'orders', orderId);
-        const orderData = {
-            id: orderId, storeId, tableNumber: 'Counter', sessionId: orderId, userId: 'guest', customerName: 'Walk-in',
-            status: 'Billed', orderType: 'counter', isActive: true, orderDate: serverTimestamp(),
-            items: cart.map(c => ({ id: crypto.randomUUID(), orderId, productName: c.item.name, quantity: c.qty, price: c.item.price })),
-            totalAmount: total,
-        };
-        setDoc(orderRef, orderData).catch(e => console.error(e));
-        onComplete();
-    };
-
-    return (
-        <DialogContent className="max-w-lg rounded-[2.5rem] p-0 overflow-hidden border-0 shadow-2xl">
-            <div className="p-4 bg-primary/5 border-b border-black/5"><DialogTitle className="text-sm font-black uppercase">Quick Bill</DialogTitle></div>
-            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-                {menuItems.map(it => (
-                    <button key={it.id} onClick={() => { playTickSound(); setCart(p => [...p, { item: it, qty: 1 }]) }} className="w-full p-3 border-2 border-black/5 rounded-xl flex justify-between items-center text-xs font-bold uppercase tracking-tight">
-                        <span>{it.name}</span>
-                        <span className="text-primary">₹{it.price}</span>
-                    </button>
-                ))}
-            </div>
-            <div className="p-4 border-t bg-white space-y-3">
-                <div className="flex justify-between font-black text-sm"><span>TOTAL</span><span>₹{total}</span></div>
-                <Button onClick={handleGenerateBill} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest">Generate Bill</Button>
-            </div>
-        </DialogContent>
-    )
-}
-
 function InsightsTab({ storeId }: { storeId: string }) {
     const [report, setReport] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -289,7 +248,6 @@ export default function StoreOrdersPage() {
   const [activeTab, setActiveTab] = useState('live');
   const [liveSearch, setLiveSearch] = useState('');
   const [liveFilter, setLiveFilter] = useState('all');
-  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { stores, userStore } = useAppStore();
 
@@ -299,13 +257,7 @@ export default function StoreOrdersPage() {
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(100)) : null,
   [firestore, myStore]);
 
-  const menuQuery = useMemoFirebase(() => 
-    firestore && myStore ? query(collection(firestore, `stores/${myStore.id}/menus`), limit(1)) : null,
-  [firestore, myStore]);
-
   const { data: activeOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
-  const { data: menus } = useCollection<Menu>(menuQuery);
-  const menuItems = useMemo(() => menus?.[0]?.items || [], [menus]);
 
   const { sessions, counts } = useMemo(() => {
     let active = 0, newCount = 0, procCount = 0;
@@ -354,10 +306,6 @@ export default function StoreOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-        <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
-            <QuickCounterSaleDialog storeId={myStore?.id || ''} menuItems={menuItems} onComplete={() => setIsNewSaleOpen(false)} />
-        </Dialog>
-
         <SessionDetailsDialog 
             session={selectedSession} 
             isOpen={!!selectedSession} 
@@ -385,7 +333,7 @@ export default function StoreOrdersPage() {
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
                             <Input 
-                                placeholder="Search..." 
+                                placeholder="Search table or name..." 
                                 value={liveSearch} 
                                 onChange={e => setLiveSearch(e.target.value)} 
                                 className="h-9 rounded-xl border-2 border-black/5 bg-white pl-9 text-[10px] font-black uppercase tracking-tight shadow-sm" 
@@ -405,7 +353,7 @@ export default function StoreOrdersPage() {
                         ) : (
                             <div className="bg-white p-12 text-center flex flex-col items-center gap-3 opacity-20">
                                 <ShoppingBag className="h-8 w-8" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">No matching orders</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest">No active orders</p>
                             </div>
                         )}
                     </div>
@@ -415,8 +363,8 @@ export default function StoreOrdersPage() {
             )}
         </main>
 
-        <Button onClick={() => setIsNewSaleOpen(true)} className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
-            <Plus className="h-6 w-6" />
+        <Button asChild className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
+            <Link href="/dashboard/owner/menu-manager"><Plus className="h-6 w-6" /></Link>
         </Button>
     </div>
   );

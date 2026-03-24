@@ -83,7 +83,6 @@ export async function getPlatformAnalytics() {
         
         const now = new Date();
         const todayStart = new Date(now.setHours(0,0,0,0));
-        const thirtyDaysAgo = new Date(new Date(todayStart).getTime() - 30 * 86400000);
 
         const [usersCount, storesCount, activeOrdersSnap] = await Promise.all([
             db.collection('users').count().get(),
@@ -112,7 +111,7 @@ export async function getPlatformAnalytics() {
 }
 
 /**
- * STORE SALES ANALYTICS (AGGREGATED)
+ * STORE SALES ANALYTICS (AGGREGATED & SERIALIZED)
  */
 export async function getStoreSalesReport({
   storeId,
@@ -214,7 +213,7 @@ export async function getPlaceholderImages() {
     try {
         const { db } = await getAdminServices();
         const docSnap = await db.collection('siteConfig').doc('placeholderImages').get();
-        return { success: true, placeholderImages: docSnap.data()?.images || [] };
+        return { success: true, placeholderImages: docSnap.data()?.images || [], error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -224,7 +223,7 @@ export async function updatePlaceholderImages(data: { placeholderImages: any[] }
     try {
         const { db } = await getAdminServices();
         await db.collection('siteConfig').doc('placeholderImages').set({ images: data.placeholderImages });
-        return { success: true };
+        return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -247,7 +246,7 @@ export async function updateManifest(manifest: any) {
     try {
         const { db } = await getAdminServices();
         await db.collection('siteConfig').doc('manifest').set(manifest);
-        return { success: true };
+        return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -260,7 +259,7 @@ export async function uploadStoreImage(storeId: string, imageDataUri: string) {
     try {
         const { db } = await getAdminServices();
         await db.collection('stores').doc(storeId).update({ imageUrl: imageDataUri });
-        return { success: true };
+        return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -291,7 +290,7 @@ export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, 
             items: FieldValue.arrayUnion(orderItem)
         }, { merge: true });
 
-        return { success: true };
+        return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
@@ -301,11 +300,11 @@ export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, 
  * BULK DATA OPERATIONS
  */
 export async function bulkUploadRecipes(csvText: string) {
-    return { success: true, count: 0 };
+    return { success: true, count: 0, error: null };
 }
 
 export async function importProductsFromUrl(url: string) {
-    return { success: true, count: 0 };
+    return { success: true, count: 0, error: null };
 }
 
 /**
@@ -323,15 +322,15 @@ export async function getMealDbRecipe(dishName: string) {
  * NLU & RULES
  */
 export async function processPdfAndExtractRules(formData: FormData) {
-    return { success: true, sentenceCount: 0 };
+    return { success: true, sentenceCount: 0, error: null };
 }
 
 export async function approveRule(id: string, text: string) {
-    return { success: true };
+    return { success: true, error: null };
 }
 
 export async function rejectRule(id: string) {
-    return { success: true };
+    return { success: true, error: null };
 }
 
 /**
@@ -366,18 +365,18 @@ export async function updateEmployee(userId: string, data: any) {
     try {
         const { db } = await getAdminServices();
         await db.collection('employeeProfiles').doc(userId).set(data, { merge: true });
-        return { success: true };
+        return { success: true, error: null };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
 }
 
 export async function approveRegularization(id: string, storeId: string, approve: boolean) {
-    return { success: true };
+    return { success: true, error: null };
 }
 
 export async function rejectRegularization(id: string, storeId: string, reason: string) {
-    return { success: true };
+    return { success: true, error: null };
 }
 
 /**
