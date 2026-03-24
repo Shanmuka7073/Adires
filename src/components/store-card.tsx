@@ -14,11 +14,12 @@ import { cn } from '@/lib/utils';
 
 interface StoreCardProps {
   store: Store;
+  priority?: boolean;
 }
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function StoreCard({ store }: StoreCardProps) {
+function StoreCard({ store, priority = false }: StoreCardProps) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
     const rating = useMemo(() => (4 + Math.random()).toFixed(1), [store.id]);
     const deliveryTime = useMemo(() => Math.floor(Math.random() * 20) + 20, [store.id]);
@@ -47,6 +48,7 @@ function StoreCard({ store }: StoreCardProps) {
                         alt={store.name}
                         data-ai-hint={image.imageHint}
                         fill
+                        priority={priority}
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                     />

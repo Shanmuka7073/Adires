@@ -41,7 +41,6 @@ export const viewport: Viewport = {
   themeColor: "#90EE90",
   width: "device-width",
   initialScale: 1,
-  // Accessible: Allow users to zoom
   maximumScale: 5,
 };
 
@@ -55,6 +54,14 @@ export default function RootLayout({
        <head>
         <meta charSet="utf-8" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        {/* PERFORMANCE: Preconnect to critical domains */}
+        <link rel="preconnect" href="https://www.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://www.google.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://firestore.googleapis.com" />
+        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://www.google.com" />
+        <link rel="dns-prefetch" href="https://www.gstatic.com" />
+        
         <script dangerouslySetInnerHTML={{
             __html: `
                 window.addEventListener('beforeinstallprompt', (e) => {

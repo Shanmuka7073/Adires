@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -219,8 +220,12 @@ export default function LocalBasketHomepage() {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {filteredStores.map(store => (
-                            <StoreCard key={store.id} store={store} />
+                        {filteredStores.map((store, index) => (
+                            <StoreCard 
+                                key={store.id} 
+                                store={store} 
+                                priority={index < 2} 
+                            />
                         ))}
                         {filteredStores.length === 0 && (
                             <div className="col-span-full p-12 text-center bg-white rounded-3xl border-2 border-dashed opacity-40">
