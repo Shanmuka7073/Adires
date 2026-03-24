@@ -3,12 +3,13 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
-import { Store, VoiceAliasGroup } from './types';
+import { Firestore, collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useFirebase } from '@/firebase';
-import { buildLocalesFromAliasGroups, initializeTranslations, Locales } from './locales';
+import { buildLocalesFromAliasGroups, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
 
 export interface ProfileFormValues {
@@ -22,6 +23,7 @@ export interface ProfileFormValues {
 
 export interface AppState {
   stores: Store[];
+  masterProducts: Product[];
   userStore: Store | null; 
   loading: boolean;
   isInitialized: boolean;
@@ -42,9 +44,13 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void; 
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  productPrices: Record<string, ProductPrice | null>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   // METADATA (Loaded on demand, not persisted to save localStorage space)
   locales: Locales;
   commands: Record<string, CommandGroup>;
+  getProductName: (product: Product) => string;
+  getAllAliases: (key: string) => Record<string, string[]>;
 }
 
 const getInitialLanguage = (): string => {
@@ -55,17 +61,19 @@ const getInitialLanguage = (): string => {
 };
 
 /**
- * ADIRES GLOBAL DATA STORE (OPTIMIZED V10)
+ * ADIRES GLOBAL DATA STORE (OPTIMIZED V11)
  * IDENTITY PERSISTENCE ONLY
- * We no longer persist locales or commands to save ~2MB of synchronous I/O.
+ * Pruned locales, commands, and master products from persistence to keep cache < 1MB.
  */
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
+      masterProducts: [],
       userStore: null,
       locales: {},
       commands: {},
+      productPrices: {},
       loading: false,
       isInitialized: false,
       appReady: false,
@@ -100,18 +108,18 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')),
+          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
+            getStores(db),
+            getMasterProducts(db),
             getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
             getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
           ]);
 
-          const allFetchedStores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
-          state.incrementReadCount((storesSnap as any).docs.length + 2);
+          state.incrementReadCount((stores.length) + (masterProducts.length) + 2);
 
           let userStore = null;
           if (userId) {
-              userStore = allFetchedStores.find((s: Store) => s.ownerId === userId) || null;
+              userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
           const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
@@ -132,7 +140,8 @@ export const useAppStore = create<AppState>()(
           }
 
           set({
-            stores: allFetchedStores,
+            stores,
+            masterProducts,
             userStore,
             locales,
             commands: enrichedCommands,
@@ -146,16 +155,64 @@ export const useAppStore = create<AppState>()(
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
+
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          const { productPrices } = get();
+          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
+
+          if (namesToFetch.length === 0) return;
+          
+          try {
+              const pricesToUpdate: Record<string, ProductPrice | null> = {};
+              const batchSize = 30;
+
+              for (let i = 0; i < namesToFetch.length; i += batchSize) {
+                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
+                  if (batchNames.length > 0) {
+                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
+                      const priceSnapshot = await getDocs(priceQuery);
+                      
+                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
+                      
+                      batchNames.forEach(name => {
+                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
+                      });
+                  }
+              }
+
+              set(state => ({
+                  productPrices: { ...state.productPrices, ...pricesToUpdate }
+              }));
+          } catch (error) {
+              console.error("Failed to fetch product prices:", error);
+          }
+      },
+
+      getProductName: (product: Product) => {
+        if (!product || !product.name) return '';
+        const lang = get().language;
+        const key = product.name.toLowerCase().replace(/ /g, '-');
+        // Simple fallback translation logic
+        const entry = get().locales[key];
+        if (entry) {
+            const regional = entry[lang.split('-')[0]];
+            if (regional) return Array.isArray(regional) ? regional[0] : regional;
+        }
+        return product.name;
+      },
+
+      getAllAliases: (key: string) => {
+        return getAliasesFromLocales(get().locales, key);
+      }
     }),
     {
-      name: 'adires-ops-storage-v10', 
+      name: 'adires-ops-storage-v11', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           deviceId: state.deviceId,
-          // We intentionally EXCLUDE stores, locales, and commands from persistence to minimize 
-          // synchronous startup I/O and memory pressure.
+          // masterProducts, locales, and commands are EXCLUDED to keep cache lean
       }),
     }
   )
