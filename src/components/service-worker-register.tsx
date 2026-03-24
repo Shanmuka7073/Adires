@@ -4,8 +4,8 @@
 import { useEffect } from 'react';
 
 /**
- * Aggressively registers and manages the Service Worker lifecycle.
- * Removed automatic reload on update to prevent "double-refresh" logic loops.
+ * Service Worker Registration (Hardened)
+ * Registers the PWA shell silently to avoid double-refresh cycles on operational dashboards.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
@@ -20,15 +20,14 @@ export default function ServiceWorkerRegister() {
           
           console.log('Adires PWA registered:', registration.scope);
           
-          // 2. Handle automatic updates silently
+          // Silent background updates to prevent layout shifts/refreshes during usage
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (installingWorker) {
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed') {
                   if (navigator.serviceWorker.controller) {
-                    console.log('New content available; update cached.');
-                    // Note: We no longer force a reload here to protect operational dashboard state
+                    console.log('New content available in background cache.');
                   }
                 }
               };
@@ -40,6 +39,7 @@ export default function ServiceWorkerRegister() {
         }
       };
 
+      // Register on window load to prioritize main thread for operational UI
       if (document.readyState === 'complete') {
         register();
       } else {

@@ -138,6 +138,63 @@ export type Order = {
   deviceId?: string; // For persistent device-level activity
 };
 
+export type ReasonEntry = {
+    text: string;
+    timestamp: any;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: any;
+    workDateStr: string;
+    punchInTime: any;
+    punchOutTime: any;
+    status: 'present' | 'absent' | 'partially_present' | 'pending_approval' | 'approved' | 'rejected';
+    workHours: number;
+    rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
+};
+
+export type EmployeeProfile = {
+    userId: string;
+    storeId: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    role: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+    payoutMethod: 'bank' | 'upi';
+    upiId?: string | null;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    } | null;
+    reportingTo?: string | null;
+};
+
+export type SalarySlip = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    periodStart: string;
+    periodEnd: string;
+    baseSalary: number;
+    overtimeHours: number;
+    overtimePay: number;
+    deductions: number;
+    netPay: number;
+    generatedAt: any;
+};
 
 export type DeliveryPartner = {
   userId: string; // The user's UID
@@ -373,7 +430,6 @@ export type ReportData = {
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   topProfitableProducts: { name: string; totalProfit: number; profitPerUnit: number; count: number }[];
-  ingredientUsage: { name: string; quantity: number, unit: string, cost: number }[];
   ingredientCost: number;
   costDrivers: { name: string; cost: number; percentage: number }[];
   optimizationHint: string | null;
@@ -386,7 +442,7 @@ export type ReportData = {
     grossProfit: number;
     profitPercentage: number;
   }[];
-  orders: Order[]; // FIX: Added missing orders field for interactive drill-downs
+  orders: Order[]; 
 };
 
 declare global {

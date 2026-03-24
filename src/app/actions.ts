@@ -430,7 +430,7 @@ export async function getStoreSalesReport({
             ],
             optimizationHint: totalOrders > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
             salesByTable,
-            orders: orders.slice(0, 50) // Return recent orders for drill-down
+            orders: orders // FIX: Ensure full orders list is returned for interactive drill-downs
         },
         error: null
     };

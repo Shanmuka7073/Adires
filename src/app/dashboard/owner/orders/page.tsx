@@ -365,20 +365,22 @@ export default function StoreOrdersPage() {
             {activeTab === 'live' ? (
                 <>
                     <div className="space-y-3 mb-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-950 font-bold" />
-                            <Input 
-                                placeholder="Search table or name..." 
-                                value={liveSearch} 
-                                onChange={e => setLiveSearch(e.target.value)} 
-                                className="h-11 rounded-2xl border-2 border-gray-950 bg-white pl-10 text-xs font-black uppercase tracking-tight shadow-md" 
-                            />
+                        <div className="flex justify-between items-center px-1">
+                            <div className="flex gap-2 text-[10px]">
+                                <div className="px-2 py-1 bg-green-50 text-green-600 rounded font-black uppercase tracking-tighter">✔ {counts.active}</div>
+                                <div className="px-2 py-1 bg-red-50 text-red-500 rounded font-black uppercase tracking-tighter">● {counts.newCount}</div>
+                                <div className="px-2 py-1 bg-yellow-50 text-yellow-600 rounded font-black uppercase tracking-tighter">⏱ {counts.procCount}</div>
+                            </div>
                         </div>
 
-                        <div className="flex gap-2 text-[10px]">
-                            <div className="px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
-                            <div className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
-                            <div className="px-2.5 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
+                            <Input 
+                                placeholder="Search..." 
+                                value={liveSearch} 
+                                onChange={e => setLiveSearch(e.target.value)} 
+                                className="h-9 rounded-xl border-2 border-black/5 bg-white pl-9 text-[10px] font-black uppercase tracking-tight shadow-sm" 
+                            />
                         </div>
                     </div>
 
