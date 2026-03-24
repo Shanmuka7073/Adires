@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -25,7 +24,6 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
-        // Generate random delivery time only on the client-side to avoid hydration errors
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
@@ -139,7 +137,6 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
 
   useEffect(() => {
-    // Redirection engine for Merchants and Admins
     if (!isRoleLoading && user) {
         if (isAdmin) {
             router.replace('/dashboard/admin');

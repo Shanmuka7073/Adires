@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card } from '@/components/ui/card';
@@ -76,7 +75,7 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
                 </div>
                 <div className="p-5 flex-1 flex flex-col justify-between">
                     <div>
-                        <h3 className="text-xl font-black font-headline uppercase tracking-tight text-gray-900 leading-none mb-2">{t(card.title)}</h3>
+                        <h3 className="text-xl font-black font-headline uppercase tracking-tight text-gray-950 leading-none mb-2">{t(card.title)}</h3>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight leading-tight">{t(card.description)}</p>
                     </div>
                     <div className="flex items-center text-primary font-black uppercase text-[10px] tracking-widest mt-6">
@@ -138,7 +137,7 @@ export default function DashboardPage() {
     }
 
     if (user && (isRestaurantOwner || isAdmin)) {
-        return null; // Redirecting...
+        return null;
     }
 
     return (

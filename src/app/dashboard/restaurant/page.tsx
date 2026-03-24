@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card } from '@/components/ui/card';
@@ -16,7 +15,8 @@ import {
     Download, 
     Smartphone,
     Database,
-    Pencil
+    Pencil,
+    CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -59,7 +59,7 @@ export default function ServiceDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { userStore } = useAppStore();
+    const { userStore, fetchInitialData } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
     const storeQuery = useMemoFirebase(() => {
@@ -71,7 +71,6 @@ export default function ServiceDashboardPage() {
     const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
 
     useEffect(() => {
-        // Redirection logic hardened to prevent infinite loops
         if (!isLoading) {
             if (!user) {
                 router.replace('/login?redirectTo=/dashboard/restaurant');
@@ -97,7 +96,7 @@ export default function ServiceDashboardPage() {
     }
 
     if (!user || (!isRestaurantOwner && !isAdmin)) {
-        return null; // Redirecting...
+        return null;
     }
 
     return (
