@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, setDoc
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, setDoc, Timestamp
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useMemo, useState, useTransition } from 'react';
