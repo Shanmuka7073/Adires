@@ -1,21 +1,11 @@
-
 'use server';
-
-/**
- * @fileOverview Centralized Server Actions Hub.
- * Hardened for serializability and production SDK resilience.
- */
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, SiteConfig, CartItem, User, EmployeeProfile, AttendanceRecord, SalarySlip, ReportData, Product, MenuItem } from '@/lib/types';
-import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
-/**
- * FETCH PUBLIC CONFIG
- */
 export async function getFirebaseConfig() {
   try {
     const { app } = await getAdminServices();
@@ -35,9 +25,6 @@ export async function getFirebaseConfig() {
   }
 }
 
-/**
- * SYSTEM HEALTH CHECK
- */
 export async function getSystemStatus() {
     const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
     
@@ -74,10 +61,6 @@ export async function getSystemStatus() {
     }
 }
 
-/**
- * ANALYTICS ENGINE (PLATFORM-WIDE)
- * Performs multi-period aggregation of all successful orders.
- */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
@@ -128,7 +111,7 @@ export async function getPlatformAnalytics() {
                 revenue,
                 orders,
                 aov,
-                userReach: activeOrdersSnap.size + (orders * 1.5), // Heuristic: Active users + conversion multiplier
+                userReach: activeOrdersSnap.size + (orders * 1.5), 
                 trends: {
                     revenue: calcTrend(revenue, prevRevenue),
                     orders: calcTrend(orders, prevOrders),
@@ -155,9 +138,6 @@ export async function getPlatformAnalytics() {
     }
 }
 
-/**
- * STORE SALES ANALYTICS (AGGREGATED & SERIALIZED)
- */
 export async function getStoreSalesReport({
   storeId,
   period,
@@ -251,9 +231,6 @@ export async function getStoreSalesReport({
   }
 }
 
-/**
- * ASSET MANAGEMENT
- */
 export async function getPlaceholderImages() {
     try {
         const { db } = await getAdminServices();
@@ -274,9 +251,6 @@ export async function updatePlaceholderImages(data: { placeholderImages: any[] }
     }
 }
 
-/**
- * PWA & MANIFEST
- */
 export async function getManifest() {
     try {
         const { db } = await getAdminServices();
@@ -297,9 +271,6 @@ export async function updateManifest(manifest: any) {
     }
 }
 
-/**
- * STORE & OPERATIONS
- */
 export async function uploadStoreImage(storeId: string, imageDataUri: string) {
     try {
         const { db } = await getAdminServices();
@@ -341,9 +312,6 @@ export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, 
     }
 }
 
-/**
- * BULK DATA OPERATIONS
- */
 export async function bulkUploadRecipes(csvText: string) {
     return { success: true, count: 0, error: null };
 }
@@ -352,9 +320,6 @@ export async function importProductsFromUrl(url: string) {
     return { success: true, count: 0, error: null };
 }
 
-/**
- * KNOWLEDGE & AI
- */
 export async function getWikipediaSummary(topic: string) {
     return { summary: "Knowledge base stub active.", error: null };
 }
@@ -363,9 +328,6 @@ export async function getMealDbRecipe(dishName: string) {
     return { ingredients: [], instructions: "", error: "MealDB stub active." };
 }
 
-/**
- * NLU & RULES
- */
 export async function processPdfAndExtractRules(formData: FormData) {
     return { success: true, sentenceCount: 0, error: null };
 }
@@ -378,9 +340,6 @@ export async function rejectRule(id: string) {
     return { success: true, error: null };
 }
 
-/**
- * HR & SALARY
- */
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
     try {
         const { db } = await getAdminServices();
@@ -424,9 +383,6 @@ export async function rejectRegularization(id: string, storeId: string, reason: 
     return { success: true, error: null };
 }
 
-/**
- * CONFIG & SITE
- */
 export async function getSiteConfig(id: string) {
     try {
         const { db } = await getAdminServices();
@@ -448,6 +404,7 @@ export async function updateSiteConfig(id: string, data: any) {
 }
 
 export async function getIngredientsForDish(input: { dishName: string; language: string }) {
+    const { getIngredientsForDishFlow } = await import('@/ai/flows/recipe-ingredients-flow');
     const lang = (input.language === 'te' ? 'te' : 'en') as 'en' | 'te';
     return getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
 }

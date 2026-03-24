@@ -1,22 +1,21 @@
-
 'use client';
 
 import { useEffect, useState, useTransition, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, ShoppingBag, Beef, Carrot, Grape, Download, Loader2, ArrowRight } from 'lucide-react';
+import { Beef, Carrot, Grape, Download, Loader2, ArrowRight, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useFirebase } from '@/firebase';
-import { collection, query, where, Timestamp, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, Timestamp, getDocs, orderBy } from 'firebase/firestore';
 import type { Order } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 type ReportCategory = {
   totalSales: number;
@@ -106,92 +105,6 @@ function ReportCard({ title, data, icon: Icon, isLoading, onClick }: { title: st
     );
 }
 
-const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any | null> => {
-    const now = new Date();
-    let startDate: Date;
-
-    if (period === 'daily') {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else { // monthly
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-    const startTimestamp = Timestamp.fromDate(startDate);
-    
-    try {
-        const { masterProducts } = useAppStore.getState();
-        const productCategoryMap = new Map<string, string>();
-        
-        if (masterProducts && Array.isArray(masterProducts)) {
-            masterProducts.forEach(p => {
-                if (p && p.id) {
-                    productCategoryMap.set(p.id, (p.category || 'grocery').toLowerCase());
-                }
-            });
-        }
-
-        const ordersQuery = query(
-            collection(db, 'orders'),
-            where('status', 'in', ['Delivered', 'Completed']),
-            where('orderDate', '>=', startTimestamp),
-            orderBy('orderDate', 'desc')
-        );
-        const orderSnapshot = await getDocs(ordersQuery);
-        const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-
-        const report = {
-            grocery: { totalSales: 0, itemCount: 0, topProducts: new Map() },
-            meat: { totalSales: 0, itemCount: 0, topProducts: new Map() },
-            vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map() },
-            orders: deliveredOrders
-        };
-        const meatCategories = ['fresh cut', 'meat & fish'];
-        const vegetableCategories = ['vegetables'];
-
-        for (const order of deliveredOrders) {
-            const items = order.items || [];
-
-            for (const item of items) {
-                const itemTotal = item.price * item.quantity;
-                const category = productCategoryMap.get(item.productId) || 'grocery';
-                
-                let reportCategory: 'grocery' | 'meat' | 'vegetable';
-                if (meatCategories.includes(category)) {
-                    reportCategory = 'meat';
-                } else if (vegetableCategories.includes(category)) {
-                    reportCategory = 'vegetable';
-                } else {
-                    reportCategory = 'grocery';
-                }
-                
-                report[reportCategory].totalSales += itemTotal;
-                report[reportCategory].itemCount += item.quantity;
-                
-                const currentQty = report[reportCategory].topProducts.get(item.productName) || 0;
-                report[reportCategory].topProducts.set(item.productName, currentQty + item.quantity);
-            }
-        }
-        
-        const formatTopProducts = (topProductsMap: Map<string, number>) => {
-            return Array.from(topProductsMap.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(([name, count]) => ({ name, count }));
-        };
-
-        return {
-            grocery: { ...report.grocery, topProducts: formatTopProducts(report.grocery.topProducts) },
-            meat: { ...report.meat, topProducts: formatTopProducts(report.meat.topProducts) },
-            vegetable: { ...report.vegetable, topProducts: formatTopProducts(report.vegetable.topProducts) },
-            orders: deliveredOrders
-        };
-
-    } catch (error) {
-        console.error("Client-side sales report generation failed:", error);
-        return null;
-    }
-}
-
-
 export default function SalesReportPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
@@ -202,11 +115,90 @@ export default function SalesReportPage() {
     const [activeTab, setActiveTab] = useState<'daily' | 'monthly'>('daily');
     const [isRevenueDialogOpen, setIsRevenueDialogOpen] = useState(false);
 
-    useEffect(() => {
-        if (!isAdminLoading && !isAdmin) {
-            router.replace('/dashboard');
+    const generateReport = async (db: any, period: 'daily' | 'monthly'): Promise<any | null> => {
+        const now = new Date();
+        let startDate: Date;
+
+        if (period === 'daily') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else { // monthly
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         }
-    }, [isAdmin, isAdminLoading, router]);
+        const startTimestamp = Timestamp.fromDate(startDate);
+        
+        try {
+            const { masterProducts } = useAppStore.getState();
+            const productCategoryMap = new Map<string, string>();
+            
+            if (masterProducts && Array.isArray(masterProducts)) {
+                masterProducts.forEach(p => {
+                    if (p && p.id) {
+                        productCategoryMap.set(p.id, (p.category || 'grocery').toLowerCase());
+                    }
+                });
+            }
+
+            const ordersQuery = query(
+                collection(db, 'orders'),
+                where('status', 'in', ['Delivered', 'Completed']),
+                where('orderDate', '>=', startTimestamp),
+                orderBy('orderDate', 'desc')
+            );
+            const orderSnapshot = await getDocs(ordersQuery);
+            const deliveredOrders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+
+            const report = {
+                grocery: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+                meat: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+                vegetable: { totalSales: 0, itemCount: 0, topProducts: new Map() },
+                orders: deliveredOrders
+            };
+            const meatCategories = ['fresh cut', 'meat & fish', 'meat'];
+            const vegetableCategories = ['vegetables'];
+
+            for (const order of deliveredOrders) {
+                const items = order.items || [];
+
+                for (const item of items) {
+                    const itemTotal = item.price * item.quantity;
+                    const category = productCategoryMap.get(item.productId) || 'grocery';
+                    
+                    let reportCategory: 'grocery' | 'meat' | 'vegetable';
+                    if (meatCategories.includes(category)) {
+                        reportCategory = 'meat';
+                    } else if (vegetableCategories.includes(category)) {
+                        reportCategory = 'vegetable';
+                    } else {
+                        reportCategory = 'grocery';
+                    }
+                    
+                    report[reportCategory].totalSales += itemTotal;
+                    report[reportCategory].itemCount += item.quantity;
+                    
+                    const currentQty = report[reportCategory].topProducts.get(item.productName) || 0;
+                    report[reportCategory].topProducts.set(item.productName, currentQty + item.quantity);
+                }
+            }
+            
+            const formatTopProducts = (topProductsMap: Map<string, number>) => {
+                return Array.from(topProductsMap.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([name, count]) => ({ name, count }));
+            };
+
+            return {
+                grocery: { ...report.grocery, topProducts: formatTopProducts(report.grocery.topProducts) },
+                meat: { ...report.meat, topProducts: formatTopProducts(report.meat.topProducts) },
+                vegetable: { ...report.vegetable, topProducts: formatTopProducts(report.vegetable.topProducts) },
+                orders: deliveredOrders
+            };
+
+        } catch (error) {
+            console.error("Client-side sales report generation failed:", error);
+            return null;
+        }
+    };
 
     const fetchReports = useCallback(async () => {
         if (!firestore) return;
@@ -234,7 +226,7 @@ export default function SalesReportPage() {
         let csvContent = headers.join(",") + "\n";
 
         ['grocery', 'meat', 'vegetable'].forEach(cat => {
-            const data = reportToDownload[cat];
+            const data = reportToDownload[cat as keyof typeof reportToDownload];
             csvContent += `"${cat.toUpperCase()}",${data.totalSales.toFixed(2)},${data.itemCount}\n`;
         });
         

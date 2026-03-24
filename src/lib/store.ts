@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -8,7 +7,6 @@ import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { useFirebase } from '@/firebase';
 import { buildLocalesFromAliasGroups, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
 
@@ -46,7 +44,6 @@ export interface AppState {
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   productPrices: Record<string, ProductPrice | null>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  // METADATA (Loaded on demand, not persisted to save localStorage space)
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getProductName: (product: Product) => string;
@@ -60,11 +57,6 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
-/**
- * ADIRES GLOBAL DATA STORE (OPTIMIZED V11)
- * IDENTITY PERSISTENCE ONLY
- * Pruned locales, commands, and master products from persistence to keep cache < 1MB.
- */
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -192,7 +184,6 @@ export const useAppStore = create<AppState>()(
         if (!product || !product.name) return '';
         const lang = get().language;
         const key = product.name.toLowerCase().replace(/ /g, '-');
-        // Simple fallback translation logic
         const entry = get().locales[key];
         if (entry) {
             const regional = entry[lang.split('-')[0]];
@@ -206,13 +197,12 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-storage-v11', 
+      name: 'adires-ops-storage-v12', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           deviceId: state.deviceId,
-          // masterProducts, locales, and commands are EXCLUDED to keep cache lean
       }),
     }
   )
