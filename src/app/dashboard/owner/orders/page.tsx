@@ -41,6 +41,7 @@ import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { playTickSound } from '@/lib/cart';
+import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import Image from 'next/image';
@@ -79,7 +80,7 @@ function SessionRow({ session, isSalon, onClick }: { session: Session; isSalon: 
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
                     <p className="text-[11px] font-black uppercase tracking-tight text-gray-950 truncate">
-                        {session.tableNumber ? `${isSalon ? 'CH' : 'T'}-${session.tableNumber}` : (isDelivery ? 'HOME' : 'WALK')} • #{session.id.slice(-4)}
+                        {session.tableNumber && session.tableNumber !== 'Counter' ? `${isSalon ? 'CH' : 'T'}-${session.tableNumber}` : (isDelivery ? 'HOME' : 'WALK')} • #{session.id.slice(-4)}
                     </p>
                     {isDelivery && <Badge className="bg-blue-500 text-white text-[7px] h-3.5 font-black uppercase px-1 border-0">Delivery</Badge>}
                 </div>
@@ -294,7 +295,7 @@ export default function StoreOrdersPage() {
   const handleOrderUpdate = (orderId: string, status: any) => {
       if (!firestore) return;
       updateDoc(doc(firestore, 'orders', orderId), { status, isActive: !['Delivered', 'Completed', 'Cancelled'].includes(status), updatedAt: serverTimestamp() });
-  }
+  };
 
   if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
@@ -311,7 +312,7 @@ export default function StoreOrdersPage() {
             onStatusUpdate={handleOrderUpdate}
         />
 
-        <main className="container mx-auto px-3 pt-4">
+        <main className="container mx-auto px-3 pt-4 animate-in fade-in duration-500">
             {/* 1. COMPACT TABS */}
             <div className="flex bg-black/5 p-1 rounded-xl mb-4 border border-black/5">
                 <button onClick={() => setActiveTab('live')} className={cn("flex-1 h-8 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'live' ? "bg-white shadow-sm text-primary" : "text-gray-400")}>Live Hub</button>

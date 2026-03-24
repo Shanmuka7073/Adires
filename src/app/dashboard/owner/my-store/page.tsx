@@ -280,20 +280,11 @@ export default function MyStorePage() {
 
     return (
         <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center border-b pb-3 border-black/5">
-                <div className="min-w-0">
-                    <h1 className="text-xl font-black tracking-tight text-gray-950 truncate uppercase leading-none">{myStore.name}</h1>
-                    <p className="text-muted-foreground font-black uppercase text-[8px] tracking-[0.2em] opacity-40 mt-1">Operational Hub</p>
-                </div>
-                <Badge variant="outline" className="rounded-lg border-2 border-primary/20 text-primary font-black uppercase text-[7px] tracking-widest px-2 py-1 bg-primary/5">
-                    <CheckCircle2 className="h-2.5 w-2.5 mr-1 fill-current" /> Active
-                </Badge>
-            </div>
-
+            {/* NO LOCAL HEADER - USING GLOBAL HEADER FOR SINGLE SOURCE OF IDENTITY */}
             <div className="grid grid-cols-1 gap-3">
                 <StoreDetails store={myStore} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
                 
-                <StoreImageUploader store={myStore} />
+                <StoreImageUploader myStore={myStore} />
                 
                 <PromoteStore />
 
