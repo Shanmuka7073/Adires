@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -33,18 +34,19 @@ export function useAdminAuth() {
     return userData?.accountType === 'employee';
   }, [userData]);
 
-  const isChickenAdmin = useMemo(() => {
-    return !!(user && user.email === 'chickenadmin@gmail.com');
-  }, [user]);
+  const isMerchant = useMemo(() => {
+      return isAdmin || isRestaurantOwner;
+  }, [isAdmin, isRestaurantOwner]);
 
   // Wait for Auth shell AND (if logged in) the Firestore profile data
+  // Added extra safety check for 'auth' instance availability
   const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
 
   return {
     isAdmin,
     isRestaurantOwner,
     isEmployee,
-    isChickenAdmin,
+    isMerchant,
     isLoading: loading,
     user,
     userData,

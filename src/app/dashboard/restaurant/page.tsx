@@ -57,24 +57,29 @@ function UsageBadge() {
 
 export default function ServiceDashboardPage() {
     const { user, firestore } = useFirebase();
-    const { isRestaurantOwner, isLoading } = useAdminAuth();
+    const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
     const { userStore } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
     const storeQuery = useMemoFirebase(() => {
-        if (!user || !isRestaurantOwner || !firestore) return null;
+        if (!user || (!isRestaurantOwner && !isAdmin) || !firestore) return null;
         return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-    }, [user, isRestaurantOwner, firestore]);
+    }, [user, isRestaurantOwner, isAdmin, firestore]);
 
     const { data: stores } = useCollection<StoreType>(storeQuery);
     const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
 
     useEffect(() => {
-        if (!isLoading && user && !isRestaurantOwner) {
-            router.replace('/dashboard');
+        // Redirection logic hardened to prevent infinite loops
+        if (!isLoading) {
+            if (!user) {
+                router.replace('/login?redirectTo=/dashboard/restaurant');
+            } else if (!isRestaurantOwner && !isAdmin) {
+                router.replace('/dashboard');
+            }
         }
-    }, [isLoading, user, isRestaurantOwner, router]);
+    }, [isLoading, user, isRestaurantOwner, isAdmin, router]);
 
     const { dashboardTitle, DashboardIcon } = useMemo(() => {
         if (!store) return { dashboardTitle: 'Business Hub', DashboardIcon: Store };
@@ -91,8 +96,8 @@ export default function ServiceDashboardPage() {
         );
     }
 
-    if (user && !isRestaurantOwner) {
-        return null; // Redirect logic in useEffect
+    if (!user || (!isRestaurantOwner && !isAdmin)) {
+        return null; // Redirecting...
     }
 
     return (

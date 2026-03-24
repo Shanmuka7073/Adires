@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
@@ -92,7 +92,7 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
     const [loading, setLoading] = useState(true);
-    const { isRestaurantOwner, isEmployee, isLoading: isRoleLoading, user } = useAdminAuth();
+    const { isRestaurantOwner, isEmployee, isAdmin, isLoading: isRoleLoading, user } = useAdminAuth();
     const router = useRouter();
 
     const roleCards = useMemo(() => {
@@ -103,13 +103,17 @@ export default function DashboardPage() {
     }, [isEmployee]);
 
     useEffect(() => {
-        if (!isRoleLoading && user && isRestaurantOwner) {
-            router.replace('/dashboard/restaurant');
+        if (!isRoleLoading && user) {
+            if (isAdmin) {
+                router.replace('/dashboard/admin');
+            } else if (isRestaurantOwner) {
+                router.replace('/dashboard/restaurant');
+            }
         }
-    }, [isRoleLoading, isRestaurantOwner, user, router]);
+    }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
 
     useEffect(() => {
-        if (!isRoleLoading && !isRestaurantOwner) {
+        if (!isRoleLoading && !isRestaurantOwner && !isAdmin) {
             const fetchImages = async () => {
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
@@ -122,7 +126,7 @@ export default function DashboardPage() {
             };
             fetchImages();
         }
-    }, [isRoleLoading, isRestaurantOwner, roleCards]);
+    }, [isRoleLoading, isRestaurantOwner, isAdmin, roleCards]);
     
     if (isRoleLoading) {
         return (
@@ -133,8 +137,8 @@ export default function DashboardPage() {
         );
     }
 
-    if (user && isRestaurantOwner) {
-        return null; // Redirecting
+    if (user && (isRestaurantOwner || isAdmin)) {
+        return null; // Redirecting...
     }
 
     return (

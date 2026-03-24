@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -130,7 +131,7 @@ function HubNavigation() {
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const router = useRouter();
-  const { isRestaurantOwner, isLoading: isRoleLoading, isAdmin } = useAdminAuth();
+  const { isRestaurantOwner, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
   const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -138,11 +139,13 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
 
   useEffect(() => {
-    if (!isRoleLoading && user && isRestaurantOwner) {
-      router.replace('/dashboard/restaurant');
-    }
-    if (!isRoleLoading && user && isAdmin) {
-      router.replace('/dashboard/admin');
+    // Redirection engine for Merchants and Admins
+    if (!isRoleLoading && user) {
+        if (isAdmin) {
+            router.replace('/dashboard/admin');
+        } else if (isRestaurantOwner) {
+            router.replace('/dashboard/restaurant');
+        }
     }
   }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
 
