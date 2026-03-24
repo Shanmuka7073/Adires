@@ -59,6 +59,14 @@ interface Session {
   lastActivity: Date;
 }
 
+function toDateSafe(d: any): Date {
+    if (!d) return new Date();
+    if (d instanceof Date) return d;
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
+    if (typeof d === 'string') return new Date(d);
+    return new Date();
+}
+
 function SessionRow({ session, isSalon, onClick }: { session: Session; isSalon: boolean; onClick: () => void }) {
   const isDelivery = session.orderType === 'delivery';
 
@@ -411,12 +419,4 @@ export default function StoreOrdersPage() {
         </Button>
     </div>
   );
-}
-
-function toDateSafe(d: any): Date {
-    if (!d) return new Date();
-    if (d instanceof Timestamp) return d.toDate();
-    if (d instanceof Date) return d;
-    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
-    return new Date(d);
 }

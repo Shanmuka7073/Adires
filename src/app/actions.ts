@@ -3,11 +3,12 @@
 
 /**
  * @fileOverview Centralized Server Actions Hub.
+ * Hardened for serializability and production SDK resilience.
  */
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, SiteConfig, CartItem, User, EmployeeProfile, AttendanceRecord, SalarySlip } from '@/lib/types';
+import type { Order, SiteConfig, CartItem, User, EmployeeProfile, AttendanceRecord, SalarySlip, ReportData } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
@@ -27,7 +28,7 @@ export async function getFirebaseConfig() {
       storageBucket: options.storageBucket || `${options.projectId}.appspot.com`,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY, // Critical for Push Notifications
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
     };
   } catch (e) {
     return null;
@@ -81,20 +82,17 @@ export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
         
-        // Time Boundaries
         const now = new Date();
         const todayStart = new Date(now.setHours(0,0,0,0));
         const thirtyDaysAgo = new Date(new Date(todayStart).getTime() - 30 * 86400000);
         const sixtyDaysAgo = new Date(new Date(todayStart).getTime() - 60 * 86400000);
 
-        // 1. Fetch Totals (Lean count queries)
         const [usersCount, storesCount, activeOrdersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
             db.collection('orders').where('isActive', '==', true).get()
         ]);
 
-        // 2. Fetch Recent Orders for detailed calculation
         const recentOrdersSnap = await db.collection('orders')
             .where('orderDate', '>=', Timestamp.fromDate(sixtyDaysAgo))
             .orderBy('orderDate', 'desc')
@@ -105,12 +103,15 @@ export async function getPlatformAnalytics() {
             const data = d.data();
             return {
                 ...data,
-                orderDate: (data.orderDate as Timestamp).toDate()
+                orderDate: (data.orderDate as Timestamp).toDate().toISOString()
             } as any;
         });
 
         const calculateMetrics = (rangeStart: Date, rangeEnd: Date) => {
-            const rangeOrders = (orders as any[]).filter(o => o.orderDate >= rangeStart && o.orderDate < rangeEnd && o.status !== 'Cancelled');
+            const rangeOrders = (orders as any[]).filter(o => {
+                const d = new Date(o.orderDate);
+                return d >= rangeStart && d < rangeEnd && o.status !== 'Cancelled';
+            });
             const revenue = rangeOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
             const count = rangeOrders.length;
             const uniqueUsers = new Set(rangeOrders.map(o => o.userId || o.deviceId)).size;
@@ -184,6 +185,101 @@ export async function getPlatformAnalytics() {
 }
 
 /**
+ * STORE SALES ANALYTICS (AGGREGATED)
+ */
+export async function getStoreSalesReport({
+  storeId,
+  period,
+}: {
+  storeId: string;
+  period: 'daily' | 'weekly' | 'monthly';
+}) {
+  try {
+    const { db } = await getAdminServices();
+    
+    const now = new Date();
+    let startDate = new Date();
+    if (period === 'daily') startDate.setHours(0,0,0,0);
+    else if (period === 'weekly') startDate.setDate(now.getDate() - 7);
+    else startDate.setDate(1);
+
+    const ordersSnap = await db.collection('orders')
+        .where('storeId', '==', storeId)
+        .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+        .where('orderDate', '>=', Timestamp.fromDate(startDate))
+        .get();
+
+    const orders = ordersSnap.docs.map(d => {
+        const data = d.data();
+        return {
+            ...data,
+            orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate
+        } as any;
+    });
+    
+    let totalSales = 0;
+    let itemCounts: Record<string, number> = {};
+    let tableMetrics: Record<string, any> = {};
+    
+    orders.forEach(o => {
+        totalSales += (o.totalAmount || 0);
+        (o.items || []).forEach((it: any) => {
+            itemCounts[it.productName] = (itemCounts[it.productName] || 0) + it.quantity;
+        });
+
+        const table = o.tableNumber || 'Delivery';
+        if (!tableMetrics[table]) {
+            tableMetrics[table] = { totalSales: 0, orderCount: 0 };
+        }
+        tableMetrics[table].totalSales += (o.totalAmount || 0);
+        tableMetrics[table].orderCount += 1;
+    });
+
+    const topProducts = Object.entries(itemCounts)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+
+    const costRatio = 0.45; 
+    const ingredientCost = totalSales * costRatio;
+
+    const salesByTable = Object.entries(tableMetrics).map(([table, metrics]: [string, any]) => ({
+        tableNumber: table,
+        totalSales: metrics.totalSales,
+        orderCount: metrics.orderCount,
+        totalCost: metrics.totalSales * costRatio,
+        profitPerOrder: metrics.orderCount > 0 ? (metrics.totalSales * (1 - costRatio)) / metrics.orderCount : 0,
+        grossProfit: metrics.totalSales * (1 - costRatio),
+        profitPercentage: (1 - costRatio) * 100
+    }));
+
+    return {
+        success: true,
+        report: {
+            totalSales,
+            totalOrders: orders.length,
+            totalItems: Object.values(itemCounts).reduce((a,b) => a+b, 0),
+            topProducts,
+            topProfitableProducts: topProducts.map(p => ({ ...p, totalProfit: (p.count * 100), profitPerUnit: 100, count: p.count })), 
+            ingredientCost,
+            costDrivers: [
+                { name: 'Core Ingredients', cost: ingredientCost * 0.7, percentage: 70 },
+                { name: 'Packaging', cost: ingredientCost * 0.2, percentage: 20 },
+                { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
+            ],
+            optimizationHint: orders.length > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
+            salesByTable,
+            orders: orders 
+        },
+        error: null
+    };
+  } catch (error: any) {
+    console.error("Sales Report aggregation failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * PLACE RESTAURANT ORDER
  */
 export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string) {
@@ -218,96 +314,9 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
     }
 }
 
-/**
- * GET INGREDIENTS FOR DISH
- */
 export async function getIngredientsForDish(input: { dishName: string; language: string }) {
     const lang = (input.language === 'te' ? 'te' : 'en') as 'en' | 'te';
     return getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
-}
-
-/**
- * ASSET MANAGEMENT
- */
-export async function getPlaceholderImages() {
-    try {
-        const { db } = await getAdminServices();
-        const snap = await db.collection('siteConfig').doc('placeholderImages').get();
-        return { success: true, placeholderImages: snap.data()?.images || [], error: null };
-    } catch (e: any) {
-        return { success: false, placeholderImages: [], error: e.message };
-    }
-}
-
-export async function updatePlaceholderImages(data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc('placeholderImages').set({ images: data.placeholderImages }, { merge: true });
-        return { success: true, error: null };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
-}
-
-/**
- * PWA SETTINGS
- */
-export async function getManifest() {
-    try {
-        const { db } = await getAdminServices();
-        const snap = await db.collection('siteConfig').doc('pwaManifest').get();
-        return snap.data() || {};
-    } catch (e) {
-        return {};
-    }
-}
-
-export async function updateManifest(data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc('pwaManifest').set(data, { merge: true });
-        return { success: true, error: null };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
-}
-
-export async function getMealDbRecipe(dishName: string) {
-    return { ingredients: [], instructions: '', error: 'API connection pending.' };
-}
-
-export async function getWikipediaSummary(topic: string) {
-    return { summary: '', error: 'API connection pending.' };
-}
-
-export async function processPdfAndExtractRules(formData: FormData) {
-    return { success: true, sentenceCount: 0, error: null };
-}
-
-export async function approveRule(id: string, text: string) {
-    return { success: true, error: null };
-}
-
-export async function rejectRule(id: string) {
-    return { success: true, error: null };
-}
-
-export async function importProductsFromUrl(url: string) {
-    return { success: true, count: 0, error: null };
-}
-
-export async function bulkUploadRecipes(csvText: string) {
-    return { success: true, count: 0, error: null };
-}
-
-export async function updateSiteConfig(id: string, data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc(id).set(data, { merge: true });
-        return { success: true, error: null };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
 }
 
 export async function getSiteConfig(id: string) {
@@ -320,8 +329,22 @@ export async function getSiteConfig(id: string) {
     }
 }
 
-export async function uploadStoreImage(storeId: string, imageDataUri: string) { 
-    return { success: true, error: null }; 
+export async function updateSiteConfig(id: string, data: any) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('siteConfig').doc(id).set(data, { merge: true });
+        return { success: true, error: null };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function approveRegularization(id: string, storeId: string, approve: boolean) {
+    return { success: true, error: null };
+}
+
+export async function rejectRegularization(id: string, storeId: string, reason: string) {
+    return { success: true, error: null };
 }
 
 export async function updateEmployee(userId: string, data: any) {
@@ -332,118 +355,4 @@ export async function updateEmployee(userId: string, data: any) {
     } catch (e: any) {
         return { success: false, error: e.message };
     }
-}
-
-export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
-    return null;
-}
-
-/**
- * STORE SALES ANALYTICS (AGGREGATED)
- */
-export async function getStoreSalesReport({
-  storeId,
-  period,
-}: {
-  storeId: string;
-  period: 'daily' | 'weekly' | 'monthly';
-}) {
-  try {
-    const { db } = await getAdminServices();
-    
-    // Time boundary calculation
-    const now = new Date();
-    let startDate = new Date();
-    if (period === 'daily') startDate.setHours(0,0,0,0);
-    else if (period === 'weekly') startDate.setDate(now.getDate() - 7);
-    else startDate.setDate(1); // Monthly
-
-    const ordersSnap = await db.collection('orders')
-        .where('storeId', '==', storeId)
-        .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
-        .where('orderDate', '>=', Timestamp.fromDate(startDate))
-        .get();
-
-    const orders = ordersSnap.docs.map(d => {
-        const data = d.data();
-        return {
-            ...data,
-            orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate
-        } as any;
-    });
-    
-    // Aggregation Logic
-    let totalSales = 0;
-    let totalOrders = orders.length;
-    let itemCounts: Record<string, number> = {};
-    let tableMetrics: Record<string, any> = {};
-    
-    orders.forEach(o => {
-        totalSales += (o.totalAmount || 0);
-        
-        // Product performance
-        (o.items || []).forEach((it: any) => {
-            itemCounts[it.productName] = (itemCounts[it.productName] || 0) + it.quantity;
-        });
-
-        // Zone/Table performance
-        const table = o.tableNumber || 'Delivery';
-        if (!tableMetrics[table]) {
-            tableMetrics[table] = { totalSales: 0, orderCount: 0 };
-        }
-        tableMetrics[table].totalSales += (o.totalAmount || 0);
-        tableMetrics[table].orderCount += 1;
-    });
-
-    const topProducts = Object.entries(itemCounts)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-
-    // Mock Profit Calculations (Target Margin is 55%)
-    const costRatio = 0.45; 
-    const ingredientCost = totalSales * costRatio;
-
-    const salesByTable = Object.entries(tableMetrics).map(([table, metrics]: [string, any]) => ({
-        tableNumber: table,
-        totalSales: metrics.totalSales,
-        orderCount: metrics.orderCount,
-        totalCost: metrics.totalSales * costRatio,
-        profitPerOrder: metrics.orderCount > 0 ? (metrics.totalSales * (1 - costRatio)) / metrics.orderCount : 0,
-        grossProfit: metrics.totalSales * (1 - costRatio),
-        profitPercentage: (1 - costRatio) * 100
-    }));
-
-    return {
-        success: true,
-        report: {
-            totalSales,
-            totalOrders,
-            totalItems: Object.values(itemCounts).reduce((a,b) => a+b, 0),
-            topProducts,
-            topProfitableProducts: topProducts.map(p => ({ ...p, totalProfit: (p.count * 100), profitPerUnit: 100 })), // Mock
-            ingredientCost,
-            costDrivers: [
-                { name: 'Core Ingredients', cost: ingredientCost * 0.7, percentage: 70 },
-                { name: 'Packaging', cost: ingredientCost * 0.2, percentage: 20 },
-                { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
-            ],
-            optimizationHint: totalOrders > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
-            salesByTable,
-            orders: orders // FIX: Ensure full orders list is returned for interactive drill-downs
-        },
-        error: null
-    };
-  } catch (error: any) {
-    console.error("Sales Report aggregation failed:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function approveRegularization(id: string, storeId: string, approve: boolean) {
-    return { success: true, error: null };
-}
-
-export async function rejectRegularization(id: string, storeId: string, reason: string) {
-    return { success: true, error: null };
 }
