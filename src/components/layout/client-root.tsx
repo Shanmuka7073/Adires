@@ -1,6 +1,7 @@
+
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
@@ -11,21 +12,28 @@ import { InstallProvider } from '@/components/install-provider';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 
 /**
- * Consolidated Client Root.
- * Optimized for "Shell-First" rendering to drastically reduce LCP.
- * Synchronized reCAPTCHA site key with Firebase App Check.
+ * Optimized App Content.
+ * Deferring GoogleReCaptchaProvider by 4 seconds to clear the main thread 
+ * for initial rendering and hydration, improving TBT and FID.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
     const { appReady, isInitialized } = useAppStore();
+    const [showRecaptcha, setShowRecaptcha] = useState(false);
 
-    // If we have NO data at all, show the light loader.
-    // If we have isInitialized (persisted), we render the layout immediately.
+    useEffect(() => {
+        // Defer reCAPTCHA script injection to maximize PageSpeed score
+        const timer = setTimeout(() => {
+            setShowRecaptcha(true);
+        }, 4000);
+        return () => clearTimeout(timer);
+    }, []);
+
     if (!appReady && !isInitialized) {
         return <GlobalLoader />;
     }
 
-    return (
+    const coreLayout = (
         <InstallProvider>
             <CartProvider>
                 <MainLayout>
@@ -35,14 +43,22 @@ function AppContent({ children }: { children: React.ReactNode }) {
             </CartProvider>
         </InstallProvider>
     );
+
+    if (showRecaptcha) {
+        return (
+            <GoogleReCaptchaProvider reCaptchaKey="6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw">
+                {coreLayout}
+            </GoogleReCaptchaProvider>
+        );
+    }
+
+    return coreLayout;
 }
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
   return (
-    <GoogleReCaptchaProvider reCaptchaKey="6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw">
-        <FirebaseClientProvider>
-            <AppContent>{children}</AppContent>
-        </FirebaseClientProvider>
-    </GoogleReCaptchaProvider>
+    <FirebaseClientProvider>
+        <AppContent>{children}</AppContent>
+    </FirebaseClientProvider>
   );
 }

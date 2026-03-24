@@ -156,7 +156,14 @@ export function Header() {
     <header className="sticky top-0 z-50 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
       <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
         <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-primary/20 bg-white shrink-0">
-          <Image src={logoUrl} alt={brandName} fill className="object-cover" priority />
+          <Image 
+            src={logoUrl} 
+            alt={brandName} 
+            width={36} 
+            height={36} 
+            className="object-cover w-full h-full" 
+            priority 
+          />
         </div>
         <div className="flex flex-col min-w-0 overflow-hidden">
             <span className="font-headline font-black text-gray-950 text-[11px] sm:text-sm leading-none tracking-tight truncate max-w-[80px] xs:max-w-[120px] md:max-w-[300px] uppercase">

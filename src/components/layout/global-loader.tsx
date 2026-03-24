@@ -8,12 +8,11 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 /**
  * Branded Global Loader
- * Uses the store's identity from the persistent local cache to show branding instantly.
+ * Optimized Image: Using fixed width/height to prevent serving oversized assets during boot.
  */
 export default function GlobalLoader() {
   const { userStore } = useAppStore();
   
-  // Use restaurant's own image if available in persisted state, otherwise fallback to platform logo
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "Adires";
 
@@ -26,8 +25,9 @@ export default function GlobalLoader() {
                 <Image 
                     src={logoUrl} 
                     alt={brandName}
-                    fill
-                    className="object-cover"
+                    width={64}
+                    height={64}
+                    className="object-cover w-full h-full"
                     priority
                 />
             </div>
