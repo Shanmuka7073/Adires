@@ -347,7 +347,7 @@ export default function StoreOrdersPage() {
 
                     <div className="space-y-0.5 rounded-[1.5rem] overflow-hidden border-2 border-black/5 shadow-xl bg-white">
                         {sessions.length > 0 ? (
-                            sessions.map(s => <SessionRow key={s.id} session={s} isSalon={true} onClick={() => setSelectedSession(s)} />)
+                            sessions.map(s => <SessionRow key={s.id} session={s} isSalon={myStore?.businessType === 'salon'} onClick={() => setSelectedSession(s)} />)
                         ) : (
                             <div className="bg-white p-12 text-center flex flex-col items-center gap-3 opacity-20">
                                 <ShoppingBag className="h-8 w-8" />
@@ -361,9 +361,11 @@ export default function StoreOrdersPage() {
             )}
         </main>
 
-        <Button asChild className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
-            <Link href="/dashboard/owner/menu-manager"><Plus className="h-6 w-6" /></Link>
-        </Button>
+        {myStore && (
+            <Button asChild className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
+                <Link href={`/menu/${myStore.id}?table=Counter`}><Plus className="h-6 w-6" /></Link>
+            </Button>
+        )}
     </div>
   );
 }
