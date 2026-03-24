@@ -33,7 +33,10 @@ import {
   ArrowRight,
   Sparkles,
   Phone,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  User as UserIcon,
+  Circle
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
@@ -43,7 +46,7 @@ import { useMemo, useState, useTransition, useEffect, useCallback, useRef } from
 import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogDescription
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
@@ -61,16 +64,16 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Checkbox } from '@/components/ui/checkbox';
-
+import Image from 'next/image';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 const STATUS_META: Record<string, any> = {
   Draft: { icon: Clock, variant: 'outline', color: 'text-gray-400', label: 'Draft' },
-  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-amber-600', label: 'New', animate: true },
-  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-blue-600', label: 'Processing' },
-  'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery' },
-  Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Billed' },
+  Pending: { icon: AlertTriangle, variant: 'secondary', color: 'text-red-600', label: 'New', animate: true, headerColor: 'bg-red-500' },
+  Processing: { icon: CookingPot, variant: 'secondary', color: 'text-amber-600', label: 'Processing', headerColor: 'bg-amber-500' },
+  'Out for Delivery': { icon: Truck, variant: 'outline', color: 'text-purple-600', label: 'Delivery', headerColor: 'bg-purple-500' },
+  Billed: { icon: Check, variant: 'default', color: 'text-green-600', label: 'Billed', headerColor: 'bg-green-500' },
   Completed: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Paid' },
   Delivered: { icon: CheckCircle, variant: 'default', color: 'text-gray-600', label: 'Done' },
   Cancelled: { icon: AlertTriangle, variant: 'destructive', color: 'text-red-600', label: 'Void' },
@@ -87,6 +90,46 @@ interface Session {
   needsService?: boolean;
   serviceType?: string;
   customerPhone?: string;
+}
+
+function StatusHeader({ label, colorClass, count }: { label: string, colorClass: string, count: number }) {
+    if (count === 0) return null;
+    return (
+        <div className="flex items-center justify-between px-1 mb-3">
+            <div className="flex items-center gap-2">
+                <div className={cn("h-2 w-2 rounded-full", colorClass)} />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-950">{label}</h3>
+            </div>
+            <div className="h-5 w-5 rounded-full bg-black/5 flex items-center justify-center text-[9px] font-black text-gray-400">{count}</div>
+        </div>
+    );
+}
+
+function POSHeader({ store }: { store: Store | null }) {
+    return (
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+                <div className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-primary/10 bg-white">
+                    <Image src={store?.imageUrl || ADIRES_LOGO} alt="Store" fill className="object-cover" />
+                </div>
+                <div>
+                    <h1 className="text-sm font-black uppercase tracking-tight leading-none text-gray-950">
+                        {store?.name || 'STORE HUB'}
+                    </h1>
+                    <div className="flex items-center gap-1.5 mt-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[8px] font-bold text-green-600 uppercase tracking-widest">Live</span>
+                        <ChevronDown className="h-3 w-3 text-gray-400" />
+                    </div>
+                </div>
+            </div>
+            <Button variant="ghost" size="icon" className="rounded-full bg-black/5 h-10 w-10" asChild>
+                <Link href="/dashboard/customer/my-profile">
+                    <UserIcon className="h-5 w-5 text-gray-600" />
+                </Link>
+            </Button>
+        </div>
+    );
 }
 
 function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { storeId: string, menuItems: MenuItem[], onComplete: () => void, isSalon: boolean }) {
@@ -266,187 +309,51 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete, isSalon }: { s
     );
 }
 
-function SessionCard({ session, store, isSalon, onDismissService }: { session: Session; store: Store; isSalon: boolean; onDismissService: (s: Session) => void }) {
-  const { toast } = useToast();
-  const { firestore } = useFirebase();
-
-  const handleAction = () => {
-    if (!firestore) return;
-    const batch = writeBatch(firestore);
-    const isBilled = session.status === 'Billed';
-    
-    session.orders.forEach(order => {
-        const orderRef = doc(firestore, 'orders', order.id);
-        if (isBilled) {
-            batch.update(orderRef, { status: 'Completed', isActive: false, updatedAt: serverTimestamp() });
-        } else {
-            batch.update(orderRef, { status: 'Billed', updatedAt: serverTimestamp() });
-        }
-    });
-
-    batch.commit().catch(async (e) => {
-        toast({ variant: 'destructive', title: 'Action Failed' });
-    });
-    toast({ title: 'Success' });
-  };
-
-  const handlePrint = () => {
-      const win = window.open('', '_blank');
-      if (!win) return;
-      
-      const itemsHtml = session.orders.flatMap(o => o.items).map(it => `
-          <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 5px;">
-              <span>${it.productName} x${it.quantity}</span>
-              <span>₹${(it.price * it.quantity).toFixed(0)}</span>
-          </div>
-      `).join('');
-
-      win.document.write(`
-          <html>
-              <head>
-                  <title>Bill #${session.id.slice(-4)}</title>
-                  <style>
-                      body { font-family: monospace; padding: 20px; width: 300px; }
-                      .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-                      .footer { border-top: 1px dashed #000; padding-top: 10px; margin-top: 10px; text-align: center; }
-                      .total { font-size: 18px; font-weight: bold; margin-top: 10px; }
-                  </style>
-              </head>
-              <body>
-                  <div class="header">
-                      <h2 style="margin: 0;">${store.name}</h2>
-                      <p style="font-size: 10px;">${store.address}</p>
-                      <p style="font-size: 12px;">Bill: #${session.id.slice(-4)} | ${isSalon ? 'Chair' : 'Table'}: ${session.tableNumber || 'Counter'}</p>
-                  </div>
-                  <div class="items">${itemsHtml}</div>
-                  <div class="total" style="display: flex; justify-content: space-between;">
-                      <span>TOTAL</span>
-                      <span>₹${session.totalAmount.toFixed(0)}</span>
-                  </div>
-                  <div class="footer">
-                      <p>Thank you! Visit Again.</p>
-                      <p style="font-size: 8px;">Generated by LocalBasket</p>
-                  </div>
-                  <script>window.onload = () => { window.print(); window.close(); }</script>
-              </body>
-          </html>
-      `);
-  };
-
+function SessionCard({ session, store, isSalon, onDismissService, onStatusChange }: { session: Session; store: Store; isSalon: boolean; onDismissService: (s: Session) => void, onStatusChange: (id: string, s: any) => void }) {
   const meta = STATUS_META[session.status] || STATUS_META.Pending;
   const isBilled = session.status === 'Billed';
-  const hasPhone = !!session.customerPhone;
   
-  const titleIcon = session.orderType === 'takeaway' ? <ShoppingBag className="h-4 w-4" /> : session.orderType === 'counter' ? <Calculator className="h-4 w-4" /> : (isSalon ? <Utensils className="h-4 w-4" /> : <Utensils className="h-4 w-4" />);
+  const handleAction = () => {
+    const nextStatus = session.status === 'Pending' ? 'Processing' : session.status === 'Processing' ? 'Billed' : 'Completed';
+    session.orders.forEach(o => onStatusChange(o.id, nextStatus));
+  };
 
   return (
-    <Card className={cn(
-        "rounded-2xl shadow-lg border-0 relative transition-all group overflow-hidden", 
-        isBilled ? "bg-green-50 ring-2 ring-green-500" : "bg-white",
-        session.needsService && "ring-4 ring-red-500 animate-pulse"
-    )}>
-      {session.needsService && (
-          <div className="absolute top-0 left-0 w-full h-10 bg-red-600 flex items-center justify-between px-3 rounded-t-xl z-10 shadow-lg">
-              <span className="text-[10px] font-black uppercase text-white flex items-center gap-2"><BellRing className="h-4 w-4 animate-bounce"/> {session.serviceType || 'Help Needed'}</span>
-              <button 
-                onClick={() => onDismissService(session)}
-                className="h-7 px-4 rounded-lg bg-white text-red-600 text-[9px] font-black uppercase transition-all active:scale-95 shadow-md"
-              >
-                Resolve
-              </button>
-          </div>
-      )}
-      <CardHeader className={cn("p-4 pb-2", session.needsService && "pt-12")}>
-        <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3 min-w-0">
-                 <div className="h-10 w-10 rounded-xl bg-black/5 flex items-center justify-center shrink-0">{titleIcon}</div>
-                 <div className="min-w-0">
-                    <CardTitle className={cn("text-lg font-black tracking-tight truncate", isBilled ? "text-gray-950" : "text-gray-900")}>{isSalon ? 'Chair' : ''} {session.tableNumber || 'Walking'}</CardTitle>
-                    <CardDescription className="text-[9px] font-bold uppercase tracking-widest opacity-40">#{session.id.slice(-4)}</CardDescription>
-                 </div>
+    <Card className="rounded-2xl border-0 shadow-md bg-white overflow-hidden mb-3">
+        <div className="p-4 flex justify-between items-center bg-black/5 border-b border-black/5">
+            <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                    {session.orderType === 'delivery' ? <Truck className="h-5 w-5 text-purple-500" /> : <Utensils className="h-5 w-5 text-gray-400" />}
+                </div>
+                <div>
+                    <p className="text-xs font-black uppercase tracking-tight text-gray-950">{isSalon ? 'Chair' : 'Table'} {session.tableNumber || 'Walk-in'}</p>
+                    <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest">#{session.id.slice(-4)}</p>
+                </div>
             </div>
-             <div className="flex gap-1.5 shrink-0">
-                {hasPhone && <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg hover:bg-black/5"><Link href={`tel:${session.customerPhone}`}><Phone className="h-4 w-4"/></Link></Button>}
-                {isBilled && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/5" onClick={handlePrint}><Printer className="h-4 w-4"/></Button>}
-                <Badge className={cn("text-[8px] font-black uppercase h-5 px-2", meta.animate && "animate-pulse")} variant={meta.variant}>{meta.label}</Badge>
-             </div>
+            <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("text-[8px] font-black uppercase border-primary/20", meta.animate && "animate-pulse")}>{meta.label}</Badge>
+                {session.needsService && <button onClick={() => onDismissService(session)} className="h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center animate-bounce shadow-lg"><BellRing className="h-3 w-3"/></button>}
+            </div>
         </div>
-      </CardHeader>
-      <CardContent className="p-4 pt-2 space-y-1.5">
-          {session.orders.flatMap(o => o.items).map((it, i) => (
-              <div key={i} className={cn("flex justify-between items-center text-[10px] font-bold py-1.5 px-3 rounded-xl mb-0.5", isBilled ? "bg-black/5" : "bg-black/5")}>
-                  <span className={cn("truncate pr-2", isBilled ? "text-gray-800" : "text-gray-700")}>{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                  <span className={cn("shrink-0 font-black", isBilled ? "text-gray-950" : "text-gray-600")}>₹{(it.price * it.quantity).toFixed(0)}</span>
-              </div>
-          ))}
-      </CardContent>
-      <CardFooter className={cn("p-4 pt-2 flex flex-col gap-2 rounded-b-2xl bg-black/5")}>
-            <div className="flex justify-between w-full text-[9px] font-black uppercase">
-                <span className="opacity-40">Current Total</span>
-                <span className={cn("font-black text-sm", isBilled ? "text-gray-950" : "text-primary")}>₹{session.totalAmount.toFixed(0)}</span>
+        <div className="p-4 space-y-2">
+            {session.orders.flatMap(o => o.items).map((it, i) => (
+                <div key={i} className="flex justify-between items-center text-[10px] font-bold text-gray-600">
+                    <span className="truncate pr-2">{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
+                    <span className="font-black text-gray-950 shrink-0">₹{(it.price * it.quantity).toFixed(0)}</span>
+                </div>
+            ))}
+        </div>
+        <div className="px-4 py-3 bg-black/5 flex items-center justify-between">
+            <div className="flex flex-col leading-none">
+                <span className="text-[8px] font-black uppercase opacity-40 tracking-widest mb-0.5">Bill Total</span>
+                <span className="text-sm font-black text-primary">₹{session.totalAmount.toFixed(0)}</span>
             </div>
-            <Button className="w-full h-10 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95" onClick={handleAction}>
-                {isBilled ? 'Confirm Payment' : (isSalon ? 'Start Service' : 'Confirm Order')}
+            <Button size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase tracking-widest px-4 shadow-md" onClick={handleAction}>
+                {isBilled ? 'Paid' : 'Next Step'}
             </Button>
-      </CardFooter>
+        </div>
     </Card>
   )
-}
-
-function DeliveryOrderCard({ order, onStatusChange, isSelected, onToggleSelection }: { order: Order; onStatusChange: (id: string, s: any) => void; isSelected: boolean; onToggleSelection: (id: string) => void }) {
-    const meta = STATUS_META[order.status] || STATUS_META.Pending;
-    const isBilled = order.status === 'Billed';
-    const hasPhone = !!order.phone;
-
-    const getNextStatus = (current: string) => {
-        if (current === 'Pending') return 'Processing';
-        if (current === 'Processing') return 'Out for Delivery';
-        if (current === 'Out for Delivery') return 'Delivered';
-        return current;
-    };
-
-    return (
-        <Card className={cn(
-            "rounded-2xl shadow-lg border-0 overflow-hidden relative transition-all group", 
-            isBilled ? "bg-green-50 ring-2 ring-green-500" : "bg-white",
-            isSelected && "ring-2 ring-primary"
-        )}>
-            <div className="absolute top-2 left-2 z-10">
-                <Checkbox 
-                    checked={isSelected} 
-                    onCheckedChange={() => onToggleSelection(order.id)}
-                    className="h-5 w-5 rounded-lg border-2 border-black/10 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-            </div>
-            <CardHeader className={cn("p-4 pb-2 border-b border-black/5 pl-10", isBilled ? "bg-green-100/50" : "bg-blue-50/50")}>
-                <div className="flex justify-between items-start">
-                    <div className="min-w-0 pr-2">
-                        <CardTitle className="text-xs font-black uppercase truncate text-gray-950">{order.customerName}</CardTitle>
-                        <CardDescription className="text-[8px] truncate font-bold opacity-60 text-gray-600 uppercase tracking-tight">{order.deliveryAddress}</CardDescription>
-                    </div>
-                    <Badge variant="outline" className={cn("text-[8px] font-black uppercase shrink-0 h-5 border-primary/20", meta.animate && "animate-pulse")}>{meta.label}</Badge>
-                </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-2 space-y-1">
-                {order.items.map((it, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-[10px] font-bold py-1 px-2 rounded-lg bg-black/5">
-                        <span className="truncate pr-2 text-gray-800">{it.productName} <span className="opacity-40 font-black">x{it.quantity}</span></span>
-                        <span className="font-black text-gray-950">₹{(it.price * it.quantity).toFixed(0)}</span>
-                    </div>
-                ))}
-            </CardContent>
-            <CardFooter className="p-4 pt-2 flex gap-2 bg-black/5">
-                <Button className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md transition-all active:scale-95" onClick={() => onStatusChange(order.id, getNextStatus(order.status))}>
-                    {order.status === 'Pending' ? 'Process Job' : 'Next Step'}
-                </Button>
-                {hasPhone && (
-                    <Button variant="ghost" size="icon" asChild className="h-9 w-9 rounded-xl hover:bg-black/10 transition-colors">
-                        <Link href={`tel:${order.phone}`}><Phone className="h-4 w-4 text-primary" /></Link>
-                    </Button>
-                )}
-            </CardFooter>
-        </Card>
-    );
 }
 
 function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
@@ -483,150 +390,69 @@ function HistoryAndInsightsCenter({ storeId }: { storeId: string }) {
         const completed = history.filter(o => ['Completed', 'Delivered'].includes(o.status));
         const totalSales = completed.reduce((acc, o) => acc + o.totalAmount, 0);
         const aov = completed.length > 0 ? totalSales / completed.length : 0;
-        
-        const itemMap = new Map<string, number>();
-        completed.forEach(o => o.items.forEach(i => {
-            itemMap.set(i.productName, (itemMap.get(i.productName) || 0) + i.quantity);
-        }));
-        
-        const topItems = Array.from(itemMap.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-
-        return { totalSales, aov, orderCount: completed.length, topItems };
+        return { totalSales, aov, orderCount: completed.length };
     }, [history]);
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
-                    <CardHeader className="pb-2 flex flex-row justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Total Revenue</span>
-                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-green-600" /></div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-4xl font-black tracking-tighter text-gray-950">₹{stats.totalSales.toFixed(0)}</p>
-                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">From {stats.orderCount} visits</p>
-                    </CardContent>
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+            <div className="grid grid-cols-2 gap-4">
+                <Card className="rounded-2xl border-0 shadow-lg bg-white p-4 flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40 leading-none">Revenue ({days}D)</span>
+                    <p className="text-2xl font-black tracking-tighter text-gray-950">₹{stats.totalSales.toFixed(0)}</p>
                 </Card>
-                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
-                    <CardHeader className="pb-2 flex flex-row justify-between items-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Session Value</span>
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><Calculator className="h-4 w-4 text-blue-600" /></div>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-4xl font-black tracking-tighter text-gray-950">₹{stats.aov.toFixed(0)}</p>
-                        <p className="text-[10px] font-bold opacity-40 uppercase mt-1">Average ticket size</p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-2">
-                    <CardHeader className="pb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Period Filter</span>
-                    </CardHeader>
-                    <CardContent className="flex gap-2">
-                        {[7, 14, 30].map(d => (
-                            <Button key={d} variant={days === d ? 'default' : 'outline'} size="sm" onClick={() => setDays(d)} className="rounded-xl font-black text-[10px] h-10 flex-1 border-2">
-                                {d}D
-                            </Button>
-                        ))}
-                    </CardContent>
+                <Card className="rounded-2xl border-0 shadow-lg bg-white p-4 flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest opacity-40 leading-none">Visits</span>
+                    <p className="text-2xl font-black tracking-tighter text-gray-950">{stats.orderCount}</p>
                 </Card>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8">
-                <Card className="rounded-[3rem] border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 border-b border-black/5 py-6">
-                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
-                            <History className="h-6 w-6 text-primary" /> Past Transactions
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <ScrollArea className="h-[450px]">
-                            {isLoading ? (
-                                <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto h-10 w-10 opacity-20" /></div>
-                            ) : history.length > 0 ? (
-                                <Table>
-                                    <TableHeader className="bg-black/5">
-                                        <TableRow>
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest">Customer</TableHead>
-                                            <TableHead className="text-[10px] font-black uppercase tracking-widest">Total</TableHead>
-                                            <TableHead className="text-right text-[10px] font-black uppercase tracking-widest">Status</TableHead>
+            <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
+                <CardHeader className="bg-primary/5 border-b border-black/5 py-4">
+                    <CardTitle className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
+                        <History className="h-4 w-4 text-primary" /> Past Transactions
+                    </CardTitle>
+                </CardHeader>
+                <div className="p-0">
+                    <ScrollArea className="h-[400px]">
+                        {isLoading ? (
+                            <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 opacity-20" /></div>
+                        ) : history.length > 0 ? (
+                            <Table>
+                                <TableBody>
+                                    {history.map(o => (
+                                        <TableRow key={o.id} className="border-b border-black/5">
+                                            <TableCell className="py-4">
+                                                <p className="font-black text-[11px] uppercase truncate max-w-[120px]">{o.customerName || 'Walk-in'}</p>
+                                                <p className="text-[8px] opacity-40 font-bold uppercase">{format(toDateSafe(o.orderDate), 'dd MMM, p')}</p>
+                                            </TableCell>
+                                            <TableCell className="font-black text-xs text-primary">₹{o.totalAmount.toFixed(0)}</TableCell>
+                                            <TableCell className="text-right pr-4">
+                                                <Badge variant="outline" className="text-[7px] font-black uppercase h-4 px-1.5 border-black/10">
+                                                    {o.status}
+                                                </Badge>
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {history.map(o => (
-                                            <TableRow key={o.id} className="hover:bg-muted/30 border-b border-black/5">
-                                                <TableCell className="py-4">
-                                                    <p className="font-black text-xs uppercase">{o.customerName || 'Walk-in'}</p>
-                                                    <p className="text-[9px] opacity-40 font-bold uppercase">{format(toDateSafe(o.orderDate), 'dd MMM, p')}</p>
-                                                </TableCell>
-                                                <TableCell className="font-black text-sm text-primary">₹{o.totalAmount.toFixed(0)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Badge variant={STATUS_META[o.status]?.variant || 'outline'} className="text-[9px] font-black uppercase px-2 h-5">
-                                                        {STATUS_META[o.status]?.label || o.status}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            ) : <div className="p-32 text-center opacity-20 flex flex-col items-center gap-4"><Package className="h-16 w-16" /><p className="font-black uppercase tracking-widest text-xs">No records found</p></div>}
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-[3rem] border-0 shadow-xl overflow-hidden bg-white">
-                    <CardHeader className="bg-primary/5 border-b border-black/5 py-6">
-                        <CardTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
-                            <Sparkles className="h-6 w-6 text-primary" /> Popular Items
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8">
-                        <div className="space-y-4">
-                            {stats.topItems.map(([name, count]) => (
-                                <div key={name} className="flex items-center justify-between p-5 bg-muted/30 rounded-[2rem] border-2 border-transparent hover:border-primary/20 transition-all group shadow-sm">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center font-black text-primary text-sm group-hover:bg-primary group-hover:text-white transition-colors">
-                                            {count}
-                                        </div>
-                                        <span className="font-black text-xs uppercase tracking-tight leading-none">{name}</span>
-                                    </div>
-                                    <ArrowRight className="h-5 w-5 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
-                                </div>
-                            ))}
-                            {stats.topItems.length === 0 && <div className="py-32 text-center opacity-20 flex flex-col items-center gap-4"><TrendingUp className="h-16 w-16"/><p className="font-black uppercase tracking-widest text-xs">Awaiting data...</p></div>}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : <div className="p-20 text-center opacity-20"><Package className="h-12 w-12 mx-auto mb-2"/><p className="text-[10px] font-black uppercase tracking-widest">No History</p></div>}
+                    </ScrollArea>
+                </div>
+            </Card>
         </div>
     );
 }
 
 export default function StoreOrdersPage() {
   const { firestore, user } = useFirebase();
-  const [isKitchenMode, setIsKitchenMode] = useState(false);
-  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('live');
   const [liveSearch, setLiveSearch] = useState('');
   const [liveFilter, setLiveFilter] = useState('all');
-  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
+  const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const { toast } = useToast();
-  const { stores, userStore, loading: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
+  const { stores, userStore, fetchInitialData } = useAppStore();
 
-  const myStore = useMemo(() => {
-      if (userStore) return userStore;
-      return stores.find(s => s.ownerId === user?.uid) || null;
-  }, [userStore, stores, user?.uid]);
-
-  const { isSalon, isRestaurant } = useMemo(() => {
-    if (!myStore) return { isSalon: false, isRestaurant: false };
-    if (myStore.businessType === 'salon') return { isSalon: true, isRestaurant: false };
-    if (myStore.businessType === 'restaurant') return { isSalon: false, isRestaurant: true };
-    const pool = `${myStore.name} ${myStore.description}`.toLowerCase();
-    const isS = ['salon', 'saloon', 'parlour', 'beauty', 'hair', 'cut', 'spa', 'makeup', 'barber'].some(kw => pool.includes(kw));
-    return { isSalon: isS, isRestaurant: !isS };
-  }, [myStore]);
+  const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
 
   const activeOrdersQuery = useMemoFirebase(() =>
     firestore && myStore ? query(collection(firestore, 'orders'), where('storeId', '==', myStore.id), where('isActive', '==', true), orderBy('orderDate', 'desc'), limit(100)) : null,
@@ -637,415 +463,145 @@ export default function StoreOrdersPage() {
   [firestore, myStore]);
 
   const { data: activeOrders, isLoading: ordersLoading } = useCollection<Order>(activeOrdersQuery);
-  const { data: menus, isLoading: menusLoading } = useCollection<Menu>(menuQuery);
+  const { data: menus } = useCollection<Menu>(menuQuery);
   const menuItems = useMemo(() => menus?.[0]?.items || [], [menus]);
 
-  const { sessions, homeDeliveries } = useMemo(() => {
-    const tableSessions: Record<string, Session> = {};
-    const onlineJobs: Order[] = [];
-    if (!activeOrders) return { sessions: {}, homeDeliveries: [] };
+  const { sessionsByStatus, counts } = useMemo(() => {
+    const grouped: Record<string, Session[]> = { Pending: [], Processing: [], Billed: [] };
+    let active = 0, newCount = 0, procCount = 0;
+    
+    if (!activeOrders) return { sessionsByStatus: grouped, counts: { active, newCount, procCount } };
 
     const searchLower = liveSearch.toLowerCase();
+    const tableSessions: Record<string, Session> = {};
 
     activeOrders.forEach(o => {
         const matchesSearch = 
             o.customerName.toLowerCase().includes(searchLower) || 
-            o.tableNumber?.toLowerCase().includes(searchLower) ||
-            o.id.toLowerCase().includes(searchLower);
+            o.tableNumber?.toLowerCase().includes(searchLower);
         
         if (liveSearch && !matchesSearch) return;
+        if (liveFilter !== 'all' && o.status.toLowerCase() !== liveFilter) return;
 
-        if (liveFilter === 'new' && o.status !== 'Pending') return;
-        if (liveFilter === 'processing' && o.status !== 'Processing') return;
-        if (liveFilter === 'delivery' && o.status !== 'Out for Delivery') return;
-        if (liveFilter === 'billed' && o.status !== 'Billed') return;
-
-        if (o.orderType === 'dine-in' || o.orderType === 'counter') {
-            if (o.sessionId) {
-                if (!tableSessions[o.sessionId]) {
-                    tableSessions[o.sessionId] = { 
-                        id: o.sessionId, 
-                        tableNumber: o.tableNumber || 'Counter', 
-                        orders: [], 
-                        totalAmount: 0, 
-                        status: o.status, 
-                        orderType: o.orderType,
-                        lastActivity: toDateSafe(o.orderDate), 
-                        needsService: o.needsService, 
-                        serviceType: o.serviceType,
-                        customerPhone: o.phone
-                    };
-                }
-                tableSessions[o.sessionId].orders.push(o);
-                tableSessions[o.sessionId].totalAmount += o.totalAmount;
-                
-                const statusWeights: Record<string, number> = { 'Draft': 1, 'Pending': 2, 'Processing': 3, 'Billed': 4 };
-                if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) {
-                    tableSessions[o.sessionId].status = o.status;
-                }
-                if (o.needsService) {
-                    tableSessions[o.sessionId].needsService = true;
-                    tableSessions[o.sessionId].serviceType = o.serviceType;
-                }
+        if (o.sessionId) {
+            if (!tableSessions[o.sessionId]) {
+                tableSessions[o.sessionId] = { 
+                    id: o.sessionId, tableNumber: o.tableNumber || null, orders: [], totalAmount: 0, status: o.status, orderType: o.orderType, lastActivity: toDateSafe(o.orderDate), needsService: o.needsService, serviceType: o.serviceType, customerPhone: o.phone
+                };
             }
-        } else {
-            onlineJobs.push(o);
+            tableSessions[o.sessionId].orders.push(o);
+            tableSessions[o.sessionId].totalAmount += o.totalAmount;
+            const statusWeights: Record<string, number> = { 'Pending': 1, 'Processing': 2, 'Billed': 3 };
+            if (statusWeights[o.status] > (statusWeights[tableSessions[o.sessionId].status] || 0)) tableSessions[o.sessionId].status = o.status;
         }
     });
-    return { sessions: tableSessions, homeDeliveries: onlineJobs };
+
+    Object.values(tableSessions).forEach(s => {
+        active++;
+        if (s.status === 'Pending') { newCount++; grouped.Pending.push(s); }
+        else if (s.status === 'Processing') { procCount++; grouped.Processing.push(s); }
+        else if (s.status === 'Billed') grouped.Billed.push(s);
+    });
+
+    return { sessionsByStatus: grouped, counts: { active, newCount, procCount } };
   }, [activeOrders, liveSearch, liveFilter]);
 
   const handleOrderUpdate = (orderId: string, status: any) => {
       if (!firestore) return;
       const orderRef = doc(firestore, 'orders', orderId);
       const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
-      
-      updateDoc(orderRef, {
-          status,
-          isActive,
-          updatedAt: serverTimestamp()
-      }).catch(async (e) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: orderRef.path,
-              operation: 'update' as const,
-              requestResourceData: { status }
-          }));
-      });
-      toast({ title: "Updated" });
+      updateDoc(orderRef, { status, isActive, updatedAt: serverTimestamp() });
   }
-
-  const handleBatchStatusUpdate = (status: Order['status']) => {
-      if (!firestore || selectedDeliveryIds.size === 0) return;
-      const batch = writeBatch(firestore);
-      const isActive = !['Delivered', 'Completed', 'Cancelled'].includes(status);
-      
-      selectedDeliveryIds.forEach(id => {
-          batch.update(doc(firestore, 'orders', id), {
-              status,
-              isActive,
-              updatedAt: serverTimestamp()
-          });
-      });
-
-      batch.commit().then(() => {
-          toast({ title: `Batch Updated!`, description: `Successfully updated ${selectedDeliveryIds.size} orders to ${status}.` });
-          setSelectedDeliveryIds(new Set());
-      }).catch(() => toast({ variant: 'destructive', title: 'Batch Failed' }));
-  };
-
-  const handleToggleDeliverySelection = (id: string) => {
-      setSelectedDeliveryIds(prev => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-      });
-  };
 
   const handleDismissService = (session: Session) => {
       if (!firestore) return;
       const batch = writeBatch(firestore);
-      let count = 0;
-      session.orders.forEach(order => {
-          if (order.needsService) {
-              batch.update(doc(firestore, 'orders', order.id), { 
-                  needsService: false, 
-                  serviceType: null, 
-                  updatedAt: serverTimestamp() 
-              });
-              count++;
-          }
-      });
-      
-      if (count > 0) {
-          batch.commit().catch(e => toast({ variant: 'destructive', title: "Failed to resolve" }));
-          toast({ title: "Resolved" }); 
-      }
+      session.orders.forEach(o => { if (o.needsService) batch.update(doc(firestore, 'orders', o.id), { needsService: false, serviceType: null, updatedAt: serverTimestamp() }); });
+      batch.commit().then(() => toast({ title: "Resolved" }));
   };
 
-  const playNewOrderSound = useCallback(() => {
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if(!AudioContext) return;
-      const audioCtx = new AudioContext();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
-      oscillator.frequency.exponentialRampToValueAtTime(1109, audioCtx.currentTime + 0.1); 
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.5);
-    } catch (e) {}
-  }, []);
-
-  const playServiceRequestSound = useCallback(() => {
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if(!AudioContext) return;
-      const audioCtx = new AudioContext();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-      oscillator.frequency.setValueAtTime(660, audioCtx.currentTime + 0.2);
-      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime + 0.4);
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.8);
-    } catch (e) {}
-  }, []);
-
-  const sendSystemNotification = useCallback(async (title: string, body: string) => {
-      if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-          return;
-      }
-      
-      if (Notification.permission === 'granted') {
-          try {
-              const registration = await navigator.serviceWorker.ready;
-              registration.showNotification(title, {
-                  body,
-                  icon: ADIRES_LOGO,
-                  badge: ADIRES_LOGO,
-                  tag: 'adires-order-alert',
-                  renotify: true
-              } as any);
-          } catch (e) {
-              console.error("Notification failed", e);
-          }
-      }
-  }, []);
-
-  const prevOrderIds = useRef<Set<string>>(new Set());
-  const prevServiceIds = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!activeOrders) return;
-
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        Notification.permission === 'default' && Notification.requestPermission();
-    }
-
-    const currentIds = new Set(activeOrders.map(o => o.id));
-    const newIds = activeOrders.filter(o => !prevOrderIds.current.has(o.id));
-
-    if (newIds.length > 0 && prevOrderIds.current.size > 0) {
-      playNewOrderSound();
-      toast({ title: "New Order Received!", description: `You have ${newIds.length} new items.` });
-      sendSystemNotification("New Order", `Received ${newIds.length} new order(s).`);
-    }
-    prevOrderIds.current = currentIds;
-
-    const currentService = new Set(activeOrders.filter(o => o.needsService).map(o => o.id));
-    const newService = activeOrders.filter(o => o.needsService && !prevServiceIds.current.has(o.id));
-
-    if (newService.length > 0) {
-      playServiceRequestSound();
-      toast({ variant: 'destructive', title: "Service Required!", description: "A customer is calling for assistance." });
-      sendSystemNotification("Service Required", "A customer is calling for assistance.");
-    }
-    prevServiceIds.current = currentService;
-  }, [activeOrders, toast, playNewOrderSound, playServiceRequestSound, sendSystemNotification]);
-
-  const handleManualRefresh = () => {
-      if (firestore && user) {
-          fetchInitialData(firestore, user.uid);
-          toast({ title: "Data Refreshing..." });
-      }
-  };
-
-  const isLoading = (ordersLoading || menusLoading) && !activeOrders;
-
-  useEffect(() => {
-    if (firestore && user && !isInitialized) {
-        fetchInitialData(firestore, user.uid);
-    }
-  }, [firestore, user, isInitialized, fetchInitialData]);
-
-  if (isLoading) return (
-    <div className="p-12 text-center flex flex-col items-center justify-center gap-4 h-[80vh]">
-        <Loader2 className="animate-spin h-12 w-12 text-primary opacity-20" />
-        <p className="font-black uppercase tracking-widest text-[10px] opacity-40">Connecting to Ops Center...</p>
-    </div>
-  );
-
-  if (!myStore && !isAppLoading) return (
-    <div className="p-12 text-center flex flex-col items-center justify-center gap-6 h-[80vh]">
-        <div className="h-20 w-20 rounded-full bg-red-50 flex items-center justify-center text-red-400">
-            <AlertTriangle className="h-10 w-10" />
-        </div>
-        <div className="space-y-2">
-            <p className="font-black uppercase tracking-tighter text-xl">Identity Error</p>
-            <p className="font-bold text-xs text-muted-foreground uppercase opacity-60">Store information not found for this account.</p>
-        </div>
-        <Button variant="outline" onClick={handleManualRefresh} className="rounded-xl font-black text-[10px] uppercase h-12 px-8 border-2">
-            <RefreshCw className="mr-2 h-4 w-4" /> Force Refresh
-        </Button>
-    </div>
-  );
+  if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-10 w-10 text-primary mb-4" /><p className="text-[10px] font-black uppercase tracking-widest">Opening Hub...</p></div>;
 
   return (
-    <div className={cn("min-h-screen py-4 px-3 max-w-7xl mx-auto transition-colors duration-500", isKitchenMode && activeTab === 'live' ? "bg-slate-950" : "bg-slate-50")}>
+    <div className="min-h-screen bg-[#F8F9FA] pb-24">
         <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
-            <QuickCounterSaleDialog 
-                storeId={myStore?.id || ''} 
-                menuItems={menuItems} 
-                onComplete={() => setIsNewSaleOpen(false)}
-                isSalon={isSalon}
-            />
+            <QuickCounterSaleDialog storeId={myStore?.id || ''} menuItems={menuItems} onComplete={() => setIsNewSaleOpen(false)} isSalon={true} />
         </Dialog>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-3 border-black/10 gap-4">
-            <div>
-                <h1 className={cn("text-2xl font-black tracking-tighter", isKitchenMode && activeTab === 'live' ? "text-white" : "text-gray-900")}>OP CENTER</h1>
-                <p className={cn("text-[8px] font-black uppercase tracking-widest opacity-40", isKitchenMode && activeTab === 'live' ? "text-primary" : "text-muted-foreground")}>{myStore?.name || 'STORE'} • {isSalon ? 'SALON' : 'RESTAURANT'}</p>
-            </div>
-            
-            <div className="flex gap-2 w-full sm:w-auto">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-black/5 p-1 rounded-xl border">
-                    <TabsList className="bg-transparent h-8 p-0 gap-1">
-                        <TabsTrigger value="live" className="rounded-lg font-black text-[9px] uppercase h-6 px-4">Live Hub</TabsTrigger>
-                        <TabsTrigger value="history" className="rounded-lg font-black text-[9px] uppercase h-6 px-4">Insights</TabsTrigger>
-                    </TabsList>
-                </Tabs>
-                
-                {activeTab === 'live' && !isSalon && (
-                    <Button onClick={() => setIsKitchenMode(!isKitchenMode)} variant="outline" size="sm" className={cn("h-10 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest border-2", isKitchenMode && "bg-primary text-white border-primary")}>
-                        {isKitchenMode ? <Monitor className="h-4 w-4 mr-2"/> : <ChefHat className="h-4 w-4 mr-2"/>} {isKitchenMode ? 'POS VIEW' : 'KITCHEN'}
-                    </Button>
-                )}
-                
-                <Button onClick={() => setIsNewSaleOpen(true)} size="sm" variant="outline" className="h-10 px-4 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 border-green-600/30 text-green-600 hover:bg-green-50 shadow-sm">
-                    <PlusCircle className="h-3.5 w-3.5 mr-1.5"/> New Sale
-                </Button>
-            </div>
-        </div>
+        <main className="container mx-auto px-4 pt-6">
+            <POSHeader store={myStore} />
 
-        <Tabs value={activeTab} className="w-full">
-            <TabsContent value="live" className="mt-0">
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                    <div className="relative flex-1">
-                        <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4", isKitchenMode ? "text-white/20" : "text-black/20")} />
-                        <Input 
-                            placeholder="Search active sessions, tables, or customers..." 
-                            value={liveSearch}
-                            onChange={e => setLiveSearch(e.target.value)}
-                            className={cn(
-                                "h-11 rounded-xl border-2 pl-10",
-                                isKitchenMode ? "bg-white/5 border-white/10 text-white placeholder:text-white/20" : "bg-white border-black/5"
-                            )}
-                        />
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                        {['all', 'new', 'processing', 'delivery', 'billed'].map(f => (
-                            <button
-                                key={f}
-                                onClick={() => setLiveFilter(f)}
-                                className={cn(
-                                    "px-4 h-11 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all shrink-0",
-                                    liveFilter === f 
-                                        ? "bg-primary border-primary text-white" 
-                                        : (isKitchenMode ? "bg-white/5 border-white/10 text-white/40" : "bg-white border-black/5 text-black/40")
-                                )}
-                            >
-                                {f}
-                            </button>
-                        ))}
-                    </div>
+            <div className="flex justify-center mb-8">
+                <div className="inline-flex bg-white p-1 rounded-2xl shadow-sm border border-black/5">
+                    <button onClick={() => setActiveTab('live')} className={cn("px-8 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'live' ? "bg-primary text-white shadow-lg" : "text-gray-400 hover:text-gray-600")}>Live</button>
+                    <button onClick={() => setActiveTab('history')} className={cn("px-8 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'history' ? "bg-primary text-white shadow-lg" : "text-gray-400 hover:text-gray-600")}>Insights</button>
                 </div>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[calc(100vh-220px)] overflow-hidden relative">
-                    <section className="flex flex-col h-full min-h-0">
-                        <div className="flex justify-between items-center mb-4 shrink-0 px-1">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2"><Truck className="h-3.5 w-3.5"/> Out-Call & Online</h2>
-                            {selectedDeliveryIds.size > 0 && (
-                                <Badge className="bg-primary text-white font-black text-[8px] uppercase px-2">{selectedDeliveryIds.size} Selected</Badge>
-                            )}
+            {activeTab === 'live' ? (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    {/* Status Pills */}
+                    <div className="flex gap-2">
+                        <div className="flex-1 bg-white p-3 rounded-2xl shadow-sm border border-green-100 flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center text-white"><Check className="h-3 w-3" /></div>
+                            <span className="text-[10px] font-black uppercase text-green-700 tracking-tight">{counts.active} Active</span>
                         </div>
-                        <ScrollArea className="flex-1">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-20">
-                                {homeDeliveries.map(o => (
-                                    <DeliveryOrderCard 
-                                        key={o.id} 
-                                        order={o} 
-                                        onStatusChange={handleOrderUpdate}
-                                        isSelected={selectedDeliveryIds.has(o.id)}
-                                        onToggleSelection={handleToggleDeliverySelection}
-                                    />
-                                ))}
-                                {homeDeliveries.length === 0 && (
-                                    <div className={cn(
-                                        "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
-                                        isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
-                                    )}>
-                                        <ShoppingBag className="h-8 w-8 mx-auto mb-2"/>
-                                        <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active jobs</p>
-                                    </div>
-                                )}
-                            </div>
-                            <ScrollBar orientation="vertical" />
-                        </ScrollArea>
-                    </section>
-
-                    <section className="flex flex-col h-full min-h-0">
-                        <div className="flex justify-between items-center mb-4 shrink-0 px-1">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 flex items-center gap-2">{isSalon ? <Utensils className="h-3.5 w-3.5"/> : <Utensils className="h-3.5 w-3.5"/>} {isSalon ? 'Chair & Counter' : 'Table & Counter'}</h2>
+                        <div className="flex-1 bg-white p-3 rounded-2xl shadow-sm border border-red-100 flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-red-500 flex items-center justify-center text-white"><Circle className="h-1 w-1 fill-current" /></div>
+                            <span className="text-[10px] font-black uppercase text-red-700 tracking-tight">{counts.newCount} New</span>
                         </div>
-                        <ScrollArea className="flex-1">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pr-4 pb-20">
-                                {Object.values(sessions).map(s => (
-                                    <SessionCard 
-                                        key={s.id} 
-                                        session={s} 
-                                        onDismissService={handleDismissService} 
-                                        store={myStore!} 
-                                        isSalon={isSalon} 
-                                    />
-                                ))}
-                                {Object.values(sessions).length === 0 && (
-                                    <div className={cn(
-                                        "col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-60",
-                                        isKitchenMode ? "border-white/10 text-white" : "border-black/5 text-gray-400"
-                                    )}>
-                                        <Monitor className="h-8 w-8 mx-auto mb-2"/>
-                                        <p className={cn("text-[9px] font-black uppercase tracking-widest", isKitchenMode ? "text-white" : "text-black")}>No active sessions</p>
-                                    </div>
-                                )}
-                            </div>
-                            <ScrollBar orientation="vertical" />
-                        </ScrollArea>
-                    </section>
+                        <div className="flex-1 bg-white p-3 rounded-2xl shadow-sm border border-amber-100 flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center text-white"><Clock className="h-3 w-3" /></div>
+                            <span className="text-[10px] font-black uppercase text-amber-700 tracking-tight">{counts.procCount} Proc.</span>
+                        </div>
+                    </div>
 
-                    {/* BATCH ACTION BAR */}
-                    {selectedDeliveryIds.size > 0 && (
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] md:w-[400px] z-50 animate-in slide-in-from-bottom-10 duration-300">
-                            <Card className="rounded-2xl shadow-2xl bg-slate-900 border-0 p-3 flex items-center justify-between">
-                                <div className="flex items-center gap-3 pl-2">
-                                    <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-black text-xs">{selectedDeliveryIds.size}</div>
-                                    <span className="text-[9px] font-black uppercase text-white tracking-widest">Jobs Selected</span>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => handleBatchStatusUpdate('Processing')} className="h-9 rounded-xl font-black text-[8px] uppercase tracking-widest bg-blue-600 hover:bg-blue-700">Process All</Button>
-                                    <Button size="sm" onClick={() => handleBatchStatusUpdate('Out for Delivery')} className="h-9 rounded-xl font-black text-[8px] uppercase tracking-widest bg-purple-600 hover:bg-purple-700">Dispatch All</Button>
-                                    <Button variant="ghost" size="icon" onClick={() => setSelectedDeliveryIds(new Set())} className="h-9 w-9 rounded-xl text-white/40 hover:text-white hover:bg-white/10"><X className="h-4 w-4"/></Button>
-                                </div>
-                            </Card>
+                    {/* Search & Filter */}
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input placeholder="Search sessions, tables, or customers..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-12 rounded-2xl border-0 shadow-sm bg-white pl-11 text-xs font-bold" />
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            {['all', 'pending', 'processing', 'delivery'].map(f => (
+                                <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-6 h-9 rounded-full font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white shadow-md" : "bg-white border-black/5 text-gray-400")}>{f}</button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Order Sections */}
+                    {counts.active > 0 ? (
+                        <div className="space-y-8">
+                            <section>
+                                <StatusHeader label="NEW" colorClass="bg-red-500" count={sessionsByStatus.Pending.length} />
+                                {sessionsByStatus.Pending.map(s => <SessionCard key={s.id} session={s} store={myStore!} isSalon={true} onDismissService={handleDismissService} onStatusChange={handleOrderUpdate} />)}
+                            </section>
+                            <section>
+                                <StatusHeader label="PROCESSING" colorClass="bg-amber-500" count={sessionsByStatus.Processing.length} />
+                                {sessionsByStatus.Processing.map(s => <SessionCard key={s.id} session={s} store={myStore!} isSalon={true} onDismissService={handleDismissService} onStatusChange={handleOrderUpdate} />)}
+                            </section>
+                            <section>
+                                <StatusHeader label="BILLED" colorClass="bg-green-500" count={sessionsByStatus.Billed.length} />
+                                {sessionsByStatus.Billed.map(s => <SessionCard key={s.id} session={s} store={myStore!} isSalon={true} onDismissService={handleDismissService} onStatusChange={handleOrderUpdate} />)}
+                            </section>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-center opacity-60">
+                            <div className="h-24 w-24 rounded-full bg-white shadow-xl flex items-center justify-center mb-6"><ShoppingBag className="h-10 w-10 text-primary opacity-20" /></div>
+                            <h2 className="text-lg font-black text-gray-900 uppercase tracking-tight">You're all set! No active orders</h2>
+                            <p className="text-xs font-bold text-gray-500 mt-1 uppercase tracking-widest">Create a new sale to get started.</p>
+                            <Button onClick={() => setIsNewSaleOpen(true)} className="mt-8 rounded-full h-12 px-8 font-black uppercase text-[10px] tracking-[0.2em] shadow-xl"><Plus className="h-4 w-4 mr-2" /> Create Order</Button>
                         </div>
                     )}
                 </div>
-            </TabsContent>
-            
-            <TabsContent value="history" className="mt-0">
-                {myStore && <HistoryAndInsightsCenter storeId={myStore.id} />}
-            </TabsContent>
-        </Tabs>
+            ) : (
+                myStore && <HistoryAndInsightsCenter storeId={myStore.id} />
+            )}
+        </main>
+
+        <Button onClick={() => setIsNewSaleOpen(true)} className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-2xl z-50 bg-primary text-white border-4 border-white/20 active:scale-95 transition-all">
+            <Plus className="h-8 w-8" />
+        </Button>
     </div>
   );
 }
