@@ -350,6 +350,15 @@ export type ReportData = {
   orders: Order[]; 
 };
 
+export type NluExtractedSentence = {
+    id: string;
+    rawText: string;
+    extractedNumbers: any[]; 
+    confidence: number;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: any;
+};
+
 declare global {
   interface Window {
       SpeechRecognition: any;
