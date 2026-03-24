@@ -24,11 +24,12 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
+        // Generate random delivery time only on the client-side to avoid hydration errors
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
     }, []);
 
     return (
-        <div className="bg-background sticky top-0 z-20 px-4 py-4 space-y-4 shadow-sm border-b">
+        <div className="bg-background px-4 py-4 space-y-4 shadow-sm border-b">
             <div className="flex justify-between items-center">
                 <div>
                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>

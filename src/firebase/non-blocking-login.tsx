@@ -33,6 +33,12 @@ export function NonBlockingLogin() {
 
         // Lazy load firestore only after login is initiated
         const db = await getFirestoreInstance();
+        
+        if (!db) {
+            console.error("Firestore initialization failed during login.");
+            return;
+        }
+
         const userDocRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userDocRef);
 

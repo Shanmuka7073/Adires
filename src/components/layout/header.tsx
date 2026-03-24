@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -141,10 +140,10 @@ export function Header() {
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
   const { isRestaurantOwner, isAdmin } = useAdminAuth();
 
-  // Hide the global header on the homepage and specialized menu pages
-  if (pathname === '/' || pathname.startsWith('/menu/')) return null;
+  // Hide the global header on specialized menu pages only
+  if (pathname?.startsWith('/menu/')) return null;
 
-  const showShoppingControls = !isRestaurantOwner;
+  const showShoppingControls = !isRestaurantOwner && !isAdmin;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
 
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
