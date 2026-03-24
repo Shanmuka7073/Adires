@@ -386,64 +386,7 @@ export type ReportData = {
     grossProfit: number;
     profitPercentage: number;
   }[];
-};
-
-export type EmployeeProfile = {
-    userId: string;
-    storeId: string;
-    employeeId: string;
-    email: string; // Denormalized email for management
-    firstName: string; // Denormalized
-    lastName: string; // Denormalized
-    phone: string; // Denormalized
-    address: string; // Denormalized
-    role: string;
-    hireDate: string;
-    salaryRate: number;
-    salaryType: 'hourly' | 'monthly';
-    payoutMethod: 'bank' | 'upi';
-    upiId?: string;
-    bankDetails?: {
-        accountHolderName: string;
-        accountNumber: string;
-        ifscCode: string;
-    };
-    reportingTo?: string; // UserID of the manager
-};
-
-export type ReasonEntry = {
-    text: string;
-    timestamp: any;
-    status: 'submitted' | 'rejected' | 'approved';
-    rejectionReason?: string;
-};
-
-export type AttendanceRecord = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    workDate: Timestamp; // Using Timestamp for correct sorting
-    workDateStr: string; // Keep string for easy comparison
-    punchInTime: Timestamp | Date | string | null;
-    punchOutTime: Timestamp | Date | string | null;
-    workHours: number;
-    reasonHistory?: ReasonEntry[];
-    rejectionCount: number;
-    status: 'present' | 'absent' | 'pending_approval' | 'approved' | 'rejected' | 'partially_present';
-};
-
-export type SalarySlip = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    periodStart: string;
-    periodEnd: string;
-    baseSalary: number;
-    overtimeHours: number;
-    overtimePay: number;
-    deductions: number;
-    netPay: number;
-    generatedAt: Timestamp;
+  orders: Order[]; // FIX: Added missing orders field for interactive drill-downs
 };
 
 declare global {

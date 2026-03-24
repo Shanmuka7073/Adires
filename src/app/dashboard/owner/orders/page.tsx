@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';

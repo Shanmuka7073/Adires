@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 /**
  * Aggressively registers and manages the Service Worker lifecycle.
- * Removed automatic reload on controllerchange to prevent "double-refresh" logic loops.
+ * Removed automatic reload on update to prevent "double-refresh" logic loops.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function ServiceWorkerRegister() {
           
           console.log('Adires PWA registered:', registration.scope);
           
-          // 2. Handle automatic updates
+          // 2. Handle automatic updates silently
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (installingWorker) {
