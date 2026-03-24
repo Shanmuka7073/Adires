@@ -27,9 +27,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-/**
- * Prominent Install Button for the Top Header (Outside)
- */
 function GlobalInstallButton() {
     const { canInstall, triggerInstall } = useInstall();
     if (!canInstall) return null;
@@ -39,11 +36,10 @@ function GlobalInstallButton() {
             onClick={triggerInstall} 
             variant="default" 
             size="sm" 
-            className="rounded-full h-8 px-2 sm:px-4 font-black text-[9px] sm:text-[10px] uppercase tracking-widest shadow-lg bg-primary text-white border-0 transition-all active:scale-95"
+            className="rounded-full h-7 px-3 font-black text-[8px] uppercase tracking-widest shadow-md bg-primary text-white border-0 transition-all active:scale-95"
         >
-            <Download className="h-3.5 w-3.5 sm:mr-2" />
-            <span className="hidden sm:inline-block">Install App</span>
-            <span className="hidden xs:inline-block sm:hidden">Install</span>
+            <Download className="h-3 w-3 mr-1.5" />
+            <span className="hidden sm:inline-block">Install</span>
         </Button>
     );
 }
@@ -54,8 +50,8 @@ function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl border-2">
-                    <Globe className="h-4 w-4" />
+                <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-2">
+                    <Globe className="h-3.5 w-3.5" />
                     <span className="sr-only">Change language</span>
                 </Button>
             </DropdownMenuTrigger>
@@ -86,12 +82,12 @@ function UserMenu() {
   };
 
   if (isUserLoading) {
-    return <Skeleton className="h-8 w-8 rounded-full" />;
+    return <Skeleton className="h-7 w-7 rounded-full" />;
   }
 
   if (!user) {
     return (
-      <Button asChild variant="outline" size="sm" className="rounded-xl h-8 px-3 font-black text-[10px] uppercase tracking-widest border-2">
+      <Button asChild variant="outline" size="sm" className="rounded-lg h-7 px-2 font-black text-[8px] uppercase tracking-widest border-2">
         <Link href="/login">{t('login')}</Link>
       </Button>
     );
@@ -100,8 +96,8 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 border-2 border-primary/10">
-          <UserCircle className="h-5 w-5" />
+        <Button variant="secondary" size="icon" className="rounded-full h-7 w-7 border-2 border-primary/10">
+          <UserCircle className="h-4 w-4" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
@@ -142,37 +138,37 @@ function UserMenu() {
 export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
-  const { isRestaurantOwner, isEmployee, isAdmin } = useAdminAuth();
+  const { isRestaurantOwner, isAdmin } = useAdminAuth();
 
   if (pathname.startsWith('/menu/')) return null;
 
-  const showShoppingControls = !isRestaurantOwner && !isEmployee;
-  const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
+  const showShoppingControls = !isRestaurantOwner;
+  const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
   
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
-  const brandName = (isAdmin || isRestaurantOwner || pathname.startsWith('/dashboard/owner')) ? userStore?.name || "ADIRES" : (userStore?.name || "Adires");
+  const brandName = userStore?.name || "ADIRES";
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
-      <Link href={homeHref} className="flex items-center gap-3 group shrink-0 min-w-0">
-        <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-primary/20 bg-white shrink-0 shadow-sm">
+    <header className="sticky top-0 z-50 flex h-12 items-center gap-2 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
+      <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
+        <div className="relative w-7 h-7 rounded-full overflow-hidden border bg-white shrink-0 shadow-sm">
           <Image 
             src={logoUrl} 
             alt="Logo" 
-            width={40} 
-            height={40} 
+            width={28} 
+            height={28} 
             className="object-cover w-full h-full" 
             priority 
           />
         </div>
-        <div className="flex flex-col min-w-0 overflow-hidden">
-            <span className="font-headline font-black text-gray-950 text-sm sm:text-base leading-none tracking-tighter truncate uppercase">
+        <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+            <span className="font-headline font-black text-gray-950 text-xs leading-none tracking-tight truncate uppercase">
                 {brandName}
             </span>
-            {(isAdmin || isRestaurantOwner || pathname.startsWith('/dashboard/owner')) && (
-                <div className="flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="h-2.5 w-2.5 text-green-600 fill-current" />
-                    <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Verified Store</span>
+            {(isAdmin || isRestaurantOwner) && (
+                <div className="flex items-center gap-0.5 opacity-60">
+                    <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
+                    <span className="text-[7px] font-black text-green-600 uppercase tracking-tighter">Verified</span>
                 </div>
             )}
         </div>
@@ -180,7 +176,7 @@ export function Header() {
       
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1.5">
         <GlobalInstallButton />
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
