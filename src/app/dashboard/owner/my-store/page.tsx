@@ -14,28 +14,24 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, User as AppUser } from '@/lib/types';
-import { useFirebase, useDoc, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, doc, updateDoc, setDoc, limit } from 'firebase/firestore';
+import type { Store } from '@/lib/types';
+import { useFirebase, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -45,18 +41,9 @@ import {
   Loader2,
   Edit3,
   Save,
-  CheckCircle2,
-  Send,
-  ArrowRight,
-  User as UserIcon,
-  Copy,
-  ExternalLink
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
@@ -95,7 +82,7 @@ function StoreImageUploader({ store }: { store: Store }) {
 
             updateDoc(storeRef, updateData)
                 .then(() => {
-                    toast({ title: 'Image URL Updated!' });
+                    toast({ title: 'Image Updated!' });
                     incrementWriteCount(1);
                 })
                 .catch((e) => {
@@ -280,14 +267,10 @@ export default function MyStorePage() {
 
     return (
         <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
-            {/* NO LOCAL HEADER - USING GLOBAL HEADER FOR SINGLE SOURCE OF IDENTITY */}
             <div className="grid grid-cols-1 gap-3">
                 <StoreDetails store={myStore} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
-                
-                <StoreImageUploader myStore={myStore} />
-                
+                <StoreImageUploader store={myStore} />
                 <PromoteStore />
-
                 <Button asChild variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[9px] tracking-widest hover:bg-primary/10 shadow-sm transition-all active:scale-95">
                     <Link href="/dashboard/owner/menu-manager">
                         <ImageIcon className="mr-2 h-4 w-4" /> Edit Digital Catalog
