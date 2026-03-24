@@ -174,15 +174,15 @@ export default function ServiceDashboardPage() {
     }
 
     return (
-        <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl space-y-10 pb-32">
+        <div className="container mx-auto py-4 px-3 md:px-6 max-w-2xl space-y-4 pb-24">
             {/* HERO SECTION */}
-            <div className="flex flex-col items-center text-center gap-4">
-                <div className="h-20 w-20 rounded-[2rem] bg-primary/5 flex items-center justify-center text-primary shadow-inner">
+            <div className="flex flex-col items-center text-center gap-3">
+                <div className="h-12 w-12 rounded-[2rem] bg-primary/5 flex items-center justify-center text-primary shadow-inner">
                     <DashboardIcon className="h-10 w-10" />
                 </div>
                 <div>
-                    <h1 className="text-4xl font-black tracking-tighter text-gray-950 uppercase italic leading-none">{dashboardTitle}</h1>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-2 opacity-40">Operational Authority</p>
+                    <h1 className="text-xl font-black tracking-tighter text-gray-950 uppercase italic leading-none">{dashboardTitle}</h1>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mt-1 opacity-40">Operational Authority</p>
                 </div>
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-4 py-2 rounded-full border border-green-100">
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -191,17 +191,17 @@ export default function ServiceDashboardPage() {
             </div>
 
             {/* MODULE CARDS */}
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-3">
                 {serviceLinks.map((card) => (
                     <Link href={card.href} key={card.href} className="group block">
                         <Card className={cn(
                             "rounded-[2.5rem] border-0 shadow-lg overflow-hidden transition-all group-hover:shadow-2xl group-active:scale-[0.98] bg-white",
                             card.highlight && "bg-primary/5 ring-2 ring-primary/10"
                         )}>
-                            <div className="p-8">
+                            <div className="p-3">
                                 <div className="flex justify-between items-start mb-6">
                                     <div className={cn(
-                                        "h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner",
+                                        "h-10 w-10 rounded-2xl flex items-center justify-center shadow-inner",
                                         card.highlight ? "bg-primary text-white" : "bg-primary/5 text-primary"
                                     )}>
                                         <card.icon className="h-7 w-7" />
@@ -214,11 +214,11 @@ export default function ServiceDashboardPage() {
                                 </div>
                                 
                                 <div className="space-y-1">
-                                    <h3 className="text-xl font-black uppercase tracking-tight text-gray-950">{card.title}</h3>
+                                    <h3 className="text-sm font-black uppercase tracking-tight text-gray-950">{card.title}</h3>
                                     <p className="text-[11px] font-bold text-gray-500 uppercase leading-tight opacity-60 max-w-[80%]">{card.description}</p>
                                 </div>
 
-                                <div className="mt-8 flex justify-between items-center">
+                                <div className="mt-3 flex justify-between items-center">
                                     <div className="flex items-center text-primary font-black uppercase text-[10px] tracking-[0.2em]">
                                         <span>Enter Module</span>
                                         <ArrowRight className="ml-2 h-3.5 w-3.5" />
@@ -232,11 +232,11 @@ export default function ServiceDashboardPage() {
             </div>
 
             {/* SECONDARY TOOLS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                 {store && <PWAChecklist store={store} />}
                 
-                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-8 flex flex-col justify-center items-center text-center gap-4 group">
-                    <div className="h-12 w-12 rounded-2xl bg-black/5 flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white p-3 flex flex-col justify-center items-center text-center gap-4 group">
+                    <div className="h-9 w-12 rounded-2xl bg-black/5 flex items-center justify-center text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                         <Smartphone className="h-6 w-6" />
                     </div>
                     <div>
@@ -251,9 +251,9 @@ export default function ServiceDashboardPage() {
 
             {/* INSTALL BANNER */}
             {canInstall && (
-                <Card className="rounded-[2.5rem] border-0 shadow-xl bg-gray-950 text-white p-8 relative overflow-hidden group">
+                <Card className="rounded-[2.5rem] border-0 shadow-xl bg-gray-950 text-white p-4 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">
-                        <Smartphone className="h-32 w-32" />
+                        <Smartphone className="h-12 w-32" />
                     </div>
                     <div className="relative z-10 space-y-6">
                         <div>
