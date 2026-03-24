@@ -1,23 +1,24 @@
 'use client';
 
 /**
- * FIREBASE HUB (OPTIMIZED V2)
- * Re-exports services from modular files to support tree-shaking.
- * Heavweight services (Firestore, Storage, App Check) are strictly lazy-loaded.
+ * FIREBASE HUB (OPTIMIZED V3)
+ * Implements full lazy-loading for all services to minimize initial bundle size.
  */
 
-export { app as firebaseApp } from './app';
-export { auth } from './auth';
+import { getFirebaseApp } from './app';
+import { getAuthInstance } from './auth';
+
+export { getFirebaseApp, getAuthInstance };
 
 // Dynamic loaders for heavy services
 export async function getFirestoreInstance() {
-    const { db } = await import('./firestore');
-    return db;
+    const { getFirestoreInstanceInternal } = await import('./firestore');
+    return getFirestoreInstanceInternal();
 }
 
 export async function getStorageInstance() {
-    const { storage } = await import('./storage');
-    return storage;
+    const { getStorageInstanceInternal } = await import('./storage');
+    return getStorageInstanceInternal();
 }
 
 export async function initializeAppCheckDeferred() {

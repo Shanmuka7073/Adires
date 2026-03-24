@@ -1,10 +1,13 @@
 'use client';
 
-import { getStorage, FirebaseStorage } from 'firebase/storage';
-import { app } from './app';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getFirebaseApp } from './app';
 
 /**
- * MODULAR STORAGE SDK
- * Loaded only for asset management and image uploads.
+ * MODULAR STORAGE GETTER
  */
-export const storage: FirebaseStorage = getStorage(app);
+export function getStorageInstanceInternal(): FirebaseStorage | null {
+  const app = getFirebaseApp();
+  if (!app) return null;
+  return getStorage(app);
+}

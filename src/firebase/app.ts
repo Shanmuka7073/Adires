@@ -1,11 +1,11 @@
 'use client';
 
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 
 /**
- * LIGHTWEIGHT FIREBASE APP INITIALIZATION
- * Only contains the base app logic to keep the initial bundle small.
- * Uses static env variables for synchronous initialization.
+ * LIGHTWEIGHT FIREBASE APP LOADER
+ * Optimized to be resilient during Next.js static generation (server-side).
+ * It will not attempt to initialize if the API key is missing during build.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,4 +16,13 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export function getFirebaseApp(): FirebaseApp | null {
+  if (getApps().length) return getApp();
+  
+  // Guard against missing config during build time (SSR/Prerendering)
+  if (!firebaseConfig.apiKey) {
+    return null;
+  }
+
+  return initializeApp(firebaseConfig);
+}

@@ -4,16 +4,20 @@ import {
   initializeFirestore, 
   persistentLocalCache, 
   persistentMultipleTabManager,
-  Firestore
+  type Firestore
 } from 'firebase/firestore';
-import { app } from './app';
+import { getFirebaseApp } from './app';
 
 /**
- * MODULAR FIRESTORE SDK (HEAVY)
+ * MODULAR FIRESTORE GETTER
  * Initialized with persistent local cache for high-performance offline support.
- * This file is only loaded when data fetching is actually required.
  */
-export const db: Firestore = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  ignoreUndefinedProperties: true,
-});
+export function getFirestoreInstanceInternal(): Firestore | null {
+  const app = getFirebaseApp();
+  if (!app) return null;
+  
+  return initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    ignoreUndefinedProperties: true,
+  });
+}

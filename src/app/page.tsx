@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -191,8 +190,8 @@ export default function LocalBasketHomepage() {
             </div>
             <div className="relative z-10 space-y-4">
                 <div>
-                    <h2 className="text-4xl font-black font-headline tracking-tighter uppercase italic leading-none">Voice Groceries App</h2>
-                    <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-2">India's First AI Grocery Voice Assistant</p>
+                    <h2 className="text-4xl font-black font-headline tracking-tighter uppercase italic leading-none">Voice Hub</h2>
+                    <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-2">Natural Shopping Experience</p>
                 </div>
                 <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest bg-white/20 w-fit px-3 py-1 rounded-full border border-white/10">
                     <Sparkles className="h-3 w-3" /> Powered by Genkit AI

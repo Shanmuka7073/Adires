@@ -2,8 +2,10 @@
 
 import React, { type ReactNode, useEffect, useState } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
-import { firebaseApp, auth, getFirestoreInstance, getStorageInstance, initializeAppCheckDeferred } from '@/firebase';
+import { getFirebaseApp, getAuthInstance, getFirestoreInstance, getStorageInstance, initializeAppCheckDeferred } from '@/firebase';
 import GlobalLoader from '@/components/layout/global-loader';
+import type { FirebaseApp } from 'firebase/app';
+import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import type { FirebaseStorage } from 'firebase/storage';
 
@@ -12,43 +14,54 @@ interface FirebaseClientProviderProps {
 }
 
 /**
- * STRATEGIC CLIENT PROVIDER
- * Implements code-splitting by deferring heavy SDKs.
- * 1. Auth is loaded immediately (Small).
- * 2. Firestore/Storage are loaded in background.
- * 3. App Check is deferred by 3s to clear LCP thread.
+ * STRATEGIC CLIENT PROVIDER (V3)
+ * Fully dynamic initialization to solve build-time errors and bundle bloat.
+ * 1. Initializes basic App and Auth shell on client mount.
+ * 2. Lazily loads Firestore and Storage in the background.
+ * 3. Defers App Check to clear the critical rendering path.
  */
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
+  const [auth, setAuth] = useState<Auth | null>(null);
   const [firestore, setFirestore] = useState<Firestore | null>(null);
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isCoreLoaded, setIsCoreLoaded] = useState(false);
 
   useEffect(() => {
-    const loadHeavyServices = async () => {
-        try {
-            const [db, st] = await Promise.all([
-                getFirestoreInstance(),
-                getStorageInstance()
-            ]);
-            setFirestore(db);
-            setStorage(st);
-            setIsLoaded(true);
-            
-            // Wait for UI to settle before triggering reCAPTCHA
-            setTimeout(() => {
-                initializeAppCheckDeferred();
-            }, 3000);
-        } catch (e) {
-            console.error("Critical service load failed:", e);
-            setIsLoaded(true); 
+    const initCoreServices = async () => {
+        // Core initialization only happens on the client
+        const appInstance = getFirebaseApp();
+        const authInstance = getAuthInstance();
+        
+        setFirebaseApp(appInstance);
+        setAuth(authInstance);
+        setIsCoreLoaded(true);
+
+        // Background load heavier services
+        if (appInstance) {
+            try {
+                const [db, st] = await Promise.all([
+                    getFirestoreInstance(),
+                    getStorageInstance()
+                ]);
+                setFirestore(db);
+                setStorage(st);
+                
+                // Final deferral for reCAPTCHA App Check
+                setTimeout(() => {
+                    initializeAppCheckDeferred();
+                }, 4000);
+            } catch (e) {
+                console.error("Delayed service load failed:", e);
+            }
         }
     };
 
-    loadHeavyServices();
+    initCoreServices();
   }, []);
 
-  // Only block the UI if we're not yet ready to handle Auth
-  if (!isLoaded && typeof window !== 'undefined') {
+  // Show the loader only during the initial client-side bootstrap
+  if (!isCoreLoaded && typeof window !== 'undefined') {
     return <GlobalLoader />;
   }
 
@@ -56,8 +69,8 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     <FirebaseProvider
       firebaseApp={firebaseApp}
       auth={auth}
-      firestore={firestore as any}
-      storage={storage as any}
+      firestore={firestore}
+      storage={storage}
     >
       {children}
     </FirebaseProvider>

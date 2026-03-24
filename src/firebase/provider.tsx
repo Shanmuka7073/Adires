@@ -1,10 +1,10 @@
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
-import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { FirebaseStorage } from 'firebase/storage';
+import { type FirebaseApp } from 'firebase/app';
+import { type Firestore } from 'firebase/firestore';
+import { type Auth, type User, onAuthStateChanged } from 'firebase/auth';
+import { type FirebaseStorage } from 'firebase/storage';
 
 interface UserAuthState {
   user: User | null;
@@ -24,9 +24,9 @@ export interface FirebaseContextState {
 }
 
 export interface FirebaseServicesAndUser {
-  firebaseApp: FirebaseApp;
-  firestore: Firestore | null; // Allow null for lazy loading
-  auth: Auth;
+  firebaseApp: FirebaseApp | null;
+  firestore: Firestore | null;
+  auth: Auth | null;
   storage: FirebaseStorage | null;
   user: User | null;
   isUserLoading: boolean;
@@ -50,13 +50,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     if (!auth) { 
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service missing.") });
+      // Auth might be null during build or initial lazy-load
+      setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
       return;
     }
 
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (firebaseUser) => { 
+      (firebaseUser) => { 
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => { 
@@ -92,9 +93,9 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     throw new Error('useFirebase must be used within a FirebaseProvider.');
   }
   return {
-    firebaseApp: context.firebaseApp!,
+    firebaseApp: context.firebaseApp,
     firestore: context.firestore,
-    auth: context.auth!,
+    auth: context.auth,
     storage: context.storage,
     user: context.user,
     isUserLoading: context.isUserLoading,
@@ -113,8 +114,8 @@ export const useUser = () => {
 
 interface FirebaseProviderProps {
   children: ReactNode;
-  firebaseApp: FirebaseApp;
+  firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
-  auth: Auth;
+  auth: Auth | null;
   storage: FirebaseStorage | null;
 }

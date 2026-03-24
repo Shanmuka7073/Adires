@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -13,9 +12,8 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com'];
  * Optimized to handle multiple roles and loading states gracefully.
  */
 export function useAdminAuth() {
-  const { user, isUserLoading, firestore } = useFirebase();
+  const { user, isUserLoading, firestore, auth } = useFirebase();
 
-  // Explicitly return null if firestore or user is not available
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -39,9 +37,8 @@ export function useAdminAuth() {
     return !!(user && user.email === 'chickenadmin@gmail.com');
   }, [user]);
 
-  // CRITICAL FIX: The loading state must wait for firestore to be initialized
-  // if a user is logged in, because we need firestore to check the role.
-  const loading = isUserLoading || (!!user && (firestore === null || isProfileLoading));
+  // Wait for Auth shell AND (if logged in) the Firestore profile data
+  const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
 
   return {
     isAdmin,

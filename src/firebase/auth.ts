@@ -1,10 +1,14 @@
 'use client';
 
-import { getAuth, Auth } from 'firebase/auth';
-import { app } from './app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirebaseApp } from './app';
 
 /**
- * MODULAR AUTH SDK
- * Loaded independently to support fast login page rendering.
+ * MODULAR AUTH GETTER
+ * Ensures auth is only initialized when the Firebase App is ready.
  */
-export const auth: Auth = getAuth(app);
+export function getAuthInstance(): Auth | null {
+  const app = getFirebaseApp();
+  if (!app) return null;
+  return getAuth(app);
+}
