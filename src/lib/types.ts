@@ -359,6 +359,28 @@ export type NluExtractedSentence = {
     createdAt: any;
 };
 
+export type CreateVoiceprintInput = {
+  userId: string;
+  audioDataUri: string;
+};
+
+export type CreateVoiceprintOutput = {
+  isSuccess: boolean;
+  enrollmentCount: number;
+  error?: string;
+};
+
+export type VerifyVoiceprintInput = {
+  userId: string;
+  audioDataUri: string;
+};
+
+export type VerifyVoiceprintOutput = {
+  isMatch: boolean;
+  confidence: number;
+  error?: string;
+};
+
 declare global {
   interface Window {
       SpeechRecognition: any;
