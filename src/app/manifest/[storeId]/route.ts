@@ -1,6 +1,4 @@
 
-'use server';
-
 import { NextResponse } from "next/server";
 
 // The official Adires Platform Logo (fallback branding)
@@ -8,8 +6,7 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 /**
  * Dynamic Manifest API (Ultra-Resilient REST Version)
- * Uses the Firestore REST API to bypass Admin SDK credential issues on production (Vercel).
- * Ensures "PRAVEEN" shows up correctly in the install prompt.
+ * Uses the Firestore REST API to bypass Admin SDK credential issues on production.
  */
 export async function GET(
   request: Request,
@@ -29,10 +26,6 @@ export async function GET(
   let backgroundColor = "#ffffff";
 
   try {
-    /**
-     * FETCH STORE DATA VIA REST
-     * This is the most robust way to get data on the server without Admin SDK.
-     */
     const storeRes = await fetch(
       `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}`,
       { next: { revalidate: 60 } } 
@@ -45,9 +38,6 @@ export async function GET(
       if (fields?.name?.stringValue) name = fields.name.stringValue;
       if (fields?.imageUrl?.stringValue) imageUrl = fields.imageUrl.stringValue;
 
-      /**
-       * FETCH MENU THEME VIA REST
-       */
       const menuRes = await fetch(
         `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}/menus`,
         { next: { revalidate: 60 } }
@@ -68,7 +58,7 @@ export async function GET(
   }
 
   const manifest = {
-    id: `adires-v4-${storeId}`, // Version bump to force browser refresh
+    id: `adires-v4-${storeId}`, 
     name: name,
     short_name: name.substring(0, 12),
     description: `Official app for ${name}`,

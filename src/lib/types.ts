@@ -97,7 +97,7 @@ export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
-  menuItemId: string; // Reference to the original menu item for robust cost calculation and analytics
+  menuItemId: string; // Reference to the original menu item
   productName: string;
   variantSku: string;
   variantWeight: string;
@@ -224,7 +224,7 @@ export type Payout = {
 
 // Represents the canonical pricing for a product, managed by the admin.
 export type ProductPrice = {
-    productName: string; // The unique name of the product, matches the document ID.
+    productName: string; // The unique name of the product
     variants: ProductVariant[];
 }
 
@@ -241,7 +241,7 @@ export type FailedVoiceCommand = {
 export type VoiceAliasGroup = {
     id: string; // The canonical key, e.g., 'tomatoes'
     type: 'product' | 'store' | 'command';
-    [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
+    [key: string]: any; 
 };
 
 export interface GetIngredientsOutput {
@@ -256,44 +256,6 @@ export interface GetIngredientsOutput {
     };
 }
 
-export type Voiceprint = {
-  userId: string; 
-  enrollments: number[][]; 
-  voiceprint: number[]; 
-  createdAt: string;
-  lastUpdatedAt: string;
-};
-
-export const CreateVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user.'),
-  audioDataUri: z
-    .string()
-    .describe(
-      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
-    ),
-});
-export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
-
-export const CreateVoiceprintOutputSchema = z.object({
-  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
-  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
-  error: z.string().optional().describe('An error message if the process failed.'),
-});
-export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
-
-export const VerifyVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user to verify against.'),
-  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
-});
-export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
-
-export const VerifyVoiceprintOutputSchema = z.object({
-    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
-    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
-    error: z.string().optional().describe('An error message if verification failed.'),
-});
-export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
-
 export type CachedRecipe = {
     id: string;
     dishName: string;
@@ -304,13 +266,6 @@ export type CachedRecipe = {
         calories: number;
         protein: number;
     };
-    createdAt: any; // Allow serverTimestamp
-}
-
-export type CachedAIResponse = {
-    id: string;
-    question: string;
-    answer: string;
     createdAt: any; // Allow serverTimestamp
 }
 
@@ -341,88 +296,6 @@ export type SiteConfig = {
     isOrderVideoEnabled?: boolean;
     isOrderVideoEnabled_V2?: boolean;
     isAliasSuggesterEnabled?: boolean;
-};
-
-export type ChatMessage = {
-  id?: string;
-  role: 'user' | 'model';
-  text: string;
-  proposedCode?: string; // Code suggested by Asha for direct application
-  targetPath?: string; // File to be edited
-  timestamp?: any;
-};
-
-export type CommandGroup = {
-  display: string;
-  reply: {
-    en: string;
-    te?: string;
-    hi?: string;
-    en_audio?: string;
-    te_audio?: string;
-    hi_audio?: string;
-  };
-};
-
-export type NluExtractedSentence = {
-    id: string;
-    rawText: string;
-    extractedNumbers: any[]; 
-    confidence: number;
-    status: 'pending' | 'approved' | 'rejected';
-    createdAt: any;
-};
-
-export type GenerateBreakfastPackOutput = {
-  packName: string;
-  schedule: DayPlan[];
-  shoppingList: {
-    itemName: string;
-    quantity: string;
-  }[];
-  estimatedCost: number;
-};
-
-// Restaurant Menu Types
-export type MenuItem = {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  category: string;
-  ingredients?: Ingredient[];
-  imageUrl?: string; // URL for AI-generated dish image
-  dietary?: 'veg' | 'non-veg'; // Dietary indicator
-  isAvailable: boolean; // Stock toggle
-  customizations?: CustomizationGroup[];
-  recommendations?: string[]; // IDs of related items
-};
-
-export type MenuTheme = {
-  backgroundColor: string;
-  primaryColor: string;
-  textColor: string;
-};
-
-export type Menu = {
-  id: string;
-  storeId: string;
-  items: MenuItem[];
-  theme?: MenuTheme;
-};
-
-export type UnidentifiedCartItem = {
-    id: string;
-    term: string;
-    status: 'pending' | 'failed' | 'identified';
-};
-
-// Type for Restaurant Inventory
-export type RestaurantIngredient = {
-  id: string;
-  name: string;
-  unit: string; // e.g., 'kg', 'litre', 'pc'
-  cost: number; // The purchase cost per unit
 };
 
 export type ReportData = {

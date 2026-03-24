@@ -40,7 +40,7 @@ const baseEmployeeSchema = z.object({
   accountHolderName: z.string().optional(),
   accountNumber: z.string().optional(),
   ifscCode: z.string().optional(),
-  reportingTo: z.string().optional(), // Manager's user ID
+  reportingTo: z.string().optional(), 
 });
 
 const refinedSchemaCheck = (data: any) => {
@@ -65,7 +65,6 @@ const editEmployeeSchema = baseEmployeeSchema.omit({
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 type EditEmployeeFormValues = z.infer<typeof editEmployeeSchema>;
 
-// Edit Dialog for Existing Employees
 function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore }: { employee: EmployeeProfile, employees: EmployeeProfile[], isOpen: boolean, onOpenChange: (open: boolean) => void, myStore: Store }) {
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
@@ -73,9 +72,17 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
     const form = useForm<EditEmployeeFormValues>({
         resolver: zodResolver(editEmployeeSchema),
         defaultValues: {
-            ...employee,
-            upiId: employee.upiId ?? '',
-            reportingTo: employee.reportingTo ?? undefined,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            email: employee.email,
+            phone: employee.phone,
+            address: employee.address,
+            role: employee.role,
+            salaryRate: employee.salaryRate,
+            salaryType: employee.salaryType,
+            payoutMethod: employee.payoutMethod,
+            upiId: employee.upiId || '',
+            reportingTo: employee.reportingTo || undefined,
             accountHolderName: employee.bankDetails?.accountHolderName || '',
             accountNumber: employee.bankDetails?.accountNumber || '',
             ifscCode: employee.bankDetails?.ifscCode || '',
@@ -93,7 +100,7 @@ function EditEmployeeDialog({ employee, employees, isOpen, onOpenChange, myStore
             const result = await updateEmployee(employee.userId, data);
             
             if (result.success) {
-                toast({ title: "Employee Updated", description: "The employee's details and email have been saved." });
+                toast({ title: "Employee Updated", description: "The employee's details have been saved." });
                 onOpenChange(false);
             } else {
                 console.error("Failed to update employee:", result.error);

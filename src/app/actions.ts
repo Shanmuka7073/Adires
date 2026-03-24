@@ -1,10 +1,40 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, SiteConfig, CartItem, User, EmployeeProfile, AttendanceRecord, SalarySlip, ReportData, Product, MenuItem } from '@/lib/types';
 
-const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
+/**
+ * DEEP SERIALIZATION UTILITY
+ * Converts non-plain objects (like Timestamps) to plain JSON strings
+ * to prevent Next.js Server Components render errors.
+ */
+function sanitizeForClient(data: any): any {
+    if (data === null || data === undefined) return data;
+    
+    // Handle Timestamps
+    if (typeof data === 'object' && 'seconds' in data && 'nanoseconds' in data) {
+        return new Date(data.seconds * 1000).toISOString();
+    }
+    
+    // Handle Dates
+    if (data instanceof Date) return data.toISOString();
+    
+    // Handle Arrays
+    if (Array.isArray(data)) return data.map(sanitizeForClient);
+    
+    // Handle Objects
+    if (typeof data === 'object') {
+        const cleaned: any = {};
+        for (const [key, value] of Object.entries(data)) {
+            cleaned[key] = sanitizeForClient(value);
+        }
+        return cleaned;
+    }
+    
+    return data;
+}
 
 export async function getFirebaseConfig() {
   try {
@@ -26,8 +56,6 @@ export async function getFirebaseConfig() {
 }
 
 export async function getSystemStatus() {
-    const hasServiceAccount = !!process.env.SERVICE_ACCOUNT;
-    
     try {
         const { db } = await getAdminServices();
         
@@ -36,25 +64,23 @@ export async function getSystemStatus() {
             db.collection('stores').count().get(),
         ]);
 
-        return {
-            status: 'ok' as const,
-            llmStatus: 'Online' as const,
-            serverDbStatus: 'Online' as const,
-            identity: 'Authorized (Full Admin Access)',
+        return sanitizeForClient({
+            status: 'ok',
+            llmStatus: 'Online',
+            serverDbStatus: 'Online',
+            identity: 'Authorized (Admin SDK Active)',
             counts: { 
                 users: users.data().count, 
                 stores: stores.data().count 
             },
             error: null,
-        };
+        });
     } catch (err: any) {
         return { 
-            status: 'error' as const, 
-            llmStatus: 'Offline' as const, 
-            serverDbStatus: 'Offline' as const, 
+            status: 'error', 
+            llmStatus: 'Offline', 
+            serverDbStatus: 'Offline', 
             errorMessage: err.message,
-            identity: hasServiceAccount ? 'Identity Error: Check JSON format' : 'Setup Required: Missing Variable',
-            isCredentialError: true,
             counts: { users: 0, stores: 0 },
             error: err.message,
         };
@@ -121,7 +147,7 @@ export async function getPlatformAnalytics() {
             };
         };
 
-        return {
+        return sanitizeForClient({
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
             activeSessions: activeOrdersSnap.size,
@@ -131,7 +157,7 @@ export async function getPlatformAnalytics() {
                 '14d': calculateStats(14),
                 '30d': calculateStats(30)
             }
-        };
+        });
     } catch (error) {
         console.error("Platform analytics engine failed:", error);
         return null;
@@ -160,20 +186,16 @@ export async function getStoreSalesReport({
         .where('orderDate', '>=', Timestamp.fromDate(startDate))
         .get();
 
-    const orders = ordersSnap.docs.map(d => {
-        const data = d.data();
-        return {
-            ...data,
-            orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate,
-            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
-        } as any;
-    });
+    const orders = ordersSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+    }));
     
     let totalSales = 0;
     let itemCounts: Record<string, number> = {};
     let tableMetrics: Record<string, any> = {};
     
-    orders.forEach(o => {
+    orders.forEach((o: any) => {
         totalSales += (o.totalAmount || 0);
         (o.items || []).forEach((it: any) => {
             itemCounts[it.productName] = (itemCounts[it.productName] || 0) + it.quantity;
@@ -205,24 +227,26 @@ export async function getStoreSalesReport({
         profitPercentage: (1 - costRatio) * 100
     }));
 
+    const finalReport = {
+        totalSales,
+        totalOrders: orders.length,
+        totalItems: Object.values(itemCounts).reduce((a,b) => a+b, 0),
+        topProducts,
+        topProfitableProducts: topProducts.map(p => ({ ...p, totalProfit: (p.count * 100), profitPerUnit: 100, count: p.count })), 
+        ingredientCost,
+        costDrivers: [
+            { name: 'Core Ingredients', cost: ingredientCost * 0.7, percentage: 70 },
+            { name: 'Packaging', cost: ingredientCost * 0.2, percentage: 20 },
+            { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
+        ],
+        optimizationHint: orders.length > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
+        salesByTable,
+        orders: orders 
+    };
+
     return {
         success: true,
-        report: {
-            totalSales,
-            totalOrders: orders.length,
-            totalItems: Object.values(itemCounts).reduce((a,b) => a+b, 0),
-            topProducts,
-            topProfitableProducts: topProducts.map(p => ({ ...p, totalProfit: (p.count * 100), profitPerUnit: 100, count: p.count })), 
-            ingredientCost,
-            costDrivers: [
-                { name: 'Core Ingredients', cost: ingredientCost * 0.7, percentage: 70 },
-                { name: 'Packaging', cost: ingredientCost * 0.2, percentage: 20 },
-                { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
-            ],
-            optimizationHint: orders.length > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
-            salesByTable,
-            orders: orders 
-        },
+        report: sanitizeForClient(finalReport),
         error: null
     };
   } catch (error: any) {
@@ -255,7 +279,7 @@ export async function getManifest() {
     try {
         const { db } = await getAdminServices();
         const docSnap = await db.collection('siteConfig').doc('manifest').get();
-        return docSnap.data() || {};
+        return sanitizeForClient(docSnap.data() || {});
     } catch (e) {
         return {};
     }
@@ -354,12 +378,14 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
             db.collection('stores').doc(slip.storeId).get()
         ]);
 
-        return {
-            slip: { ...slip, generatedAt: slip.generatedAt?.toDate().toISOString() },
+        const result = {
+            slip: slip,
             employee: empDoc.data(),
             store: storeDoc.data(),
             attendance: { totalDays: 30, presentDays: 22, absentDays: 8 }
         };
+
+        return sanitizeForClient(result);
     } catch (e) {
         return null;
     }
@@ -387,7 +413,7 @@ export async function getSiteConfig(id: string) {
     try {
         const { db } = await getAdminServices();
         const snap = await db.collection('siteConfig').doc(id).get();
-        return snap.data() || {};
+        return sanitizeForClient(snap.data() || {});
     } catch (e) {
         return {};
     }
@@ -406,7 +432,8 @@ export async function updateSiteConfig(id: string, data: any) {
 export async function getIngredientsForDish(input: { dishName: string; language: string }) {
     const { getIngredientsForDishFlow } = await import('@/ai/flows/recipe-ingredients-flow');
     const lang = (input.language === 'te' ? 'te' : 'en') as 'en' | 'te';
-    return getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
+    const result = await getIngredientsForDishFlow({ dishName: input.dishName, language: lang });
+    return sanitizeForClient(result);
 }
 
 export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string) {

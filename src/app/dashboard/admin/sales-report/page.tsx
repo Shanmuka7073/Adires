@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useTransition, useMemo, useCallback } from 'react';
@@ -10,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useFirebase } from '@/firebase';
 import { collection, query, where, Timestamp, getDocs, orderBy } from 'firebase/firestore';
-import type { Order } from '@/lib/types';
+import type { Order, Product } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -127,17 +128,6 @@ export default function SalesReportPage() {
         const startTimestamp = Timestamp.fromDate(startDate);
         
         try {
-            const { masterProducts } = useAppStore.getState();
-            const productCategoryMap = new Map<string, string>();
-            
-            if (masterProducts && Array.isArray(masterProducts)) {
-                masterProducts.forEach(p => {
-                    if (p && p.id) {
-                        productCategoryMap.set(p.id, (p.category || 'grocery').toLowerCase());
-                    }
-                });
-            }
-
             const ordersQuery = query(
                 collection(db, 'orders'),
                 where('status', 'in', ['Delivered', 'Completed']),
@@ -161,12 +151,12 @@ export default function SalesReportPage() {
 
                 for (const item of items) {
                     const itemTotal = item.price * item.quantity;
-                    const category = productCategoryMap.get(item.productId) || 'grocery';
+                    const category = (item.productName || 'grocery').toLowerCase();
                     
                     let reportCategory: 'grocery' | 'meat' | 'vegetable';
-                    if (meatCategories.includes(category)) {
+                    if (meatCategories.some(kw => category.includes(kw))) {
                         reportCategory = 'meat';
-                    } else if (vegetableCategories.includes(category)) {
+                    } else if (vegetableCategories.some(kw => category.includes(kw))) {
                         reportCategory = 'vegetable';
                     } else {
                         reportCategory = 'grocery';

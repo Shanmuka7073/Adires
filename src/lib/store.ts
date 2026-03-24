@@ -1,14 +1,16 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { getStores, getMasterProducts } from './data';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { buildLocalesFromAliasGroups, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
+import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -100,24 +102,25 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [stores, masterProducts, aliasDocs, commandDocs] = await Promise.all([
-            getStores(db),
-            getMasterProducts(db),
-            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
-            getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
+          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+            getDocs(collection(db, 'stores')),
+            getDocs(collection(db, 'voiceAliasGroups')),
+            getDocs(collection(db, 'voiceCommands'))
           ]);
 
-          state.incrementReadCount((stores.length) + (masterProducts.length) + 2);
+          state.incrementReadCount((storesSnap.size) + 2);
 
+          const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
+          
           let userStore = null;
           if (userId) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
-          const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const dbCommands = (commandDocs as any).docs.reduce((acc: any, doc: any) => {
+          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -133,13 +136,12 @@ export const useAppStore = create<AppState>()(
 
           set({
             stores,
-            masterProducts,
-            userStore,
+            masterProducts: [], // Pruned for performance
             locales,
             commands: enrichedCommands,
             isInitialized: true,
-            appReady: true,
             loading: false,
+            appReady: true,
           });
           
         } catch (error) {
@@ -197,7 +199,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-storage-v12', 
+      name: 'adires-ops-storage-v14', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
