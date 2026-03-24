@@ -364,7 +364,13 @@ export async function getStoreSalesReport({
         .where('orderDate', '>=', Timestamp.fromDate(startDate))
         .get();
 
-    const orders = ordersSnap.docs.map(d => d.data());
+    const orders = ordersSnap.docs.map(d => {
+        const data = d.data();
+        return {
+            ...data,
+            orderDate: data.orderDate instanceof Timestamp ? data.orderDate.toDate().toISOString() : data.orderDate
+        };
+    });
     
     // Aggregation Logic
     let totalSales = 0;
@@ -423,7 +429,8 @@ export async function getStoreSalesReport({
                 { name: 'Utilities', cost: ingredientCost * 0.1, percentage: 10 }
             ],
             optimizationHint: totalOrders > 0 ? "Consider upselling beverages to increase margin by 5%." : null,
-            salesByTable
+            salesByTable,
+            orders: orders.slice(0, 50) // Return recent orders for drill-down
         },
         error: null
     };

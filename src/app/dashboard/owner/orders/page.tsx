@@ -306,7 +306,9 @@ export default function StoreOrdersPage() {
     const tableSessions: Record<string, Session> = {};
 
     activeOrders.forEach(o => {
-        if (liveSearch && !(o.customerName?.toLowerCase().includes(searchLower) || o.tableNumber?.toLowerCase().includes(searchLower))) return;
+        const customerMatch = o.customerName?.toLowerCase().includes(searchLower);
+        const tableMatch = o.tableNumber?.toLowerCase().includes(searchLower);
+        if (liveSearch && !(customerMatch || tableMatch)) return;
         if (liveFilter !== 'all' && o.status.toLowerCase() !== liveFilter) return;
 
         if (!tableSessions[o.sessionId!]) {
@@ -363,21 +365,26 @@ export default function StoreOrdersPage() {
             {activeTab === 'live' ? (
                 <>
                     <div className="space-y-3 mb-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-950 font-bold" />
+                            <Input 
+                                placeholder="Search table or name..." 
+                                value={liveSearch} 
+                                onChange={e => setLiveSearch(e.target.value)} 
+                                className="h-11 rounded-2xl border-2 border-gray-950 bg-white pl-10 text-xs font-black uppercase tracking-tight shadow-md" 
+                            />
+                        </div>
+
                         <div className="flex gap-2 text-[10px]">
                             <div className="px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
                             <div className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
                             <div className="px-2.5 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
                         </div>
-
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-40 text-gray-950" />
-                            <Input placeholder="Search orders..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-9 rounded-xl border-2 border-black/10 bg-white pl-9 text-[11px] font-bold" />
-                        </div>
                     </div>
 
                     <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-4">
                         {['all', 'pending', 'processing', 'billed'].map(f => (
-                            <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-3 h-7 rounded-lg font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white" : "bg-white border-black/5 text-gray-400")}>{f}</button>
+                            <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-3 h-7 rounded-lg font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white shadow-md" : "bg-white border-black/5 text-gray-400")}>{f}</button>
                         ))}
                     </div>
 
