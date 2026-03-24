@@ -13,8 +13,7 @@ import GlobalLoader from './global-loader';
 
 /**
  * Optimized App Content.
- * FIX: Added hasHydrated state to prevent Error #418 Hydration Mismatch.
- * This ensures the first client render matches the server render exactly.
+ * Hardened hasHydrated state to prevent hydration errors and double-refresh cycles.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [hasHydrated, setHasHydrated] = useState(false);
@@ -26,10 +25,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
         setHasHydrated(true);
     }, []);
     
-    // During hydration (the very first render on the client), we must match the server.
-    // Since the server doesn't have access to localStorage/Zustand persistence,
-    // we show the loader until the client is fully hydrated and the app is ready.
-    if (!hasHydrated || !isInitialized || !appReady) {
+    // Server-side and hydration safety check
+    if (!hasHydrated) {
+        return <div className="fixed inset-0 bg-background" />;
+    }
+
+    if (!isInitialized || !appReady) {
         return <GlobalLoader />;
     }
 

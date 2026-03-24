@@ -75,33 +75,78 @@ export async function getSystemStatus() {
 }
 
 /**
- * ANALYTICS ENGINE
+ * ANALYTICS ENGINE (PLATFORM-WIDE)
+ * Performs multi-period aggregation of all successful orders.
  */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
         
         const now = new Date();
-        const todayStart = new Date(now.setHours(0,0,0,0));
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        const [usersCount, storesCount, activeOrdersSnap] = await Promise.all([
+        const [usersCount, storesCount, activeOrdersSnap, recentOrdersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
-            db.collection('orders').where('isActive', '==', true).get()
+            db.collection('orders').where('isActive', '==', true).get(),
+            db.collection('orders')
+                .where('status', 'in', ['Delivered', 'Completed', 'Billed'])
+                .where('orderDate', '>=', Timestamp.fromDate(thirtyDaysAgo))
+                .get()
         ]);
+
+        const allRecentOrders = recentOrdersSnap.docs.map(d => {
+            const data = d.data();
+            return {
+                amount: data.totalAmount || 0,
+                date: data.orderDate instanceof Timestamp ? data.orderDate.toDate() : new Date(data.orderDate)
+            };
+        });
+
+        const calculateStats = (days: number) => {
+            const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+            const prevCutoff = new Date(now.getTime() - (days * 2) * 24 * 60 * 60 * 1000);
+            
+            const currentPeriod = allRecentOrders.filter(o => o.date >= cutoff);
+            const prevPeriod = allRecentOrders.filter(o => o.date >= prevCutoff && o.date < cutoff);
+
+            const revenue = currentPeriod.reduce((sum, o) => sum + o.amount, 0);
+            const prevRevenue = prevPeriod.reduce((sum, o) => sum + o.amount, 0);
+            
+            const orders = currentPeriod.length;
+            const prevOrders = prevPeriod.length;
+
+            const aov = orders > 0 ? revenue / orders : 0;
+            const prevAov = prevOrders > 0 ? prevRevenue / prevOrders : 0;
+
+            const calcTrend = (curr: number, prev: number) => {
+                if (prev === 0) return curr > 0 ? 100 : 0;
+                return ((curr - prev) / prev) * 100;
+            };
+
+            return {
+                revenue,
+                orders,
+                aov,
+                userReach: activeOrdersSnap.size + (orders * 1.5), // Heuristic: Active users + conversion multiplier
+                trends: {
+                    revenue: calcTrend(revenue, prevRevenue),
+                    orders: calcTrend(orders, prevOrders),
+                    aov: calcTrend(aov, prevAov),
+                    userReach: calcTrend(currentPeriod.length, prevPeriod.length)
+                }
+            };
+        };
 
         return {
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
             activeSessions: activeOrdersSnap.size,
             periods: {
-                today: {
-                    revenue: 0,
-                    orders: 0,
-                    aov: 0,
-                    userReach: 0,
-                    trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 }
-                }
+                today: calculateStats(1),
+                '7d': calculateStats(7),
+                '14d': calculateStats(14),
+                '30d': calculateStats(30)
             }
         };
     } catch (error) {
