@@ -23,7 +23,6 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
-    const { isCartOpen, setCartOpen } = useAppStore();
 
     useEffect(() => {
         setDeliveryTime(Math.floor(Math.random() * 10) + 15);
@@ -46,14 +45,6 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                             <ChevronDown className="h-3 w-3 ml-1" />
                          </div>
                      )}
-                </div>
-                <div className="flex items-center gap-2">
-                    <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />
-                    <Link href="/dashboard/customer/my-profile">
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-black/5 border-2">
-                            <Image src={user?.imageUrl || ADIRES_LOGO} alt="Profile" width={24} height={24} className="rounded-full" />
-                        </Button>
-                    </Link>
                 </div>
             </div>
             <div className="flex items-center gap-3 bg-[#F1F3F5] p-3 rounded-2xl border border-gray-200 shadow-inner">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,7 +10,6 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const customerNavItems = [
   { href: '/', label: 'home', icon: Home, color: 'text-primary' },
-  { href: '/stores', label: 'Market', icon: LayoutGrid, color: 'text-blue-600' },
   { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store, color: 'text-orange-500' },
   { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: Package, color: 'text-purple-500' },
   { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
