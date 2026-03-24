@@ -39,9 +39,9 @@ export function useAdminAuth() {
     return !!(user && user.email === 'chickenadmin@gmail.com');
   }, [user]);
 
-  // If user is logged in, we must wait for the profile to load before concluding status.
-  // If user is NOT logged in, we are NOT loading.
-  const loading = user ? (isUserLoading || isProfileLoading) : isUserLoading;
+  // CRITICAL FIX: The loading state must wait for firestore to be initialized
+  // if a user is logged in, because we need firestore to check the role.
+  const loading = isUserLoading || (!!user && (firestore === null || isProfileLoading));
 
   return {
     isAdmin,

@@ -1,12 +1,12 @@
 
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getProductImage } from '@/lib/data';
-import { useEffect, useState, useLayoutEffect, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -124,13 +124,17 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner, roleCards]);
     
-    if (isRoleLoading || (user && isRestaurantOwner)) {
+    if (isRoleLoading) {
         return (
             <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
                 <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Identifying Role...</p>
             </div>
         );
+    }
+
+    if (user && isRestaurantOwner) {
+        return null; // Redirecting
     }
 
     return (

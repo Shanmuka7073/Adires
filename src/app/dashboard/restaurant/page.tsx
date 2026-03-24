@@ -56,10 +56,9 @@ function UsageBadge() {
 }
 
 export default function ServiceDashboardPage() {
-    const { user } = useFirebase();
+    const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { firestore } = useFirebase();
     const { userStore } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
@@ -83,8 +82,17 @@ export default function ServiceDashboardPage() {
         return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils };
     }, [store]);
 
-    if (isLoading || (user && !isRestaurantOwner)) {
-        return <div className="h-[80vh] flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
+    if (isLoading) {
+        return (
+            <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
+                <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p>
+            </div>
+        );
+    }
+
+    if (user && !isRestaurantOwner) {
+        return null; // Redirect logic in useEffect
     }
 
     return (
