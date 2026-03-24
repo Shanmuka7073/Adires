@@ -13,12 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
-import { Loader2, Store, Truck, Voicemail, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
+import { Loader2, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useProfileFormStore, ProfileFormValues } from '@/lib/store';
+import { useProfileFormStore, type ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
-import { getAuth, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import Image from 'next/image';
 
@@ -104,7 +104,7 @@ function ProfilePictureCard({ user }: { user: AppUser }) {
 
 
 export default function MyProfilePage() {
-  const { user, isUserLoading, firestore } = useFirebase();
+  const { user, isUserLoading, firestore, auth } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -222,9 +222,10 @@ export default function MyProfilePage() {
   };
 
   const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
-    router.push('/login');
+    if (auth) {
+        await signOut(auth);
+        router.push('/login');
+    }
   };
   
   const dashboardLink = isAdmin ? "/dashboard/admin" : "/dashboard";

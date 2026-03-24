@@ -17,7 +17,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { getAuth, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
@@ -71,14 +71,15 @@ function LanguageSwitcher() {
 }
 
 function UserMenu() {
-  const { user, isUserLoading } = useFirebase();
+  const { user, isUserLoading, auth } = useFirebase();
   const { isAdmin, isRestaurantOwner } = useAdminAuth();
   const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
   const { canInstall, triggerInstall } = useInstall();
 
   const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
+    if (auth) {
+        await signOut(auth);
+    }
   };
 
   if (isUserLoading) {

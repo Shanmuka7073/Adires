@@ -1,7 +1,8 @@
+
 'use client';
 
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from 'firebase/app-check';
-import { app } from './app';
+import { getFirebaseApp } from './app';
 
 /**
  * MODULAR APP CHECK SDK
@@ -11,6 +12,9 @@ import { app } from './app';
 export function initAppCheck(): AppCheck | undefined {
   if (typeof window === 'undefined') return;
   
+  const app = getFirebaseApp();
+  if (!app) return;
+
   try {
     const appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider('6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw'),

@@ -1,5 +1,6 @@
+
 'use client';
-import { getAuth, type User } from 'firebase/auth';
+import { type User } from 'firebase/auth';
 
 type SecurityRuleContext = {
   path: string;
@@ -76,24 +77,13 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 
 /**
  * Builds the complete, simulated request object for the error message.
- * It safely tries to get the current authenticated user.
- * @param context The context of the failed Firestore operation.
- * @returns A structured request object.
+ * Optimized to avoid direct getAuth() calls during SSR which causes build failures.
  */
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
-  let authObject: FirebaseAuthObject | null = null;
-  try {
-    const firebaseAuth = getAuth();
-    const currentUser = firebaseAuth.currentUser;
-    if (currentUser) {
-      authObject = buildAuthObject(currentUser);
-    }
-  } catch {
-    // Auth not yet initialized
-  }
-
+  // We avoid direct getAuth() calls here to prevent "auth/invalid-api-key" during build time.
+  // Security rule context is primarily used for client-side logging.
   return {
-    auth: authObject,
+    auth: null,
     method: context.operation,
     path: `/databases/(default)/documents/${context.path}`,
     resource: context.requestResourceData ? { data: context.requestResourceData } : undefined,
