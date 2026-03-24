@@ -21,8 +21,8 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 function StoreCard({ store, priority = false }: StoreCardProps) {
     const [image, setImage] = useState({ imageUrl: '', imageHint: 'loading' });
-    const rating = useMemo(() => (4 + Math.random()).toFixed(1), [store.id]);
-    const deliveryTime = useMemo(() => Math.floor(Math.random() * 20) + 20, [store.id]);
+    const [rating, setRating] = useState<string | null>(null);
+    const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchImage = async () => {
@@ -32,6 +32,10 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
             }
         }
         fetchImage();
+        
+        // Defer random values until after hydration to avoid Error #418
+        setRating((4 + Math.random()).toFixed(1));
+        setDeliveryTime(Math.floor(Math.random() * 20) + 20);
     }, [store]);
 
     const isSalon = store.businessType === 'salon';
@@ -58,9 +62,11 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 
                 <div className="absolute top-4 left-4 flex gap-2">
-                    <Badge className="bg-white/90 backdrop-blur-sm text-gray-950 hover:bg-white text-[9px] font-black uppercase tracking-widest border-0">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 mr-1" /> {rating}
-                    </Badge>
+                    {rating && (
+                        <Badge className="bg-white/90 backdrop-blur-sm text-gray-950 hover:bg-white text-[9px] font-black uppercase tracking-widest border-0">
+                            <Star className="h-3 w-3 fill-amber-400 text-amber-400 mr-1" /> {rating}
+                        </Badge>
+                    )}
                     {isSalon && (
                         <Badge className="bg-primary text-white border-0 text-[9px] font-black uppercase tracking-widest flex gap-1 items-center">
                             <Scissors className="h-2.5 w-2.5" /> Salon
@@ -86,7 +92,7 @@ function StoreCard({ store, priority = false }: StoreCardProps) {
                         <span className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Wait Time</span>
                         <div className="flex items-center text-sm font-black text-gray-900">
                             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" />
-                            {deliveryTime}-{deliveryTime + 10}m
+                            {deliveryTime ? `${deliveryTime}-${deliveryTime + 10}m` : '...'}
                         </div>
                     </div>
                 </div>

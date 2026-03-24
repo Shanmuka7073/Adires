@@ -9,17 +9,30 @@ import { Toaster } from '@/components/ui/toaster';
 import { useAppStore, useInitializeApp } from '@/lib/store';
 import { InstallProvider } from '@/components/install-provider';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
+import GlobalLoader from './global-loader';
 
 /**
  * Optimized App Content.
- * FIX: Removed full-screen GlobalLoader from critical render path.
- * FIX: Integrated ReCaptchaProvider at root to prevent full-app re-mount after 4s.
+ * FIX: Added hasHydrated state to prevent Error #418 Hydration Mismatch.
+ * This ensures the first client render matches the server render exactly.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
-    useInitializeApp();
+    const [hasHydrated, setHasHydrated] = useState(false);
+    const { appReady, isInitialized } = useAppStore();
     
-    // We render the core layout immediately. Individual pages handle 
-    // their own loading states with Skeletons for better LCP scores.
+    useInitializeApp();
+
+    useEffect(() => {
+        setHasHydrated(true);
+    }, []);
+    
+    // During hydration (the very first render on the client), we must match the server.
+    // Since the server doesn't have access to localStorage/Zustand persistence,
+    // we show the loader until the client is fully hydrated and the app is ready.
+    if (!hasHydrated || !isInitialized || !appReady) {
+        return <GlobalLoader />;
+    }
+
     return (
         <GoogleReCaptchaProvider 
             reCaptchaKey="6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw"

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -540,28 +541,31 @@ export default function PublicMenuPage() {
       return menu.items.filter(i => recIds.includes(i.id));
   }, [selectedItemForIngredients, menu?.items]);
 
-  const deviceId = useMemo(() => {
-      if (typeof window === 'undefined') return 'unknown';
-      let dId = localStorage.getItem(`device_id_${storeId}`);
-      if (!dId) {
-          dId = Math.random().toString(36).substring(2, 15);
-          localStorage.setItem(`device_id_${storeId}`, dId);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  useEffect(() => {
+      if (typeof window !== 'undefined') {
+          let dId = localStorage.getItem(`device_id_${storeId}`);
+          if (!dId) {
+              dId = Math.random().toString(36).substring(2, 15);
+              localStorage.setItem(`device_id_${storeId}`, dId);
+          }
+          setDeviceId(dId);
       }
-      return dId;
   }, [storeId]);
 
   const sessionId = useMemo(() => {
+    if (!deviceId) return 'loading';
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
     if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
     return `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
 
-  const ordersQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
+  const ordersQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, deviceId]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const historyQuery = useMemoFirebase(() => {
-      if (!firestore) return null;
+      if (!firestore || !deviceId) return null;
       return query(
           collection(firestore, 'orders'),
           where('storeId', '==', storeId),
@@ -598,8 +602,10 @@ export default function PublicMenuPage() {
 
   useEffect(() => {
     const urlTable = searchParams.get('table'); if (urlTable) setTableNumber(urlTable);
-    const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
-    if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
+    if (typeof window !== 'undefined') {
+        const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
+        if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
+    }
   }, [searchParams, storeId]);
 
   if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-white min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
@@ -654,7 +660,7 @@ export default function PublicMenuPage() {
     });
   };
 
-  const handleStartNewOrder = () => { window.location.reload(); };
+  const handleStartNewOrder = () => { if (typeof window !== 'undefined') window.location.reload(); };
 
   const theme = menu?.theme;
   const isSessionFinalized = !!(placedOrders && placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status)));
