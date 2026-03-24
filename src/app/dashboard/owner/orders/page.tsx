@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Order, MenuItem, Menu } from '@/lib/types';
+import { Order } from '@/lib/types';
 import {
   Badge
 } from '@/components/ui/badge';
@@ -15,7 +15,6 @@ import {
   Navigation,
   ShoppingBag,
   Plus,
-  X,
   TrendingUp,
 } from 'lucide-react';
 import {
@@ -30,7 +29,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { playTickSound } from '@/lib/cart';
 import { getStoreSalesReport } from '@/app/actions';
 import Link from 'next/link';
 
@@ -114,7 +112,7 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-0 shadow-2xl h-[85vh] flex flex-col">
+            <DialogContent className="max-w-md rounded-[2.5rem] p-0 border-0 shadow-2xl h-[85vh] flex flex-col">
                 <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center">
                     <div>
                         <DialogTitle className="text-sm font-black uppercase tracking-tight">Order #{session.id.slice(-6)}</DialogTitle>

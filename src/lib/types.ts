@@ -105,6 +105,12 @@ export type CartItem = {
   selectedCustomizations?: Record<string, CustomizationOption[]>; // Track chosen options per group
 };
 
+export type UnidentifiedCartItem = {
+    id: string;
+    term: string;
+    status: 'pending' | 'failed' | 'identified';
+};
+
 export type Ingredient = {
   name: string;
   baseQuantity?: number;
