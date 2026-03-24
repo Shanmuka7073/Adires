@@ -31,7 +31,7 @@ export interface AppState {
   error: Error | null;
   language: string;
   activeStoreId: string | null;
-  deviceId: string | null;
+  deviceId: string | null; 
   isCartOpen: boolean; 
   readCount: number;
   writeCount: number;
@@ -142,6 +142,7 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             loading: false,
             appReady: true,
+            userStore, // FIX: Correctly persist the business identity
           });
           
         } catch (error) {
