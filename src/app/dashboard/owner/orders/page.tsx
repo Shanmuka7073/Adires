@@ -35,6 +35,7 @@ import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { playTickSound } from '@/lib/cart';
 import { getStoreSalesReport } from '@/app/actions';
+import Link from 'next/link';
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: 'bg-red-500',
@@ -120,7 +121,7 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
                     <div className="space-y-8 pb-10">
                         <section className="space-y-3">
                             <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Customer Details</h4>
-                            <Card className="rounded-2xl border-2 p-4 bg-muted/30">
+                            <Card className="rounded-2xl border-2 p-4 bg-muted/30 shadow-none">
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="font-black text-xs uppercase text-gray-950">{session.customerName}</p>
@@ -152,7 +153,7 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
                                 {items.map((it, idx) => (
                                     <div key={idx} className="flex justify-between items-center p-3 rounded-xl border-2 bg-white text-xs font-bold uppercase tracking-tight">
                                         <span>{it.productName} <span className="opacity-40">x{it.quantity}</span></span>
-                                        <span className="text-primary font-black">₹{it.price * it.quantity}</span>
+                                        <span className="text-primary font-black">₹{(it.price * it.quantity).toFixed(0)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -224,6 +225,7 @@ function InsightsTab({ storeId }: { storeId: string }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        if (!storeId) return;
         const fetchReport = async () => {
             const res = await getStoreSalesReport({ storeId, period: 'daily' });
             if (res.success) setReport(res.report);
@@ -234,16 +236,19 @@ function InsightsTab({ storeId }: { storeId: string }) {
 
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
+    const totalSales = report?.totalSales || 0;
+    const totalOrders = report?.totalOrders || 0;
+
     return (
         <div className="p-4 space-y-6 animate-in fade-in duration-500">
             <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-3xl bg-primary/5 border-2 border-primary/10">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Today Revenue</p>
-                    <p className="text-2xl font-black tracking-tighter text-primary">₹{report?.totalSales.toFixed(0)}</p>
+                    <p className="text-2xl font-black tracking-tighter text-primary">₹{totalSales.toFixed(0)}</p>
                 </div>
                 <div className="p-4 rounded-3xl bg-blue-50 border-2 border-blue-100">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Total Orders</p>
-                    <p className="text-2xl font-black tracking-tighter text-blue-600">{report?.totalOrders}</p>
+                    <p className="text-2xl font-black tracking-tighter text-blue-600">{totalOrders}</p>
                 </div>
             </div>
 
@@ -252,12 +257,14 @@ function InsightsTab({ storeId }: { storeId: string }) {
                     <TrendingUp className="h-3 w-3" /> Top Performers
                 </h4>
                 <div className="space-y-2">
-                    {report?.topProducts.map((p: any) => (
+                    {report?.topProducts?.length > 0 ? report.topProducts.map((p: any) => (
                         <div key={p.name} className="p-3 bg-white rounded-2xl border-2 border-black/5 flex justify-between items-center">
                             <span className="text-xs font-black uppercase truncate leading-none">{p.name}</span>
                             <Badge variant="secondary" className="text-[8px] font-black uppercase">{p.count} sold</Badge>
                         </div>
-                    ))}
+                    )) : (
+                        <p className="text-center py-8 text-[10px] font-black uppercase opacity-20">No sales data yet</p>
+                    )}
                 </div>
             </section>
             
@@ -401,5 +408,6 @@ function toDateSafe(d: any): Date {
     if (!d) return new Date();
     if (d instanceof Timestamp) return d.toDate();
     if (d instanceof Date) return d;
+    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
     return new Date(d);
 }
