@@ -21,7 +21,7 @@ import {
 import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useLayoutEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Store as StoreType } from '@/lib/types';
@@ -71,11 +71,11 @@ export default function ServiceDashboardPage() {
     const { data: stores } = useCollection<StoreType>(storeQuery);
     const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
 
-    useLayoutEffect(() => {
-        if (!isLoading && !isRestaurantOwner) {
+    useEffect(() => {
+        if (!isLoading && user && !isRestaurantOwner) {
             router.replace('/dashboard');
         }
-    }, [isLoading, isRestaurantOwner, router]);
+    }, [isLoading, user, isRestaurantOwner, router]);
 
     const { dashboardTitle, DashboardIcon } = useMemo(() => {
         if (!store) return { dashboardTitle: 'Business Hub', DashboardIcon: Store };
@@ -83,7 +83,7 @@ export default function ServiceDashboardPage() {
         return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils };
     }, [store]);
 
-    if (isLoading || !isRestaurantOwner) {
+    if (isLoading || (user && !isRestaurantOwner)) {
         return <div className="h-[80vh] flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
     }
 

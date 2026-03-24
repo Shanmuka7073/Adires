@@ -74,7 +74,7 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
                         data-ai-hint={image.imageHint}
                     />
                 </div>
-  <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="p-5 flex-1 flex flex-col justify-between">
                     <div>
                         <h3 className="text-xl font-black font-headline uppercase tracking-tight text-gray-900 leading-none mb-2">{t(card.title)}</h3>
                         <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight leading-tight">{t(card.description)}</p>
@@ -92,7 +92,7 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
     const [loading, setLoading] = useState(true);
-    const { isRestaurantOwner, isEmployee, isLoading: isRoleLoading } = useAdminAuth();
+    const { isRestaurantOwner, isEmployee, isLoading: isRoleLoading, user } = useAdminAuth();
     const router = useRouter();
 
     const roleCards = useMemo(() => {
@@ -102,11 +102,11 @@ export default function DashboardPage() {
         return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips');
     }, [isEmployee]);
 
-    useLayoutEffect(() => {
-        if (!isRoleLoading && isRestaurantOwner) {
+    useEffect(() => {
+        if (!isRoleLoading && user && isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
         }
-    }, [isRoleLoading, isRestaurantOwner, router]);
+    }, [isRoleLoading, isRestaurantOwner, user, router]);
 
     useEffect(() => {
         if (!isRoleLoading && !isRestaurantOwner) {
@@ -124,7 +124,7 @@ export default function DashboardPage() {
         }
     }, [isRoleLoading, isRestaurantOwner, roleCards]);
     
-    if (isRoleLoading || isRestaurantOwner) {
+    if (isRoleLoading || (user && isRestaurantOwner)) {
         return (
             <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
                 <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />

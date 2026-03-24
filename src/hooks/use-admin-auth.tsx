@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -14,6 +15,7 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com'];
 export function useAdminAuth() {
   const { user, isUserLoading, firestore } = useFirebase();
 
+  // Explicitly return null if firestore or user is not available
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -37,12 +39,16 @@ export function useAdminAuth() {
     return !!(user && user.email === 'chickenadmin@gmail.com');
   }, [user]);
 
+  // If user is logged in, we must wait for the profile to load before concluding status.
+  // If user is NOT logged in, we are NOT loading.
+  const loading = user ? (isUserLoading || isProfileLoading) : isUserLoading;
+
   return {
     isAdmin,
     isRestaurantOwner,
     isEmployee,
     isChickenAdmin,
-    isLoading: isUserLoading || isProfileLoading,
+    isLoading: loading,
     user,
     userData,
   };

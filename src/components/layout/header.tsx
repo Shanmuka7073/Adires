@@ -140,7 +140,8 @@ export function Header() {
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
   const { isRestaurantOwner, isAdmin } = useAdminAuth();
 
-  if (pathname.startsWith('/menu/')) return null;
+  // Hide the global header on the homepage and specialized menu pages
+  if (pathname === '/' || pathname.startsWith('/menu/')) return null;
 
   const showShoppingControls = !isRestaurantOwner;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');

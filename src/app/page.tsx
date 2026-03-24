@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -17,7 +18,6 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { RecipeCard } from '@/components/features/recipe-card';
-import { CartIcon } from '@/components/cart/cart-icon';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -138,13 +138,13 @@ export default function LocalBasketHomepage() {
   const { data: userData } = useDoc<User>(userDocRef);
 
   useEffect(() => {
-    if (!isRoleLoading && isRestaurantOwner) {
+    if (!isRoleLoading && user && isRestaurantOwner) {
       router.replace('/dashboard/restaurant');
     }
-    if (!isRoleLoading && isAdmin) {
+    if (!isRoleLoading && user && isAdmin) {
       router.replace('/dashboard/admin');
     }
-  }, [isRoleLoading, isRestaurantOwner, isAdmin, router]);
+  }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
 
   const historyQuery = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -167,7 +167,7 @@ export default function LocalBasketHomepage() {
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isRoleLoading || isRestaurantOwner || isAdmin) {
+  if (isRoleLoading || (user && (isRestaurantOwner || isAdmin))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
             <div className="flex flex-col items-center gap-4">
