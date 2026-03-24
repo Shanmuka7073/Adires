@@ -36,7 +36,7 @@ function GlobalInstallButton() {
             onClick={triggerInstall} 
             variant="default" 
             size="sm" 
-            className="rounded-full h-7 px-3 font-black text-[8px] uppercase tracking-widest shadow-md bg-primary text-white border-0 transition-all active:scale-95"
+            className="rounded-full h-6 px-2 text-[8px] uppercase tracking-widest shadow-md bg-primary text-white border-0 transition-all active:scale-95"
         >
             <Download className="h-3 w-3 mr-1.5" />
             <span className="hidden sm:inline-block">Install</span>
@@ -50,8 +50,8 @@ function LanguageSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg border-2">
-                    <Globe className="h-3.5 w-3.5" />
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-2">
+                    <Globe className="h-6 w-6" />
                     <span className="sr-only">Change language</span>
                 </Button>
             </DropdownMenuTrigger>
@@ -96,8 +96,8 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full h-7 w-7 border-2 border-primary/10">
-          <UserCircle className="h-4 w-4" />
+        <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 border-2 border-primary/10">
+          <UserCircle className="h-5 w-5" />
           <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
@@ -144,44 +144,51 @@ export function Header() {
 
   const showShoppingControls = !isRestaurantOwner;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
-  
+
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
 
   return (
-    <header className="sticky top-0 z-50 flex h-10 items-center gap-1.5 border-b bg-background/90 backdrop-blur-md px-3">
-      <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
-        <div className="relative w-7 h-7 rounded-full overflow-hidden border bg-white shrink-0 shadow-sm">
+    <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
+
+      {/* LEFT */}
+      <Link href={homeHref} className="flex items-center gap-1 min-w-0">
+
+        <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
           <Image 
             src={logoUrl} 
             alt="Logo" 
-            width={28} 
-            height={28} 
+            width={24} 
+            height={24} 
             className="object-cover w-full h-full" 
             priority 
           />
         </div>
-        <div className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
-            <span className="font-headline font-black text-gray-950 text-xs leading-none tracking-tight truncate uppercase">
-                {brandName}
-            </span>
-            {(isAdmin || isRestaurantOwner) && (
-                <div className="flex items-center gap-0.5 opacity-60">
-                    <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
-                    <span className="text-[7px] font-black text-green-600 uppercase tracking-tighter">Verified</span>
-                </div>
-            )}
+
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          <span className="font-black text-[10px] truncate uppercase">
+            {brandName}
+          </span>
+
+          {(isAdmin || isRestaurantOwner) && (
+            <div className="flex items-center gap-0.5">
+              <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
+              <span className="text-[7px] font-black text-green-600">V</span>
+            </div>
+          )}
         </div>
       </Link>
-      
+
+      {/* RIGHT */}
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <GlobalInstallButton />
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
       </div>
+
     </header>
   );
 }
