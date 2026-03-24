@@ -141,9 +141,8 @@ export function Header() {
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
   const { isRestaurantOwner, isAdmin } = useAdminAuth();
 
-  // Hide the global header on specialized menu pages AND the homepage
-  // This resolves the "dual header" issue on the home screen.
-  if (pathname === '/' || pathname?.startsWith('/menu/')) return null;
+  // Show the header globally EXCEPT on the homepage
+  if (pathname === '/') return null;
 
   const showShoppingControls = !isRestaurantOwner && !isAdmin;
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');

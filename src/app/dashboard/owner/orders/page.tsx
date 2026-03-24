@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Order, Store, MenuItem, Menu } from '@/lib/types';
+import { Order, Store, MenuItem, Menu, OrderItem } from '@/lib/types';
 import {
   Badge
 } from '@/components/ui/badge';
@@ -21,14 +21,21 @@ import {
   Receipt,
   Truck,
   CheckCircle,
-  Circle
+  Circle,
+  MapPin,
+  Phone,
+  ExternalLink,
+  Navigation,
+  Package,
+  Info,
+  X
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, Timestamp, limit, getDocs, setDoc, writeBatch
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { useMemo, useState, useTransition, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
@@ -50,6 +57,11 @@ const STATUS_COLORS: Record<string, string> = {
 interface Session {
   id: string;
   tableNumber: string | null;
+  customerName: string;
+  phone: string;
+  address: string;
+  lat?: number;
+  lng?: number;
   orders: Order[];
   totalAmount: number;
   status: Order['status'];
@@ -57,34 +69,129 @@ interface Session {
   lastActivity: Date;
 }
 
-function SessionRow({ session, isSalon, onStatusChange }: { session: Session; isSalon: boolean; onStatusChange: (id: string, s: any) => void }) {
-  const handleAction = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextStatus = session.status === 'Pending' ? 'Processing' : session.status === 'Processing' ? 'Billed' : 'Completed';
-    session.orders.forEach(o => onStatusChange(o.id, nextStatus));
-  };
+function SessionRow({ session, isSalon, onClick }: { session: Session; isSalon: boolean; onClick: () => void }) {
+  const isDelivery = session.orderType === 'delivery';
 
   return (
-    <div className="flex items-center justify-between p-3 border-b border-black/5 bg-white active:bg-black/5 transition-colors group">
+    <div onClick={onClick} className="flex items-center justify-between p-3 border-b border-black/5 bg-white active:bg-black/5 transition-colors group cursor-pointer">
         <div className="flex items-center gap-3 min-w-0">
             <div className={cn("h-2 w-2 rounded-full shrink-0", STATUS_COLORS[session.status] || 'bg-gray-300')} />
             <div className="min-w-0">
-                <p className="text-[11px] font-black uppercase tracking-tight text-gray-950 truncate">
-                    {isSalon ? 'CH' : 'T'}-{session.tableNumber || 'WALK'} • #{session.id.slice(-4)}
-                </p>
+                <div className="flex items-center gap-2">
+                    <p className="text-[11px] font-black uppercase tracking-tight text-gray-950 truncate">
+                        {session.tableNumber ? `${isSalon ? 'CH' : 'T'}-${session.tableNumber}` : (isDelivery ? 'HOME' : 'WALK')} • #{session.id.slice(-4)}
+                    </p>
+                    {isDelivery && <Badge className="bg-blue-500 text-white text-[7px] h-3.5 font-black uppercase px-1 border-0">Delivery</Badge>}
+                </div>
                 <p className="text-[9px] font-bold opacity-40 uppercase truncate">
-                    {session.orders.flatMap(o => o.items).map(i => i.productName).join(', ')}
+                    {session.customerName} • {session.orders.flatMap(o => o.items).length} items
                 </p>
             </div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
             <p className="font-black text-xs text-primary">₹{session.totalAmount.toFixed(0)}</p>
-            <button onClick={handleAction} className="h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+            <div className="h-7 w-7 rounded-lg bg-black/5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
                 <ChevronRight className="h-4 w-4" />
-            </button>
+            </div>
         </div>
     </div>
   )
+}
+
+function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }: { session: Session | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onStatusUpdate: (orderId: string, status: any) => void }) {
+    if (!session) return null;
+
+    const items = session.orders.flatMap(o => o.items);
+    const isDelivery = session.orderType === 'delivery';
+
+    const handleUpdateStatus = (status: string) => {
+        session.orders.forEach(o => onStatusUpdate(o.id, status));
+        onOpenChange(false);
+    };
+
+    const handleNavigate = () => {
+        const url = session.lat && session.lng 
+            ? `https://www.google.com/maps/dir/?api=1&destination=${session.lat},${session.lng}`
+            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(session.address)}`;
+        window.open(url, '_blank');
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-0 shadow-2xl h-[85vh] flex flex-col">
+                <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center">
+                    <div>
+                        <DialogTitle className="text-sm font-black uppercase tracking-tight">Session #{session.id.slice(-6)}</DialogTitle>
+                        <p className="text-[10px] font-bold opacity-40 uppercase">{session.orderType} • {format(session.lastActivity, 'p')}</p>
+                    </div>
+                    <Badge className={cn("rounded-md font-black uppercase text-[9px]", STATUS_COLORS[session.status])}>{session.status}</Badge>
+                </div>
+
+                <ScrollArea className="flex-1 p-5">
+                    <div className="space-y-8 pb-10">
+                        {/* CUSTOMER INFO */}
+                        <section className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Customer Details</h4>
+                            <Card className="rounded-2xl border-2 p-4 bg-muted/30">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-black text-xs uppercase text-gray-950">{session.customerName}</p>
+                                        <p className="text-[10px] font-bold opacity-60 mt-1">{session.phone || 'No phone provided'}</p>
+                                    </div>
+                                    {session.phone && (
+                                        <Button size="icon" variant="outline" className="rounded-xl h-10 w-10 border-2" asChild>
+                                            <a href={`tel:${session.phone}`}><Phone className="h-4 w-4" /></a>
+                                        </Button>
+                                    )}
+                                </div>
+                                {isDelivery && (
+                                    <div className="mt-4 pt-4 border-t border-black/5 space-y-3">
+                                        <div className="flex gap-2">
+                                            <MapPin className="h-4 w-4 text-primary shrink-0" />
+                                            <p className="text-[10px] font-bold text-gray-600 leading-tight">{session.address}</p>
+                                        </div>
+                                        <Button onClick={handleNavigate} className="w-full h-10 rounded-xl font-black text-[9px] uppercase tracking-widest gap-2 bg-blue-600 hover:bg-blue-700">
+                                            <Navigation className="h-3.5 w-3.5" /> Navigate to Client
+                                        </Button>
+                                    </div>
+                                )}
+                            </Card>
+                        </section>
+
+                        {/* ITEM MANIFEST */}
+                        <section className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Item Manifest</h4>
+                            <div className="space-y-2">
+                                {items.map((it, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-3 rounded-xl border-2 bg-white text-xs font-bold uppercase tracking-tight">
+                                        <span>{it.productName} <span className="opacity-40">x{it.quantity}</span></span>
+                                        <span className="text-primary font-black">₹{it.price * it.quantity}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex justify-between items-baseline px-1 pt-2">
+                                <span className="text-[9px] font-black uppercase opacity-40">Total Amount</span>
+                                <span className="text-xl font-black text-primary">₹{session.totalAmount.toFixed(0)}</span>
+                            </div>
+                        </section>
+                    </div>
+                </ScrollArea>
+
+                <div className="p-5 border-t bg-gray-50 flex gap-2 shrink-0 pb-10">
+                    {session.status === 'Pending' && (
+                        <Button onClick={() => handleUpdateStatus('Processing')} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">Accept & Kitchen</Button>
+                    )}
+                    {session.status === 'Processing' && (
+                        <Button onClick={() => handleUpdateStatus('Billed')} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">Mark Ready / Bill</Button>
+                    )}
+                    {session.status === 'Billed' && (
+                        <Button onClick={() => handleUpdateStatus('Completed')} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 bg-green-600 hover:bg-green-700">Finalize Session</Button>
+                    )}
+                    <Button variant="ghost" onClick={() => handleUpdateStatus('Cancelled')} className="h-12 rounded-xl font-bold uppercase text-[9px] text-destructive">Cancel</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: string, menuItems: MenuItem[], onComplete: () => void }) {
@@ -107,7 +214,7 @@ function QuickCounterSaleDialog({ storeId, menuItems, onComplete }: { storeId: s
     };
 
     return (
-        <DialogContent className="max-w-lg rounded-[2rem] p-0 overflow-hidden border-0 shadow-2xl">
+        <DialogContent className="max-w-lg rounded-[2.5rem] p-0 overflow-hidden border-0 shadow-2xl">
             <div className="p-4 bg-primary/5 border-b border-black/5"><DialogTitle className="text-sm font-black uppercase">Quick Bill</DialogTitle></div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
                 {menuItems.map(it => (
@@ -131,6 +238,7 @@ export default function StoreOrdersPage() {
   const [liveSearch, setLiveSearch] = useState('');
   const [liveFilter, setLiveFilter] = useState('all');
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { stores, userStore, fetchInitialData } = useAppStore();
 
   const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
@@ -155,11 +263,24 @@ export default function StoreOrdersPage() {
     const tableSessions: Record<string, Session> = {};
 
     activeOrders.forEach(o => {
-        if (liveSearch && !(o.customerName.toLowerCase().includes(searchLower) || o.tableNumber?.toLowerCase().includes(searchLower))) return;
+        if (liveSearch && !(o.customerName?.toLowerCase().includes(searchLower) || o.tableNumber?.toLowerCase().includes(searchLower))) return;
         if (liveFilter !== 'all' && o.status.toLowerCase() !== liveFilter) return;
 
         if (!tableSessions[o.sessionId!]) {
-            tableSessions[o.sessionId!] = { id: o.sessionId!, tableNumber: o.tableNumber || null, orders: [], totalAmount: 0, status: o.status, orderType: o.orderType, lastActivity: toDateSafe(o.orderDate) };
+            tableSessions[o.sessionId!] = { 
+                id: o.sessionId!, 
+                tableNumber: o.tableNumber || null, 
+                customerName: o.customerName || 'Guest',
+                phone: o.phone || '',
+                address: o.deliveryAddress || '',
+                lat: o.deliveryLat,
+                lng: o.deliveryLng,
+                orders: [], 
+                totalAmount: 0, 
+                status: o.status, 
+                orderType: o.orderType, 
+                lastActivity: toDateSafe(o.orderDate) 
+            };
         }
         tableSessions[o.sessionId!].orders.push(o);
         tableSessions[o.sessionId!].totalAmount += o.totalAmount;
@@ -178,63 +299,60 @@ export default function StoreOrdersPage() {
   if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24">
         <Dialog open={isNewSaleOpen} onOpenChange={setIsNewSaleOpen}>
             <QuickCounterSaleDialog storeId={myStore?.id || ''} menuItems={menuItems} onComplete={() => setIsNewSaleOpen(false)} />
         </Dialog>
 
-        <main className="container mx-auto px-3 pt-4">
-            {/* 1. HEADER */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <div className="relative h-8 w-8 rounded-full overflow-hidden border-2 bg-white shrink-0"><Image src={myStore?.imageUrl || ADIRES_LOGO} alt="S" fill className="object-cover" /></div>
-                    <div>
-                        <h1 className="text-[11px] font-black uppercase leading-none truncate max-w-[120px]">{myStore?.name || 'OPERATIONS'}</h1>
-                        <div className="flex items-center gap-1 mt-0.5"><div className="h-1 w-1 rounded-full bg-green-500 animate-pulse"/><span className="text-[7px] font-black uppercase text-green-600 tracking-widest">Live Hub</span></div>
-                    </div>
-                </div>
-                <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/5"><Link href="/dashboard/customer/my-profile"><UserIcon className="h-4 w-4" /></Link></Button>
-            </div>
+        <SessionDetailsDialog 
+            session={selectedSession} 
+            isOpen={!!selectedSession} 
+            onOpenChange={(open) => !open && setSelectedSession(null)} 
+            onStatusUpdate={handleOrderUpdate}
+        />
 
-            {/* 2. TABS */}
+        <main className="container mx-auto px-3 pt-4">
+            {/* 1. COMPACT TABS */}
             <div className="flex bg-black/5 p-1 rounded-xl mb-4 border border-black/5">
-                <button onClick={() => setActiveTab('live')} className={cn("flex-1 h-8 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'live' ? "bg-white shadow-sm text-primary" : "text-gray-400")}>Live</button>
+                <button onClick={() => setActiveTab('live')} className={cn("flex-1 h-8 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'live' ? "bg-white shadow-sm text-primary" : "text-gray-400")}>Live Hub</button>
                 <button onClick={() => setActiveTab('history')} className={cn("flex-1 h-8 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all", activeTab === 'history' ? "bg-white shadow-sm text-primary" : "text-gray-400")}>Insights</button>
             </div>
 
-            {/* 3. STATUS SUMMARY */}
-            <div className="flex gap-2 text-[10px] mb-4">
-                <div className="px-2.5 py-1 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
-                <div className="px-2.5 py-1 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
-                <div className="px-2.5 py-1 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
+            {/* 2. STATUS SUMMARY + SEARCH CONSOLIDATED */}
+            <div className="space-y-3 mb-4">
+                <div className="flex gap-2 text-[10px]">
+                    <div className="px-2.5 py-1.5 bg-green-50 text-green-600 rounded-lg font-black uppercase tracking-tighter border border-green-100 flex items-center gap-1">✔ {counts.active} ACTIVE</div>
+                    <div className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg font-black uppercase tracking-tighter border border-red-100 flex items-center gap-1">● {counts.newCount} NEW</div>
+                    <div className="px-2.5 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg font-black uppercase tracking-tighter border border-yellow-100 flex items-center gap-1">⏱ {counts.procCount} PROC.</div>
+                </div>
+
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-20" />
+                    <Input placeholder="Search orders or tables..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-9 rounded-xl border-2 bg-white pl-9 text-[11px] font-bold" />
+                </div>
             </div>
 
-            {/* 4. SEARCH */}
-            <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-20" />
-                <Input placeholder="Search..." value={liveSearch} onChange={e => setLiveSearch(e.target.value)} className="h-9 rounded-xl border-2 bg-white pl-9 text-[11px] font-bold" />
-            </div>
-
-            {/* 5. FILTER CHIPS */}
+            {/* 3. FILTER CHIPS */}
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-4">
                 {['all', 'pending', 'processing', 'billed'].map(f => (
                     <button key={f} onClick={() => setLiveFilter(f)} className={cn("px-3 h-7 rounded-lg font-black text-[9px] uppercase tracking-widest border-2 transition-all shrink-0", liveFilter === f ? "bg-primary border-primary text-white" : "bg-white border-black/5 text-gray-400")}>{f}</button>
                 ))}
             </div>
 
-            {/* 6. ORDER LIST */}
-            <div className="space-y-0.5 rounded-[1.5rem] overflow-hidden border-2 border-black/5 shadow-xl">
+            {/* 4. ORDER LIST - TIGHT ROWS */}
+            <div className="space-y-0.5 rounded-[1.5rem] overflow-hidden border-2 border-black/5 shadow-xl bg-white">
                 {sessions.length > 0 ? (
-                    sessions.map(s => <SessionRow key={s.id} session={s} isSalon={true} onStatusChange={handleOrderUpdate} />)
+                    sessions.map(s => <SessionRow key={s.id} session={s} isSalon={true} onClick={() => setSelectedSession(s)} />)
                 ) : (
-                    <div className="bg-white p-8 text-center flex flex-col items-center gap-3 opacity-20">
+                    <div className="bg-white p-12 text-center flex flex-col items-center gap-3 opacity-20">
                         <ShoppingBag className="h-8 w-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">All Clear</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">No active sessions</p>
                     </div>
                 )}
             </div>
         </main>
 
+        {/* 5. OPTIMIZED FAB */}
         <Button onClick={() => setIsNewSaleOpen(true)} className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
             <Plus className="h-6 w-6" />
         </Button>
