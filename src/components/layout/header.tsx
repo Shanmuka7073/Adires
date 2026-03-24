@@ -150,7 +150,7 @@ export function Header() {
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : (isEmployee ? '/dashboard/employee/attendance' : '/'));
   
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
-  const brandName = (isAdmin || isRestaurantOwner) ? "ADIRES" : (userStore?.name || "Adires");
+  const brandName = (isAdmin || isRestaurantOwner || pathname.startsWith('/dashboard/owner')) ? userStore?.name || "ADIRES" : (userStore?.name || "Adires");
 
   return (
     <header className="sticky top-0 z-50 flex h-14 sm:h-16 items-center gap-2 sm:gap-4 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
@@ -169,8 +169,9 @@ export function Header() {
             <span className="font-headline font-black text-gray-950 text-sm sm:text-base leading-none tracking-tighter truncate uppercase">
                 {brandName}
             </span>
-            {(isAdmin || isRestaurantOwner) && (
+            {(isAdmin || isRestaurantOwner || pathname.startsWith('/dashboard/owner')) && (
                 <div className="flex items-center gap-1 mt-0.5">
+                    <CheckCircle2 className="h-2.5 w-2.5 text-green-600 fill-current" />
                     <span className="text-[8px] font-black text-green-600 uppercase tracking-widest">Verified Store</span>
                 </div>
             )}
