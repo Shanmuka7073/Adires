@@ -25,6 +25,43 @@ export type Product = {
   price?: number; // Direct price for menu items
 };
 
+export type MenuTheme = {
+    backgroundColor: string;
+    primaryColor: string;
+    textColor: string;
+};
+
+export type CustomizationOption = {
+    name: string;
+    price: number;
+};
+
+export type CustomizationGroup = {
+    title: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    options: CustomizationOption[];
+};
+
+export type MenuItem = {
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+    dietary?: 'veg' | 'non-veg' | '';
+    imageUrl?: string;
+    isAvailable?: boolean;
+    customizations?: CustomizationGroup[];
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
+    theme?: MenuTheme;
+};
+
 export type Store = {
   id: string;
   name:string;
@@ -58,18 +95,6 @@ export type User = {
     longitude?: number;
     fcmToken?: string;
 }
-
-export type CustomizationOption = {
-    name: string;
-    price: number;
-};
-
-export type CustomizationGroup = {
-    title: string;
-    required?: boolean;
-    multiSelect?: boolean;
-    options: CustomizationOption[];
-};
 
 export type CartItem = {
   product: Product; // The base product
