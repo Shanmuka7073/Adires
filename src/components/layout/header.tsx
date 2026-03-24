@@ -149,7 +149,7 @@ export function Header() {
   const brandName = userStore?.name || "ADIRES";
 
   return (
-    <header className="sticky top-0 z-50 flex h-12 items-center gap-2 border-b bg-background/80 backdrop-blur-md px-3 sm:px-6">
+    <header className="sticky top-0 z-50 flex h-10 items-center gap-2 border-b bg-background/90 backdrop-blur-md px-3">
       <Link href={homeHref} className="flex items-center gap-2 group shrink-0 min-w-0">
         <div className="relative w-7 h-7 rounded-full overflow-hidden border bg-white shrink-0 shadow-sm">
           <Image 
