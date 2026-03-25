@@ -363,7 +363,7 @@ export default function StoreOrdersPage() {
 
         {myStore && (
             <Button asChild className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-2xl z-50 bg-primary text-white active:scale-90 transition-transform">
-                <Link href={`/menu/${myStore.id}?table=Counter`}><Plus className="h-6 w-6" /></Link>
+                <Link href={`/dashboard/owner/pos`}><Plus className="h-6 w-6" /></Link>
             </Button>
         )}
     </div>
