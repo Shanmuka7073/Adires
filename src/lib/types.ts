@@ -305,6 +305,8 @@ export type EmployeeProfile = {
   phone?: string;
   email?: string;
 
+  reportingTo?: string;
+
   salary?: number;
 
   salaryType?: 'monthly' | 'daily' | 'hourly'; // REQUIRED
@@ -317,36 +319,41 @@ export type EmployeeProfile = {
 };
 
 export type ReasonEntry = {
-  text: string; // IMPORTANT (you used .text in UI)
-  date: string;
-  note?: string;
+  text: string;
+  timestamp: Date | any;
+  status: 'submitted' | 'approved' | 'rejected';
+  rejectionReason?: string;
 };
 
-export type AttendanceRecord = {
+export interface AttendanceRecord {
   id: string;
+
   employeeId: string;
   storeId: string;
+  reportingTo?: string;
 
-  workDate: Timestamp | Date | string; // REQUIRED
+  workDate: any;
+  workDateStr: string;
 
-  punchInTime?: Timestamp | Date | string; // REQUIRED
-  punchOutTime?: Timestamp | Date | string; // REQUIRED
-
-  workHours?: number; // REQUIRED
+  punchInTime?: any | null;
+  punchOutTime?: any | null;
 
   status:
     | 'present'
+    | 'partially_present'
     | 'absent'
     | 'leave'
-    | 'half-day'
+    | 'half_day'
     | 'pending_approval'
     | 'approved'
-    | 'partially_present'; // REQUIRED (you used these)
+    | 'rejected';
+
+  workHours: number; // ✅ make REQUIRED
+
+  rejectionCount?: number;
 
   reasonHistory?: ReasonEntry[];
-
-  createdAt?: Timestamp | Date | string;
-};
+}
 export type CachedRecipe = {
   id: string;
   name: string;
