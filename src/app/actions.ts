@@ -411,3 +411,27 @@ export async function getSalarySlipData(
     throw new Error(error.message);
   }
 }
+
+export async function getManifest() {
+  try {
+    const { db } = await getAdminServices();
+
+    const doc = await db.collection('config').doc('manifest').get();
+
+    return doc.exists ? doc.data() : {};
+  } catch (error: any) {
+    return {};
+  }
+}
+
+export async function updateManifest(data: any) {
+  try {
+    const { db } = await getAdminServices();
+
+    await db.collection('config').doc('manifest').set(data, { merge: true });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
