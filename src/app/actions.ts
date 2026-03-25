@@ -366,7 +366,6 @@ export async function getIngredientsForDish({ dishName, language }: { dishName: 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
     const { db } = await getAdminServices();
-    const slipDoc = await db.collection('salarySlips').get(); // This is just a place holder, actually it should find the specific slip.
     const slipDocActual = await db.collection('salarySlips').doc(slipId).get();
     if (!slipDocActual.exists) return null;
     const slip = slipDocActual.data();
