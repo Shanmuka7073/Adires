@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -266,53 +267,39 @@ export type SiteConfig = {
   updatedAt?: Timestamp | Date | string;
 };
 
-export type EmployeeProfile = {
-  id: string;
+export interface CreateVoiceprintInput {
   userId: string;
-  storeId: string;
-  firstName: string;
-  lastName: string;
-  address?: string;
-  role: string;
-  employeeId: string;
-  phone?: string;
-  email?: string;
-  reportingTo?: string;
-  salaryRate: number;
-  salaryType: 'monthly' | 'hourly';
-  payoutMethod: 'bank' | 'upi';
-  upiId?: string;
-  bankDetails?: {
-    accountHolderName: string;
-    accountNumber: string;
-    ifscCode: string;
-  };
-  isActive?: boolean;
-  hireDate?: string;
-  createdAt?: Timestamp | Date | string;
-};
-
-export type ReasonEntry = {
-  text: string;
-  timestamp: Date | any;
-  status: 'submitted' | 'approved' | 'rejected';
-  rejectionReason?: string;
-};
-
-export interface AttendanceRecord {
-  id: string;
-  employeeId: string;
-  storeId: string;
-  reportingTo?: string;
-  workDate: any;
-  workDateStr: string;
-  punchInTime?: any | null;
-  punchOutTime?: any | null;
-  status: 'present' | 'partially_present' | 'absent' | 'leave' | 'half_day' | 'pending_approval' | 'approved' | 'rejected';
-  workHours: number;
-  rejectionCount?: number;
-  reasonHistory?: ReasonEntry[];
+  audioDataUri: string;
 }
+
+export interface CreateVoiceprintOutput {
+  isSuccess: boolean;
+  enrollmentCount: number;
+  error?: string;
+}
+
+export interface VerifyVoiceprintInput {
+  userId: string;
+  audioDataUri: string;
+}
+
+export interface VerifyVoiceprintOutput {
+    isMatch: boolean;
+    confidence: number;
+    error?: string;
+}
+
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
+};
 
 declare global {
   interface Window {
