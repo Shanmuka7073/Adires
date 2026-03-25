@@ -295,8 +295,11 @@ export type EmployeeProfile = {
   id: string;
   userId: string;
   storeId: string;
+  firstName: string;
+  lastName: string;
+  address?: string;
 
-  name?: string;
+  name: string;
 
   role: 'manager' | 'staff' | 'delivery' | 'admin';
 
@@ -309,8 +312,16 @@ export type EmployeeProfile = {
 
   salary?: number;
 
-  salaryType?: 'monthly' | 'daily' | 'hourly';
+  salaryType?: 'monthly'|'hourly';
   salaryRate: number;
+  payoutMethod?: 'bank' | 'upi';
+upiId?: string;
+
+bankDetails?: {
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+};
 
   isActive?: boolean;
   joiningDate?: string;
