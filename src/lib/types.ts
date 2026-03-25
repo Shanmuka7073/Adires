@@ -286,6 +286,7 @@ export type SiteConfig = {
   logoUrl?: string;
   currency?: string;
   timezone?: string;
+  liveVideoUrl?: string;
   createdAt?: Timestamp | Date | string;
   updatedAt?: Timestamp | Date | string;
 };
