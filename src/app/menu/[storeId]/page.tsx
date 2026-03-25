@@ -656,7 +656,10 @@ export default function PublicMenuPage() {
     setIngredientsData(null); setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
       const res = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-      if (res && res.isSuccess) setIngredientsData(res);
+      if (res && res.isSuccess) setIngredientsData({
+        ...res,
+        itemType: res.itemType as "food" | "product" | "service"
+      });
     });
   };
 
