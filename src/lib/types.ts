@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -168,6 +169,50 @@ export type Order = {
   deviceId?: string;
 };
 
+export type ReasonEntry = {
+    text: string;
+    timestamp: Date | Timestamp | string;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
+export type EmployeeProfile = {
+    userId: string;
+    storeId: string;
+    employeeId: string;
+    role: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'monthly' | 'hourly';
+    payoutMethod: 'bank' | 'upi';
+    upiId?: string | null;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    } | null;
+    reportingTo?: string;
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: Timestamp | Date | string;
+    workDateStr: string;
+    punchInTime: Timestamp | Date | string | null;
+    punchOutTime: Timestamp | Date | string | null;
+    status: 'present' | 'partially_present' | 'approved' | 'pending_approval' | 'rejected';
+    workHours: number;
+    rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
+};
+
 export type SalarySlip = {
     id: string;
     employeeId: string;
@@ -180,6 +225,7 @@ export type SalarySlip = {
     deductions: number;
     netPay: number;
     generatedAt: any;
+    attendance?: any;
 };
 
 export type DeliveryPartner = {
@@ -236,7 +282,7 @@ export type ReportData = {
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
-  ingredientCost: number;
+  ingredientCost?: number;
   orders: Order[]; 
 };
 
@@ -299,6 +345,8 @@ export type CommandGroup = {
     hi_audio?: string;
   };
 };
+
+export type Locales = Record<string, VoiceAliasGroup>;
 
 declare global {
   interface Window {
