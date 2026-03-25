@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -237,19 +236,7 @@ export type ReportData = {
   totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
-  topProfitableProducts: { name: string; totalProfit: number; profitPerUnit: number; count: number }[];
   ingredientCost: number;
-  costDrivers: { name: string; cost: number; percentage: number }[];
-  optimizationHint: string | null;
-  salesByTable: { 
-    tableNumber: string; 
-    totalSales: number; 
-    orderCount: number; 
-    totalCost: number;
-    profitPerOrder: number;
-    grossProfit: number;
-    profitPercentage: number;
-  }[];
   orders: Order[]; 
 };
 
@@ -261,18 +248,6 @@ export type NluExtractedSentence = {
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any;
 };
-
-declare global {
-  interface Window {
-      SpeechRecognition: any;
-      webkitSpeechRecognition: any;
-      deferredInstallPrompt: any;
-  }
-}
-
-// =============================
-// 🔧 Missing Types (Fix Errors)
-// =============================
 
 export type SiteConfig = {
   id: string;
@@ -298,34 +273,22 @@ export type EmployeeProfile = {
   firstName: string;
   lastName: string;
   address?: string;
-
-  name: string;
-
-  role: 'manager' | 'staff' | 'delivery' | 'admin';
-
+  role: string;
   employeeId: string;
-
   phone?: string;
   email?: string;
-
   reportingTo?: string;
-
-  salary?: number;
-
-  salaryType?: 'monthly'|'hourly';
   salaryRate: number;
-  payoutMethod?: 'bank' | 'upi';
-upiId?: string;
-
-bankDetails?: {
-  accountHolderName: string;
-  accountNumber: string;
-  ifscCode: string;
-};
-
+  salaryType: 'monthly' | 'hourly';
+  payoutMethod: 'bank' | 'upi';
+  upiId?: string;
+  bankDetails?: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
   isActive?: boolean;
-  joiningDate?: string;
-
+  hireDate?: string;
   createdAt?: Timestamp | Date | string;
 };
 
@@ -338,93 +301,23 @@ export type ReasonEntry = {
 
 export interface AttendanceRecord {
   id: string;
-
   employeeId: string;
   storeId: string;
   reportingTo?: string;
-
   workDate: any;
   workDateStr: string;
-
   punchInTime?: any | null;
   punchOutTime?: any | null;
-
-  status:
-    | 'present'
-    | 'partially_present'
-    | 'absent'
-    | 'leave'
-    | 'half_day'
-    | 'pending_approval'
-    | 'approved'
-    | 'rejected';
-
-  workHours: number; // ✅ make REQUIRED
-
+  status: 'present' | 'partially_present' | 'absent' | 'leave' | 'half_day' | 'pending_approval' | 'approved' | 'rejected';
+  workHours: number;
   rejectionCount?: number;
-
   reasonHistory?: ReasonEntry[];
 }
-export type CachedRecipe = {
-  id: string;
-  name: string;
-  itemType: string; // ✅ ADD THIS
-  components: any[];
-  steps: InstructionStep[];
-  nutrition: {
-    calories: number;
-    protein: number;
-  };
-  createdAt?: any;
-};
-export type CreateVoiceprintInput = {
-  userId: string;
-  audioData: string; // base64 or blob reference
-};
 
-export type CreateVoiceprintOutput = {
-  isSuccess: boolean;
-  enrollmentCount: number;
-  error?: string;
-};
-
-export type VerifyVoiceprintInput = {
-  userId: string;
-  audioData: string;
-};
-
-export type VerifyVoiceprintOutput = {
-  isMatch: boolean;      // ✅ FIXED
-  confidence: number;    // ✅ REQUIRED (you are returning it)
-  error?: string;
-};
-export type MonthlyPackage = {
-  id: string;
-
-  storeId: string;
-  name: string;
-
-  memberCount: number; // ✅ REQUIRED
-
-  price: number;
-
-  items: {
-    name: string;
-    quantity: string;
-  }[];
-
-  schedule?: {
-    day: string;
-    mainItem: string;
-    sideItem: string;
-  }[];
-
-  createdAt?: Timestamp | Date | string;
-};
-export type FailedVoiceCommand = {
-  id: string;
-  text: string;
-  reason?: string;
-  createdAt?: any;
-};
-
+declare global {
+  interface Window {
+      SpeechRecognition: any;
+      webkitSpeechRecognition: any;
+      deferredInstallPrompt: any;
+  }
+}

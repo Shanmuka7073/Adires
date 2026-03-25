@@ -2,7 +2,7 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, User, EmployeeProfile, SalarySlip, Product } from '@/lib/types';
+import type { Order, User, EmployeeProfile, SalarySlip, Product, MenuItem, GetIngredientsOutput, CartItem } from '@/lib/types';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -51,7 +51,6 @@ export async function getPlatformAnalytics() {
             return sanitizeForClient(statsDoc.data());
         }
 
-        // FALLBACK: Manual Aggregation
         const [usersCount, storesCount, ordersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
@@ -200,4 +199,103 @@ export async function rejectRegularization(attendanceId: string, storeId: string
       });
       return { success: true };
     } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function getPlaceholderImages() {
+    try {
+        const { db } = await getAdminServices();
+        const doc = await db.collection('siteConfig').doc('placeholder_images').get();
+        return { success: true, placeholderImages: doc.exists ? doc.data()?.placeholderImages || [] : [] };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function updatePlaceholderImages(data: any) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('siteConfig').doc('placeholder_images').set(data, { merge: true });
+        return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, item, quantity }: { storeId: string; sessionId: string; tableNumber: string | null; item: MenuItem; quantity: number }) {
+    try {
+        const { db } = await getAdminServices();
+        const orderId = `${storeId}_${sessionId}`;
+        const orderRef = db.collection('orders').doc(orderId);
+
+        const orderItem = {
+            id: Math.random().toString(36).substring(7),
+            orderId,
+            productId: item.id,
+            menuItemId: item.id,
+            productName: item.name,
+            quantity,
+            price: item.price,
+        };
+
+        await orderRef.set({
+            id: orderId,
+            storeId,
+            tableNumber,
+            sessionId,
+            status: 'Pending',
+            isActive: true,
+            orderDate: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            items: FieldValue.arrayUnion(orderItem),
+            totalAmount: FieldValue.increment(item.price * quantity),
+        }, { merge: true });
+
+        return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: { name: string, phone: string, tableNumber: string }, idToken: string) {
+    try {
+        const { db, auth } = await getAdminServices();
+        const decodedToken = await auth.verifyIdToken(idToken);
+        const uid = decodedToken.uid;
+        const storeId = cartItems[0].product.storeId;
+        const sessionId = cartItems[0].sessionId || `guest-${Date.now()}`;
+        const orderId = `${storeId}_${sessionId}`;
+
+        const orderData = {
+            id: orderId,
+            userId: uid,
+            storeId,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            sessionId,
+            status: 'Pending',
+            isActive: true,
+            orderDate: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            totalAmount: cartTotal,
+            items: cartItems.map(it => ({
+                id: Math.random().toString(36).substring(7),
+                productName: it.product.name,
+                productId: it.product.id,
+                quantity: it.quantity,
+                price: it.variant.price
+            }))
+        };
+
+        await db.collection('orders').doc(orderId).set(orderData);
+        return { success: true, orderId };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function getIngredientsForDish({ dishName, language }: { dishName: string; language: 'en' | 'te' }) {
+    try {
+        const { db } = await getAdminServices();
+        const cacheId = `${dishName.toLowerCase().replace(/\s+/g, '-')}_${language}`;
+        const cacheDoc = await db.collection('cachedRecipes').doc(cacheId).get();
+        
+        if (cacheDoc.exists) {
+            return { isSuccess: true, ...cacheDoc.data() } as GetIngredientsOutput;
+        }
+        
+        return { isSuccess: false, title: dishName, components: [], steps: [], itemType: 'product' };
+    } catch (error) { return null; }
 }
