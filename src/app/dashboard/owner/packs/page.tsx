@@ -78,7 +78,10 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
                 memberCount: familySize,
                 price: generatedPack.estimatedCost,
                 items: generatedPack.shoppingList.map(item => ({ name: item.itemName, quantity: item.quantity })),
-                schedule: generatedPack.schedule,
+                schedule: generatedPack.schedule.map(day => ({
+                    ...day,
+                    day: String(day.day),
+                  })),
             };
 
             try {

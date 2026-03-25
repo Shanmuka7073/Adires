@@ -398,3 +398,27 @@ export type VerifyVoiceprintOutput = {
   confidence: number;    // ✅ REQUIRED (you are returning it)
   error?: string;
 };
+export type MonthlyPackage = {
+  id: string;
+
+  storeId: string;
+  name: string;
+
+  memberCount: number; // ✅ REQUIRED
+
+  price: number;
+
+  items: {
+    name: string;
+    quantity: string;
+  }[];
+
+  schedule?: {
+    day: string;
+    mainItem: string;
+    sideItem: string;
+  }[];
+
+  createdAt?: Timestamp | Date | string;
+};
+
