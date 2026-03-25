@@ -349,3 +349,15 @@ export type FailedVoiceCommand = {
   reason?: string;
   timestamp?: number;
 };
+export type CachedRecipe = {
+  id: string;
+  name: string;
+  itemType: "food" | "product" | "service";
+  components: any[];
+  steps: any[];
+  nutrition?: {
+    calories: number;
+    protein: number;
+  };
+  createdAt: any; // Firestore timestamp
+};
