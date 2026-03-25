@@ -28,11 +28,17 @@ export default function SystemStatusPage() {
     const fetchStatus = async () => {
       // Don't set loading to true for background refreshes
       try {
-        const serverStatus = await getSystemStatus();
+        const serverStatus = await getSystemStatus()
+        const normalizeStatus = (status: string): SystemStatus['llmStatus'] => {
+          if (status === 'Online' || status === 'Offline' || status === 'Degraded') {
+            return status;
+          }
+          return 'Unknown';
+        };
 
         if (serverStatus.status === 'ok') {
-            setStatus({
-                llmStatus: serverStatus.llmStatus,
+          setStatus({
+            llmStatus: normalizeStatus(serverStatus.llmStatus),
                 serverDbStatus: 'Online',
                 userCount: serverStatus.counts.users,
                 storeCount: serverStatus.counts.stores,
