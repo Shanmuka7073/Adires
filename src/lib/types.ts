@@ -300,7 +300,7 @@ export type EmployeeProfile = {
 
   role: 'manager' | 'staff' | 'delivery' | 'admin';
 
-  employeeId?: string;
+  employeeId: string;
 
   phone?: string;
   email?: string;
@@ -309,8 +309,8 @@ export type EmployeeProfile = {
 
   salary?: number;
 
-  salaryType?: 'monthly' | 'daily' | 'hourly'; // REQUIRED
-  salaryRate?: number; // REQUIRED
+  salaryType?: 'monthly' | 'daily' | 'hourly';
+  salaryRate: number;
 
   isActive?: boolean;
   joiningDate?: string;
