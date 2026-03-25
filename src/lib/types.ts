@@ -314,6 +314,15 @@ export type MonthlyPackage = {
     schedule?: DayPlan[];
 };
 
+export type SiteConfig = {
+    liveVideoUrl?: string;
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+    isMaintenance?: boolean;
+};
+
 export type CommandGroup = {
   display: string;
   reply: {
