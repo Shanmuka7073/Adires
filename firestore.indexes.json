@@ -48,6 +48,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "userId",
           "order": "ASCENDING"
         },
@@ -58,29 +72,15 @@
       ]
     },
     {
-      "collectionGroup": "attendance",
+      "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "employeeId",
+          "fieldPath": "deviceId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "workDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "salarySlips",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "employeeId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "periodStart",
+          "fieldPath": "orderDate",
           "order": "DESCENDING"
         }
       ]

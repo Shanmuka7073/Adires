@@ -73,33 +73,11 @@ export async function getFirebaseConfig() {
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
-        const statsDoc = await db.collection('siteConfig').doc('platform_stats').get();
-        
-        // Fetch last 100 completed orders to calculate speeds
-        const recentCompletedSnap = await db.collection('orders')
-            .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
-            .orderBy('updatedAt', 'desc')
-            .limit(100)
-            .get();
-        
-        const recentOrders = recentCompletedSnap.docs.map(d => d.data());
-        const speedMetrics = calculateSpeedMetrics(recentOrders);
-
-        if (statsDoc.exists) {
-            const data = statsDoc.data();
-            return sanitizeForClient({
-                ...data,
-                avgBillingSpeed: speedMetrics.avg,
-                fastestBill: speedMetrics.fastest,
-                slowestBill: speedMetrics.slowest
-            });
-        }
-
-        // FALLBACK: Manual Aggregation
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfTodayTs = Timestamp.fromDate(startOfToday);
 
+        // Fetch counts and today's orders in parallel
         const [usersCount, storesCount, ordersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
@@ -110,7 +88,25 @@ export async function getPlatformAnalytics() {
         ]);
 
         let todayRevenue = 0;
-        ordersSnap.docs.forEach(doc => { todayRevenue += (doc.data().totalAmount || 0); });
+        ordersSnap.docs.forEach(doc => { 
+            const data = doc.data();
+            todayRevenue += (data.totalAmount || 0); 
+        });
+
+        // Calculate speed metrics separately to ensure robustness if index is still building
+        let speedMetrics = { avg: 0, fastest: 0, slowest: 0 };
+        try {
+            const recentCompletedSnap = await db.collection('orders')
+                .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+                .orderBy('updatedAt', 'desc')
+                .limit(100)
+                .get();
+            
+            const recentOrders = recentCompletedSnap.docs.map(d => d.data());
+            speedMetrics = calculateSpeedMetrics(recentOrders);
+        } catch (e) {
+            console.warn("Speed metrics calculation deferred (Index building?):", e);
+        }
 
         const result = {
             totalUsers: usersCount.data().count,
@@ -129,9 +125,10 @@ export async function getPlatformAnalytics() {
                 }
             }
         };
+        
         return sanitizeForClient(result);
     } catch (error) { 
-        console.error("Aggregation Failed:", error);
+        console.error("Critical Platform Aggregation Failed:", error);
         return null; 
     }
 }
@@ -140,20 +137,20 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
   try {
     const { db } = await getAdminServices();
     
-    // 1. DETERMINE DATE RANGE
     const now = new Date();
     let startDate: Date;
     if (period === 'daily') {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     } else if (period === 'weekly') {
-        const firstDayOfWeek = now.getDate() - now.getDay();
-        startDate = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        startDate = new Date(now.setDate(diff));
+        startDate.setHours(0,0,0,0);
     } else { // monthly
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
     const startTimestamp = Timestamp.fromDate(startDate);
 
-    // 2. FETCH ORDERS WITH INDEXED QUERY
     const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
