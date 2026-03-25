@@ -3,10 +3,9 @@
  * @fileOverview Voice biometric service (STUBBED).
  * All logic has been removed to simplify the build and focus on marketplace features.
  */
+// ❌ remove type import completely
 
-import type { CreateVoiceprintInput, CreateVoiceprintOutput, VerifyVoiceprintInput, VerifyVoiceprintOutput } from '@/lib/types';
-
-export async function createVoiceprint(input: CreateVoiceprintInput): Promise<CreateVoiceprintOutput> {
+export async function createVoiceprint(input: any): Promise<any> {
     return {
         isSuccess: false,
         enrollmentCount: 0,
@@ -14,7 +13,7 @@ export async function createVoiceprint(input: CreateVoiceprintInput): Promise<Cr
     };
 }
 
-export async function verifyVoiceprint(input: VerifyVoiceprintInput): Promise<VerifyVoiceprintOutput> {
+export async function verifyVoiceprint(input: any): Promise<any> {
     return {
         isMatch: false,
         confidence: 0,
