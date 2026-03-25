@@ -19,23 +19,22 @@ const firebaseConfig = {
 export function getFirebaseApp(): FirebaseApp | null {
   if (getApps().length) return getApp();
   
-  // CRITICAL: Prevent "Invalid segment (projects//databases)" error shown in your console
-  if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined') {
-    console.error("CRITICAL: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing from environment variables.");
+  // CRITICAL: Prevent "Invalid segment (projects//databases)" error
+  if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined' || firebaseConfig.projectId === '') {
+    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing from environment variables.");
     return null;
   }
 
-  // Ensure mandatory fields exist
-  if (!firebaseConfig.apiKey || firebaseConfig.appId) {
-    // If we have minimal required config, try initializing
-    try {
-      return initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error("Firebase App initialization failed:", e);
-      return null;
-    }
+  // Ensure mandatory fields exist before attempting initialization
+  if (!firebaseConfig.apiKey || !firebaseConfig.appId) {
+    console.error("CRITICAL ERROR: Firebase configuration is incomplete (apiKey or appId missing).");
+    return null;
   }
 
-  console.error("CRITICAL: Firebase configuration is incomplete.");
-  return null;
+  try {
+    return initializeApp(firebaseConfig);
+  } catch (e) {
+    console.error("Firebase App initialization failed:", e);
+    return null;
+  }
 }

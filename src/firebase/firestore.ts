@@ -36,7 +36,7 @@ export function getFirestoreInstanceInternal(): Firestore | null {
     if (e.code === 'failed-precondition' || e.message?.includes('already been called')) {
       firestoreInstance = getFirestore(app);
     } 
-    // FALLBACK 2: If IndexedDB fails (Corruption/Tab Lock as seen in your logs), initialize with memory only
+    // FALLBACK 2: If IndexedDB fails (Corruption/Tab Lock), initialize with memory only
     else {
       console.warn("Firestore Persistence failed (Allocate target error). Falling back to Memory Cache:", e.message);
       firestoreInstance = getFirestore(app);

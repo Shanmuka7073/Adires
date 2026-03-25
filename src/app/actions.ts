@@ -103,7 +103,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     const report: ReportData = {
         totalSales,
         totalOrders: orders.length,
-        totalItems: orders.length * 2, // Estimated
+        totalItems: orders.length * 2,
         topProducts: Object.entries(itemCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
         ingredientCost: totalSales * 0.45,
         orders: orders.slice(0, 20)
@@ -155,8 +155,10 @@ export async function updateSiteConfig(id: string, data: any) {
 export async function getSystemStatus() {
   try {
     const { db } = await getAdminServices();
-    const usersCount = await db.collection('users').count().get();
-    const storesCount = await db.collection('stores').count().get();
+    const [usersCount, storesCount] = await Promise.all([
+        db.collection('users').count().get(),
+        db.collection('stores').count().get()
+    ]);
     return {
       status: 'ok',
       llmStatus: 'Offline',
@@ -166,41 +168,6 @@ export async function getSystemStatus() {
   } catch (error: any) {
     return { status: 'error', llmStatus: 'Offline', serverDbStatus: 'Offline', counts: { users: 0, stores: 0 } };
   }
-}
-
-export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
-  try {
-    const { db } = await getAdminServices();
-    const slipDoc = await db.collection('salarySlips').doc(slipId).get();
-    if (!slipDoc.exists) return null;
-    const slip = slipDoc.data();
-    const empDoc = await db.collection('employeeProfiles').doc(userId).get();
-    const userDoc = await db.collection('users').doc(userId).get();
-    return sanitizeForClient({ slip, employee: { ...empDoc.data(), ...userDoc.data() }, attendance: slip?.attendance || {} });
-  } catch (error: any) { throw new Error(error.message); }
-}
-
-export async function approveRegularization(attendanceId: string, storeId: string, approved: boolean) {
-    try {
-      const { db } = await getAdminServices();
-      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
-        status: approved ? 'approved' : 'present',
-        updatedAt: Timestamp.now(),
-      });
-      return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function rejectRegularization(attendanceId: string, storeId: string, reason: string) {
-    try {
-      const { db } = await getAdminServices();
-      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
-        status: 'rejected',
-        rejectionReason: reason,
-        updatedAt: Timestamp.now(),
-      });
-      return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
 }
 
 export async function getPlaceholderImages() {
@@ -300,4 +267,39 @@ export async function getIngredientsForDish({ dishName, language }: { dishName: 
         
         return { isSuccess: false, title: dishName, components: [], steps: [], itemType: 'product' };
     } catch (error) { return null; }
+}
+
+export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
+  try {
+    const { db } = await getAdminServices();
+    const slipDoc = await db.collection('salarySlips').doc(slipId).get();
+    if (!slipDoc.exists) return null;
+    const slip = slipDoc.data();
+    const empDoc = await db.collection('employeeProfiles').doc(userId).get();
+    const userDoc = await db.collection('users').doc(userId).get();
+    return sanitizeForClient({ slip, employee: { ...empDoc.data(), ...userDoc.data() }, attendance: slip?.attendance || {} });
+  } catch (error: any) { throw new Error(error.message); }
+}
+
+export async function approveRegularization(attendanceId: string, storeId: string, approved: boolean) {
+    try {
+      const { db } = await getAdminServices();
+      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
+        status: approved ? 'approved' : 'present',
+        updatedAt: Timestamp.now(),
+      });
+      return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function rejectRegularization(attendanceId: string, storeId: string, reason: string) {
+    try {
+      const { db } = await getAdminServices();
+      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
+        status: 'rejected',
+        rejectionReason: reason,
+        updatedAt: Timestamp.now(),
+      });
+      return { success: true };
+    } catch (error: any) { return { success: false, error: error.message }; }
 }

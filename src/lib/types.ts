@@ -334,6 +334,25 @@ export interface VerifyVoiceprintOutput {
     error?: string;
 }
 
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
+};
+
+export type MonthlyPackage = {
+    id: string;
+    storeId: string;
+    name: string;
+    memberCount: number;
+    price: number;
+    items: {
+        name: string;
+        quantity: string;
+    }[];
+    schedule?: DayPlan[];
+};
+
 export type CommandGroup = {
   display: string;
   reply: {
