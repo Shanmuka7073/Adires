@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { BellRing, Send, Loader2, CheckCircle2, AlertTriangle, Users } from 'lucide-react';
+import { BellRing, Send, Loader2, CheckCircle2, Users } from 'lucide-react';
 import { sendBroadcastNotification } from '@/app/actions';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -35,11 +35,14 @@ export default function BroadcastPage() {
         startBroadcast(async () => {
             try {
                 const res = await sendBroadcastNotification(title, body);
-                if (res.success) {
+                if (res.success && res.results) {
                     setResult(res.results);
                     setTitle('');
                     setBody('');
-                    toast({ title: 'Broadcast Sent!', description: `Successfully delivered to ${res.results.successCount} devices.` });
+                    toast({ 
+                        title: 'Broadcast Sent!', 
+                        description: `Successfully delivered to ${res.results.successCount} devices.` 
+                    });
                 } else {
                     throw new Error(res.error || 'Broadcast failed.');
                 }
