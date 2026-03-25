@@ -100,7 +100,17 @@ export function RecipeCard() {
         startGeneration(async () => {
             try {
                 const response = await getIngredientsForDish({ dishName, language: lang });
-                if (response.isSuccess) setRecipeData(prev => ({...prev, [lang]: response}));
+                if (response && response.isSuccess) if (response && response.isSuccess) {
+                    const normalized: GetIngredientsOutput = {
+                      ...response,
+                      itemType: response.itemType as "food" | "product" | "service"
+                    };
+                  
+                    setRecipeData(prev => ({
+                      ...prev,
+                      [lang]: normalized
+                    }));
+                  }
                 else toast({ variant: 'destructive', title: 'Details Not Found' });
             } catch (error) {
                 toast({ variant: 'destructive', title: 'An Error Occurred' });
