@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   updateDoc,
   writeBatch,
-  setDoc
+  setDoc,
+  deleteDoc
 } from 'firebase/firestore';
 
 import type {
@@ -64,7 +65,8 @@ import {
   History,
   Leaf,
   Phone,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react';
 
 import {
@@ -340,10 +342,38 @@ function LiveBillSheet({
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
 }) {
-  const { cartItems } = useCart();
-  const sessionTotal = useMemo(() => placedOrders.reduce((acc, order) => acc + order.totalAmount, 0), [placedOrders]);
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const { cartItems, removeItem, cartTotal } = useCart();
+  
+  const placedTotal = useMemo(() => placedOrders.reduce((acc, order) => acc + order.totalAmount, 0), [placedOrders]);
+  const sessionTotal = placedTotal + cartTotal;
+  
   const isBilled = placedOrders.some(o => o.status === 'Billed');
   const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
+
+  const handleRemovePlacedItem = async (order: Order, itemIdx: number) => {
+      if (!firestore) return;
+      const orderRef = doc(firestore, 'orders', order.id);
+      const updatedItems = [...order.items];
+      const removedItem = updatedItems.splice(itemIdx, 1)[0];
+      const newTotal = order.totalAmount - (removedItem.price * removedItem.quantity);
+      
+      try {
+          if (updatedItems.length === 0) {
+              await deleteDoc(orderRef);
+          } else {
+              await updateDoc(orderRef, {
+                  items: updatedItems,
+                  totalAmount: newTotal,
+                  updatedAt: serverTimestamp()
+              });
+          }
+          toast({ title: "Item Removed" });
+      } catch (e) {
+          toast({ variant: 'destructive', title: "Failed to remove item" });
+      }
+  };
 
   if (isLoadingOrders) return <div className="flex justify-center p-12 bg-[#1A1616]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   
@@ -371,13 +401,23 @@ function LiveBillSheet({
                             
                             <OrderStatusTimeline status={order.status} theme={theme} />
 
-                            <div className="space-y-1 pt-2">
-                                {order.items.map((it, iIdx) => (
-                                    <div key={iIdx} className="flex justify-between text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
-                                        <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
-                                        <span className="font-black">₹{it.price * it.quantity}</span>
-                                    </div>
-                                ))}
+                            <div className="space-y-2 pt-2">
+                                {order.items.map((it, iIdx) => {
+                                    const canDelete = ['Pending', 'Processing'].includes(order.status);
+                                    return (
+                                        <div key={iIdx} className="flex justify-between items-center text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
+                                            <div className="flex items-center gap-2">
+                                                {canDelete && (
+                                                    <button onClick={() => handleRemovePlacedItem(order, iIdx)} className="text-red-500 hover:text-red-400 p-1">
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                )}
+                                                <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
+                                            </div>
+                                            <span className="font-black">₹{it.price * it.quantity}</span>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
                     ))}
@@ -390,8 +430,13 @@ function LiveBillSheet({
                     <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Selection (Ready to Send)</h4>
                     <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-3" style={{ borderColor: theme?.primaryColor + '30' }}>
                         {cartItems.map((it, idx) => (
-                            <div key={idx} className="flex justify-between text-xs" style={{ color: theme?.textColor || '#fff' }}>
-                                <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
+                            <div key={idx} className="flex justify-between items-center text-xs" style={{ color: theme?.textColor || '#fff' }}>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => removeItem(it.variant.sku)} className="text-red-500 hover:text-red-400 p-1">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                    <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
+                                </div>
                                 <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
                             </div>
                         ))}
@@ -531,7 +576,7 @@ export default function PublicMenuPage() {
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
   const { isInitialized, fetchInitialData, setUserStore, language } = useAppStore();
-  const { cartItems, addItem, clearCart } = useCart();
+  const { cartItems, addItem, clearCart, cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
@@ -585,7 +630,7 @@ export default function PublicMenuPage() {
   }, [firestore, storeId, deviceId]);
   const { data: historyOrders } = useCollection<Order>(historyQuery);
 
-  const activeItemCount = useMemo(() => placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0, [placedOrders]);
+  const activeItemCount = useMemo(() => (placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0) + cartItems.length, [placedOrders, cartItems]);
   const isSalon = useMemo(() => !!(store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon')), [store]);
   const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
   
