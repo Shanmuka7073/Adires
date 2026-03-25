@@ -421,4 +421,10 @@ export type MonthlyPackage = {
 
   createdAt?: Timestamp | Date | string;
 };
+export type FailedVoiceCommand = {
+  id: string;
+  text: string;
+  reason?: string;
+  createdAt?: any;
+};
 
