@@ -300,7 +300,7 @@ export type EmployeeProfile = {
 
   role: 'manager' | 'staff' | 'delivery' | 'admin';
 
-  employeeId?: string; // REQUIRED (you used this in UI)
+  employeeId?: string;
 
   phone?: string;
   email?: string;
