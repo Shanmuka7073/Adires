@@ -107,6 +107,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     const startTimestamp = Timestamp.fromDate(startDate);
 
     // 2. FETCH ORDERS WITH INDEXED QUERY
+    // Note: status 'in' and orderBy 'orderDate' requires a composite index
     const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
