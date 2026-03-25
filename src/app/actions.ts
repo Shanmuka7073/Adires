@@ -27,6 +27,33 @@ function sanitizeForClient(data: any): any {
     return data;
 }
 
+/**
+ * Calculates billing speed metrics from a collection of orders.
+ */
+function calculateSpeedMetrics(orders: any[]) {
+    const completedOrders = orders.filter(o => 
+        (o.status === 'Completed' || o.status === 'Billed' || o.status === 'Delivered') && 
+        o.orderDate && o.updatedAt
+    );
+
+    if (completedOrders.length === 0) {
+        return { avg: 0, fastest: 0, slowest: 0 };
+    }
+
+    const durations = completedOrders.map(o => {
+        const start = o.orderDate.seconds || new Date(o.orderDate).getTime() / 1000;
+        const end = o.updatedAt.seconds || new Date(o.updatedAt).getTime() / 1000;
+        return Math.max(0, (end - start) / 60); // duration in minutes
+    });
+
+    const sum = durations.reduce((a, b) => a + b, 0);
+    return {
+        avg: sum / durations.length,
+        fastest: Math.min(...durations),
+        slowest: Math.max(...durations)
+    };
+}
+
 export async function getFirebaseConfig() {
   try {
     const { app } = await getAdminServices();
@@ -48,8 +75,24 @@ export async function getPlatformAnalytics() {
         const { db } = await getAdminServices();
         const statsDoc = await db.collection('siteConfig').doc('platform_stats').get();
         
+        // Fetch last 100 completed orders to calculate speeds
+        const recentCompletedSnap = await db.collection('orders')
+            .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+            .orderBy('updatedAt', 'desc')
+            .limit(100)
+            .get();
+        
+        const recentOrders = recentCompletedSnap.docs.map(d => d.data());
+        const speedMetrics = calculateSpeedMetrics(recentOrders);
+
         if (statsDoc.exists) {
-            return sanitizeForClient(statsDoc.data());
+            const data = statsDoc.data();
+            return sanitizeForClient({
+                ...data,
+                avgBillingSpeed: speedMetrics.avg,
+                fastestBill: speedMetrics.fastest,
+                slowestBill: speedMetrics.slowest
+            });
         }
 
         // FALLBACK: Manual Aggregation
@@ -73,6 +116,9 @@ export async function getPlatformAnalytics() {
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
             activeSessions: ordersSnap.size,
+            avgBillingSpeed: speedMetrics.avg,
+            fastestBill: speedMetrics.fastest,
+            slowestBill: speedMetrics.slowest,
             periods: {
                 today: {
                     revenue: todayRevenue,
@@ -128,6 +174,8 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
         });
     });
 
+    const speedMetrics = calculateSpeedMetrics(orders);
+
     const report: ReportData = {
         totalSales,
         totalOrders: orders.length,
@@ -137,7 +185,10 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
             .slice(0, 5)
             .map(([name, count]) => ({ name, count })),
         ingredientCost: totalSales * 0.45,
-        orders: orders.slice(0, 20)
+        orders: orders.slice(0, 20),
+        avgBillingSpeed: speedMetrics.avg,
+        fastestBill: speedMetrics.fastest,
+        slowestBill: speedMetrics.slowest
     };
     
     return { success: true, report: sanitizeForClient(report) };

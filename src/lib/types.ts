@@ -283,7 +283,10 @@ export type ReportData = {
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   ingredientCost?: number;
-  orders: Order[]; 
+  orders: Order[];
+  avgBillingSpeed?: number; // in minutes
+  fastestBill?: number; // in minutes
+  slowestBill?: number; // in minutes
 };
 
 export type NluExtractedSentence = {

@@ -19,7 +19,10 @@ import {
   WifiOff,
   Globe,
   BellRing,
-  Info
+  Info,
+  Zap,
+  FastForward,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -42,12 +45,14 @@ function KPICard({ title, value, subValue, trendValue = 0, icon: Icon, color }: 
       <CardContent>
         <div className="flex items-baseline gap-2">
             <div className="text-3xl font-black text-gray-950 tracking-tighter">{value}</div>
-            <div className={cn(
-                "flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full",
-                isPositive ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
-            )}>
-                {Math.abs(trendValue).toFixed(1)}%
-            </div>
+            {trendValue !== undefined && trendValue !== 0 && (
+                <div className={cn(
+                    "flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full",
+                    isPositive ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
+                )}>
+                    {Math.abs(trendValue).toFixed(1)}%
+                </div>
+            )}
         </div>
         <p className="text-[9px] font-bold opacity-40 uppercase tracking-tight mt-1">{subValue}</p>
       </CardContent>
@@ -177,6 +182,35 @@ export default function AdminDashboardPage() {
             color="bg-purple-600" 
         />
       </section>
+
+      <div className="space-y-4">
+          <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1 flex items-center gap-2">
+              <Zap className="h-3 w-3" /> Billing Efficiency (Last 100 Successes)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <KPICard 
+                  title="Avg Billing Speed" 
+                  value={`${(data?.avgBillingSpeed || 0).toFixed(1)}m`} 
+                  subValue="Minutes per session" 
+                  icon={Zap} 
+                  color="bg-indigo-600" 
+              />
+              <KPICard 
+                  title="Fastest Bill" 
+                  value={`${(data?.fastestBill || 0).toFixed(1)}m`} 
+                  subValue="Operational Peak" 
+                  icon={FastForward} 
+                  color="bg-emerald-600" 
+              />
+              <KPICard 
+                  title="Slowest Bill" 
+                  value={`${(data?.slowestBill || 0).toFixed(1)}m`} 
+                  subValue="Maximum duration" 
+                  icon={Clock} 
+                  color="bg-rose-600" 
+              />
+          </div>
+      </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 space-y-10">
