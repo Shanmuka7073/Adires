@@ -164,6 +164,54 @@ export async function getPlatformAnalytics() {
     }
 }
 
+export async function sendBroadcastNotification(title: string, body: string) {
+    try {
+        const { db, messaging } = await getAdminServices();
+        
+        // 1. Fetch all users who have an active FCM token
+        const usersSnap = await db.collection('users')
+            .where('fcmToken', '!=', null)
+            .get();
+
+        if (usersSnap.empty) {
+            return { success: false, error: 'No users with active notification tokens found.' };
+        }
+
+        const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
+        
+        if (tokens.length === 0) {
+            return { success: false, error: 'No valid tokens found.' };
+        }
+
+        // 2. Construct the multicast message
+        const response = await messaging.sendEachForMulticast({
+            tokens,
+            notification: {
+                title,
+                body,
+            },
+            webpush: {
+                notification: {
+                    icon: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
+                    badge: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
+                }
+            }
+        });
+
+        return {
+            success: true,
+            results: {
+                totalTokens: tokens.length,
+                successCount: response.successCount,
+                failureCount: response.failureCount,
+            }
+        };
+    } catch (error: any) {
+        console.error("Broadcast failed:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function getStoreSalesReport({
   storeId,
   period,

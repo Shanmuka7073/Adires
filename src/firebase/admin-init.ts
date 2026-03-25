@@ -5,6 +5,7 @@ import { initializeApp, getApps, App, cert, type AppOptions } from 'firebase-adm
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { getMessaging, Messaging } from 'firebase-admin/messaging';
 
 /**
  * @fileOverview This file is the EXCLUSIVE entry point for the Firebase Admin SDK.
@@ -16,6 +17,7 @@ interface AdminServices {
   auth: Auth;
   db: Firestore;
   storage: ReturnType<typeof getStorage>;
+  messaging: Messaging;
 }
 
 let adminServices: AdminServices | null = null;
@@ -76,6 +78,7 @@ export async function getAdminServices(): Promise<AdminServices> {
       auth: getAuth(app),
       db: getFirestore(app),
       storage: getStorage(app),
+      messaging: getMessaging(app),
     };
 
     return adminServices;

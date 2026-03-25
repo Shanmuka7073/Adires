@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   WifiOff,
   Globe,
-  ExternalLink,
+  BellRing,
   Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -204,6 +204,7 @@ export default function AdminDashboardPage() {
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
                 <div className="grid gap-4 md:grid-cols-2">
                     <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
+                    <AdminActionCard title="Global Broadcast" description="Send push notifications to all users." href="/dashboard/admin/broadcast" icon={BellRing} />
                     <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
