@@ -83,7 +83,7 @@ export async function cacheRecipe(db: Firestore, dishName: string, language: 'en
 
     const recipeData: CachedRecipe = {
         id: docId,
-        dishName: data.title || dishName,
+        name: data.title || dishName,
         itemType: data.itemType || 'food',
         components: data.components || [],
         steps: data.steps || [],

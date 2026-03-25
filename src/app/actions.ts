@@ -211,3 +211,51 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
         return { success: true, orderId, error: null };
     } catch (e: any) { return { success: false, orderId: null, error: e.message }; }
 }
+// ==============================
+// ✅ ATTENDANCE APPROVAL ACTIONS
+// ==============================
+
+export async function approveRegularization(
+    attendanceId: string,
+    storeId: string,
+    approved: boolean
+  ) {
+    try {
+      const { db } = await getAdminServices();
+  
+      const ref = db.doc(`stores/${storeId}/attendance/${attendanceId}`);
+  
+      await ref.update({
+        status: approved ? 'approved' : 'present',
+        updatedAt: Timestamp.now(),
+      });
+  
+      return { success: true };
+    } catch (error: any) {
+      console.error("Approve failed:", error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  export async function rejectRegularization(
+    attendanceId: string,
+    storeId: string,
+    reason: string
+  ) {
+    try {
+      const { db } = await getAdminServices();
+  
+      const ref = db.doc(`stores/${storeId}/attendance/${attendanceId}`);
+  
+      await ref.update({
+        status: 'rejected',
+        rejectionReason: reason,
+        updatedAt: Timestamp.now(),
+      });
+  
+      return { success: true };
+    } catch (error: any) {
+      console.error("Reject failed:", error);
+      return { success: false, error: error.message };
+    }
+  }

@@ -300,13 +300,13 @@ export default function SalaryReportsPage() {
         let baseSalary = 0;
         
         const totalDaysInPeriod = differenceInDays(dateRange.to, dateRange.from) + 1;
-
+        if (!selectedEmployee || !selectedEmployee.salaryRate) return null;
         if (selectedEmployee.salaryType === 'monthly') {
             const daysInMonthOfSalary = getDaysInMonth(dateRange.from);
-            const perDaySalary = selectedEmployee.salaryRate / daysInMonthOfSalary;
+            const perDaySalary = (selectedEmployee.salaryRate || 0) / daysInMonthOfSalary;
             const payableDays = presentOrApprovedRecords.reduce((acc, record) => {
-                if (record.status === 'partially_present' && record.workHours > 0) {
-                    return acc + (record.workHours / 8); 
+                if (record.status === 'partially_present' &&(record.workHours || 0) > 0) {
+                    return acc + ((record.workHours || 0) / 8); 
                 }
                 return acc + 1;
             }, 0);
@@ -369,7 +369,7 @@ export default function SalaryReportsPage() {
                     companyName: myStore.name,
                     payslipNo: `PSL-${slipId.slice(0,8)}`,
                     employeeName: `${employeeUserData.firstName} ${employeeUserData.lastName}`,
-                    employeeId: selectedEmployee.employeeId,
+                    employeeId: selectedEmployee.employeeId ??"",
                     designation: selectedEmployee.role,
                     payPeriod: format(new Date(slipData.periodStart), 'MMMM yyyy'),
                     totalHours: reportData.totalHours,
@@ -464,7 +464,7 @@ export default function SalaryReportsPage() {
                                                     <TableCell>{rec.workDate instanceof Timestamp ? format(rec.workDate.toDate(), 'PPP') : 'Invalid Date'}</TableCell>
                                                     <TableCell>{rec.punchInTime ? format(rec.punchInTime instanceof Timestamp ? rec.punchInTime.toDate() : new Date(rec.punchInTime), 'p') : '—'}</TableCell>
                                                     <TableCell>{rec.punchOutTime ? format(rec.punchOutTime instanceof Timestamp ? rec.punchOutTime.toDate() : new Date(rec.punchOutTime), 'p') : '—'}</TableCell>
-                                                    <TableCell>{rec.workHours > 0 ? rec.workHours.toFixed(2) : '-'}</TableCell>
+                                                    <TableCell>{(rec.workHours ?? 0) > 0 ? (rec.workHours ?? 0).toFixed(2) : '-'}</TableCell>
                                                     <TableCell className="text-right font-mono capitalize">{rec.status.replace(/_/g, ' ')}</TableCell>
                                                 </TableRow>
                                             ))}

@@ -269,3 +269,113 @@ declare global {
       deferredInstallPrompt: any;
   }
 }
+
+// =============================
+// 🔧 Missing Types (Fix Errors)
+// =============================
+
+export type SiteConfig = {
+  id: string;
+  storeId: string;
+  businessName?: string;
+  ownerName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstNumber?: string;
+  logoUrl?: string;
+  currency?: string;
+  timezone?: string;
+  createdAt?: Timestamp | Date | string;
+  updatedAt?: Timestamp | Date | string;
+};
+
+export type EmployeeProfile = {
+  id: string;
+  userId: string;
+  storeId: string;
+
+  name?: string;
+
+  role: 'manager' | 'staff' | 'delivery' | 'admin';
+
+  employeeId?: string; // REQUIRED (you used this in UI)
+
+  phone?: string;
+  email?: string;
+
+  salary?: number;
+
+  salaryType?: 'monthly' | 'daily' | 'hourly'; // REQUIRED
+  salaryRate?: number; // REQUIRED
+
+  isActive?: boolean;
+  joiningDate?: string;
+
+  createdAt?: Timestamp | Date | string;
+};
+
+export type ReasonEntry = {
+  text: string; // IMPORTANT (you used .text in UI)
+  date: string;
+  note?: string;
+};
+
+export type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  storeId: string;
+
+  workDate: Timestamp | Date | string; // REQUIRED
+
+  punchInTime?: Timestamp | Date | string; // REQUIRED
+  punchOutTime?: Timestamp | Date | string; // REQUIRED
+
+  workHours?: number; // REQUIRED
+
+  status:
+    | 'present'
+    | 'absent'
+    | 'leave'
+    | 'half-day'
+    | 'pending_approval'
+    | 'approved'
+    | 'partially_present'; // REQUIRED (you used these)
+
+  reasonHistory?: ReasonEntry[];
+
+  createdAt?: Timestamp | Date | string;
+};
+export type CachedRecipe = {
+  id: string;
+  name: string;
+  itemType: string; // ✅ ADD THIS
+  components: any[];
+  steps: InstructionStep[];
+  nutrition: {
+    calories: number;
+    protein: number;
+  };
+  createdAt?: any;
+};
+export type CreateVoiceprintInput = {
+  userId: string;
+  audioData: string; // base64 or blob reference
+};
+
+export type CreateVoiceprintOutput = {
+  isSuccess: boolean;
+  enrollmentCount: number;
+  error?: string;
+};
+
+export type VerifyVoiceprintInput = {
+  userId: string;
+  audioData: string;
+};
+
+export type VerifyVoiceprintOutput = {
+  isMatch: boolean;      // ✅ FIXED
+  confidence: number;    // ✅ REQUIRED (you are returning it)
+  error?: string;
+};
