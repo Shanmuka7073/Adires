@@ -20,8 +20,9 @@ export function getFirebaseApp(): FirebaseApp | null {
   if (getApps().length) return getApp();
   
   // CRITICAL: Prevent "Invalid segment (projects//databases)" error
-  if (!firebaseConfig.projectId || firebaseConfig.projectId === 'undefined' || firebaseConfig.projectId === '') {
-    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing from environment variables.");
+  const pid = firebaseConfig.projectId;
+  if (!pid || pid === 'undefined' || pid === '' || pid.includes('{')) {
+    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing or invalid in environment variables.");
     return null;
   }
 

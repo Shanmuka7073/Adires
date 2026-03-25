@@ -229,7 +229,7 @@ export type SalarySlip = {
 };
 
 export type DeliveryPartner = {
-  userId: string;
+  userId: string; 
   totalEarnings: number;
   lastPayoutDate?: Timestamp;
   payoutsEnabled: boolean;
@@ -294,45 +294,6 @@ export type NluExtractedSentence = {
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any;
 };
-
-export type SiteConfig = {
-  id: string;
-  storeId: string;
-  businessName?: string;
-  ownerName?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  gstNumber?: string;
-  logoUrl?: string;
-  currency?: string;
-  timezone?: string;
-  liveVideoUrl?: string;
-  createdAt?: Timestamp | Date | string;
-  updatedAt?: Timestamp | Date | string;
-};
-
-export interface CreateVoiceprintInput {
-  userId: string;
-  audioDataUri: string;
-}
-
-export interface CreateVoiceprintOutput {
-  isSuccess: boolean;
-  enrollmentCount: number;
-  error?: string;
-}
-
-export interface VerifyVoiceprintInput {
-  userId: string;
-  audioDataUri: string;
-}
-
-export interface VerifyVoiceprintOutput {
-    isMatch: boolean;
-    confidence: number;
-    error?: string;
-}
 
 export type DayPlan = {
   day: number;

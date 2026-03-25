@@ -1,9 +1,10 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, limit } from 'firebase/firestore';
-import { Store, VoiceAliasGroup, CommandGroup } from './types';
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
@@ -21,6 +22,8 @@ export interface ProfileFormValues {
 
 export interface AppState {
   stores: Store[];
+  masterProducts: Product[];
+  productPrices: Record<string, ProductPrice | null>;
   userStore: Store | null; 
   loading: boolean;
   isInitialized: boolean;
@@ -41,6 +44,8 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
+  getProductName: (product: Product) => string;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -57,6 +62,8 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
+      masterProducts: [],
+      productPrices: {},
       userStore: null,
       locales: {},
       commands: {},
@@ -101,6 +108,15 @@ export const useAppStore = create<AppState>()(
           ]);
 
           const stores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          
+          // Identify the master store for products
+          const masterStore = stores.find((s: Store) => s.name === 'LocalBasket');
+          let masterProducts: Product[] = [];
+          if (masterStore) {
+              const productsSnap = await getDocs(collection(db, 'stores', masterStore.id, 'products'));
+              masterProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+          }
+
           const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
@@ -123,6 +139,7 @@ export const useAppStore = create<AppState>()(
 
           set({
             stores,
+            masterProducts,
             locales,
             commands: enrichedCommands,
             isInitialized: true,
@@ -137,12 +154,49 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          const { productPrices } = get();
+          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
+
+          if (namesToFetch.length === 0) return;
+          
+          try {
+              const pricesToUpdate: Record<string, ProductPrice | null> = {};
+              const batchSize = 30;
+
+              for (let i = 0; i < namesToFetch.length; i += batchSize) {
+                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
+                  if (batchNames.length > 0) {
+                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
+                      const priceSnapshot = await getDocs(priceQuery);
+                      
+                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
+                      
+                      batchNames.forEach(name => {
+                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
+                      });
+                  }
+              }
+
+              set(state => ({
+                  productPrices: { ...state.productPrices, ...pricesToUpdate }
+              }));
+          } catch (error) {
+              console.error("Failed to fetch product prices:", error);
+          }
+      },
+
+      getProductName: (product: Product) => {
+        const lang = get().language;
+        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+      },
+
       getAllAliases: (key: string) => {
         return getAliasesFromLocales(get().locales, key);
       }
     }),
     {
-      name: 'adires-ops-v18', 
+      name: 'adires-ops-v19', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
