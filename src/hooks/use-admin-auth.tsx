@@ -27,8 +27,9 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    return userData?.accountType === 'restaurant';
-  }, [userData]);
+    // A merchant is either an admin or has a restaurant accountType
+    return isAdmin || userData?.accountType === 'restaurant';
+  }, [userData, isAdmin]);
 
   const isEmployee = useMemo(() => {
     return userData?.accountType === 'employee';
@@ -39,7 +40,6 @@ export function useAdminAuth() {
   }, [isAdmin, isRestaurantOwner]);
 
   // Wait for Auth shell AND (if logged in) the Firestore profile data
-  // Added extra safety check for 'auth' instance availability
   const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
 
   return {

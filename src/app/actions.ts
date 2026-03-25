@@ -7,14 +7,20 @@ import type { Order, SiteConfig, CartItem, User, EmployeeProfile, AttendanceReco
 
 /**
  * DEEP SERIALIZATION & PERFORMANCE TELEMETRY UTILITY
+ * Recursively converts Firestore Timestamps and Dates to ISO strings.
  */
 function sanitizeForClient(data: any): any {
     if (data === null || data === undefined) return data;
+    
+    // Handle Firestore Timestamps
     if (typeof data === 'object' && 'seconds' in data && 'nanoseconds' in data) {
         return new Date(data.seconds * 1000).toISOString();
     }
+    
     if (data instanceof Date) return data.toISOString();
+    
     if (Array.isArray(data)) return data.map(sanitizeForClient);
+    
     if (typeof data === 'object') {
         const cleaned: any = {};
         for (const [key, value] of Object.entries(data)) {
@@ -22,6 +28,7 @@ function sanitizeForClient(data: any): any {
         }
         return cleaned;
     }
+    
     return data;
 }
 
@@ -42,38 +49,57 @@ export async function getFirebaseConfig() {
 }
 
 /**
- * OPTIMIZED ANALYTICS (SUMMARY-FIRST)
- * Previously: Scanned all orders (Slow, 2s+).
- * Now: Attempts to read a single 'summary' doc first.
+ * RESILIENT PLATFORM ANALYTICS
+ * Attempts summary read first, falls back to manual aggregation.
  */
 export async function getPlatformAnalytics() {
     const start = Date.now();
     try {
         const { db } = await getAdminServices();
         
-        // Strategy: Use a dedicated 'system_stats' doc for 1-read retrieval
-        // If it doesn't exist, we fall back to aggregation but only for current day.
         const statsDoc = await db.collection('siteConfig').doc('platform_stats').get();
         
         if (statsDoc.exists) {
-            const data = statsDoc.data();
             console.log(`[PERF] Analytics Summary fetched in ${Date.now() - start}ms`);
-            return sanitizeForClient(data);
+            return sanitizeForClient(statsDoc.data());
         }
 
-        // FALLBACK: Aggregation (Should only happen once or in development)
-        const [usersCount, storesCount, activeOrdersSnap] = await Promise.all([
+        // FALLBACK: Manual Aggregation for Today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayTs = Timestamp.fromDate(today);
+
+        const [usersCount, storesCount, todayOrdersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
-            db.collection('orders').where('isActive', '==', true).get(),
+            db.collection('orders')
+                .where('orderDate', '>=', todayTs)
+                .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+                .get(),
         ]);
 
-        return sanitizeForClient({
+        let todayRevenue = 0;
+        todayOrdersSnap.docs.forEach(doc => {
+            todayRevenue += (doc.data().totalAmount || 0);
+        });
+
+        const result = {
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
-            activeSessions: activeOrdersSnap.size,
-            periods: { today: { revenue: 0, orders: 0, aov: 0, userReach: 0, trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 } } }
-        });
+            activeSessions: todayOrdersSnap.size,
+            periods: {
+                today: {
+                    revenue: todayRevenue,
+                    orders: todayOrdersSnap.size,
+                    aov: todayOrdersSnap.size > 0 ? todayRevenue / todayOrdersSnap.size : 0,
+                    userReach: todayOrdersSnap.size,
+                    trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 }
+                }
+            }
+        };
+
+        console.log(`[PERF] Analytics Fallback generated in ${Date.now() - start}ms`);
+        return sanitizeForClient(result);
     } catch (error) {
         console.error("Platform analytics engine failed:", error);
         return null;
@@ -82,7 +108,6 @@ export async function getPlatformAnalytics() {
 
 /**
  * OPTIMIZED STORE SALES REPORT
- * Uses specialized indexes and aggregation limits.
  */
 export async function getStoreSalesReport({
   storeId,
@@ -101,7 +126,6 @@ export async function getStoreSalesReport({
     else if (period === 'weekly') startDate.setDate(now.getDate() - 7);
     else startDate.setDate(1);
 
-    // OPTIMIZATION: Limit the scan to 500 documents max to prevent 2s hang
     const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
@@ -132,10 +156,10 @@ export async function getStoreSalesReport({
         totalOrders: orders.length,
         topProducts,
         ingredientCost: totalSales * 0.45,
-        orders: orders.slice(0, 20) // Only send recent 20 to client to keep JSON small
+        orders: orders.slice(0, 20)
     };
 
-    console.log(`[PERF] Store Report (${period}) for ${storeId} generated in ${Date.now() - start}ms`);
+    console.log(`[PERF] Store Report (${period}) generated in ${Date.now() - start}ms`);
     return { success: true, report: sanitizeForClient(result), error: null };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -148,12 +172,26 @@ export async function sendBroadcastNotification(title: string, body: string) {
         const usersSnap = await db.collection('users').where('fcmToken', '!=', null).limit(500).get();
         if (usersSnap.empty) return { success: false, error: 'No recipients.' };
         const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
+        
         const response = await messaging.sendEachForMulticast({
             tokens,
             notification: { title, body },
-            webpush: { notification: { icon: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png' } }
+            webpush: { 
+                notification: { 
+                    icon: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
+                    badge: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png'
+                } 
+            }
         });
-        return { success: true, results: { totalTokens: tokens.length, successCount: response.successCount, failureCount: response.failureCount } };
+        
+        return { 
+            success: true, 
+            results: { 
+                totalTokens: tokens.length, 
+                successCount: response.successCount, 
+                failureCount: response.failureCount 
+            } 
+        };
     } catch (error: any) { return { success: false, error: error.message }; }
 }
 
@@ -211,137 +249,65 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
         return { success: true, orderId, error: null };
     } catch (e: any) { return { success: false, orderId: null, error: e.message }; }
 }
-// ==============================
-// ✅ ATTENDANCE APPROVAL ACTIONS
-// ==============================
 
-export async function approveRegularization(
-    attendanceId: string,
-    storeId: string,
-    approved: boolean
-  ) {
+export async function approveRegularization(attendanceId: string, storeId: string, approved: boolean) {
     try {
       const { db } = await getAdminServices();
-  
       const ref = db.doc(`stores/${storeId}/attendance/${attendanceId}`);
-  
       await ref.update({
         status: approved ? 'approved' : 'present',
         updatedAt: Timestamp.now(),
       });
-  
       return { success: true };
     } catch (error: any) {
-      console.error("Approve failed:", error);
       return { success: false, error: error.message };
     }
   }
   
-  export async function rejectRegularization(
-    attendanceId: string,
-    storeId: string,
-    reason: string
-  ) {
+  export async function rejectRegularization(attendanceId: string, storeId: string, reason: string) {
     try {
       const { db } = await getAdminServices();
-  
       const ref = db.doc(`stores/${storeId}/attendance/${attendanceId}`);
-  
       await ref.update({
         status: 'rejected',
         rejectionReason: reason,
         updatedAt: Timestamp.now(),
       });
-  
       return { success: true };
     } catch (error: any) {
-      console.error("Reject failed:", error);
       return { success: false, error: error.message };
     }
   }
-  export async function getPlaceholderImages(): Promise<Record<string, any>> {
+
+export async function getPlaceholderImages(): Promise<Record<string, any>> {
     try {
       const { db } = await getAdminServices();
-  
       const doc = await db.collection('siteConfig').doc('placeholders').get();
-  
       return doc.exists ? doc.data() || {} : {};
     } catch (error: any) {
       return {};
     }
-  }
+}
 
-// Update placeholder images
 export async function updatePlaceholderImages(data: any) {
   try {
     const { db } = await getAdminServices();
-
     await db.collection('siteConfig').doc('placeholders').set(data, { merge: true });
-
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
-// PDF processing (temporary stub)
-export async function processPdfAndExtractRules(file: File) {
-  try {
-    return {
-      success: true,
-      rules: [],
-      sentenceCount: 0, // ✅ REQUIRED
-      message: "PDF processing not implemented yet"
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      rules: [],
-      sentenceCount: 0, // ✅ ALSO REQUIRED HERE
-      error: error.message
-    };
-  }
-}
-export async function approveRule(ruleId: string, rawText: string) {
-  try {
-    const { db } = await getAdminServices();
 
-    await db.collection('rules').doc(ruleId).set({
-      id: ruleId,
-      text: rawText,
-      status: 'approved',
-      createdAt: new Date(),
-    }, { merge: true });
-
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
-export async function rejectRule(ruleId: string) {
-  try {
-    const { db } = await getAdminServices();
-
-    await db.collection('rules').doc(ruleId).update({
-      status: 'rejected',
-      updatedAt: new Date()
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
 export async function getSystemStatus() {
   try {
-    const { db, auth } = await getAdminServices();
-
-    // Test DB connection
+    const { db } = await getAdminServices();
     const usersCount = await db.collection('users').count().get();
     const storesCount = await db.collection('stores').count().get();
 
     return {
       status: 'ok',
-      llmStatus: 'Online', // you can improve later
+      llmStatus: 'Online',
       serverDbStatus: 'Online',
       identity: 'Firebase Admin Connected',
       isCredentialError: false,
@@ -357,56 +323,37 @@ export async function getSystemStatus() {
       serverDbStatus: 'Offline',
       errorMessage: error.message,
       isCredentialError: true,
-      counts: {
-        users: 0,
-        stores: 0
-      }
+      counts: { users: 0, stores: 0 }
     };
   }
 }
-export async function getSalarySlipData(
-  slipId: string,
-  userId: string,
-  storeId?: string
-) {
+
+export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
     const { db } = await getAdminServices();
-
-    // Get slip
     const slipDoc = await db.collection('salarySlips').doc(slipId).get();
-
-    if (!slipDoc.exists) {
-      return null;
-    }
-
+    if (!slipDoc.exists) return null;
     const slip = slipDoc.data();
+    if (slip?.userId !== userId && slip?.employeeId !== userId) return null;
 
-    // Security check (VERY IMPORTANT)
-    if (slip?.userId !== userId) {
-      return null;
-    }
-
-    // Get employee
     const empDoc = await db.collection('employeeProfiles').doc(userId).get();
     const employee = empDoc.data();
 
-    // Get user (name details)
     const userDoc = await db.collection('users').doc(userId).get();
     const user = userDoc.data();
 
-    // Get store
     let store = null;
     if (storeId) {
       const storeDoc = await db.collection('stores').doc(storeId).get();
       store = storeDoc.data();
     }
 
-    return {
+    return sanitizeForClient({
       slip,
       employee: { ...employee, ...user },
       store,
       attendance: slip?.attendance || {}
-    };
+    });
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -415,10 +362,8 @@ export async function getSalarySlipData(
 export async function getManifest() {
   try {
     const { db } = await getAdminServices();
-
     const doc = await db.collection('config').doc('manifest').get();
-
-    return doc.exists ? doc.data() : {};
+    return sanitizeForClient(doc.exists ? doc.data() : {});
   } catch (error: any) {
     return {};
   }
@@ -427,9 +372,7 @@ export async function getManifest() {
 export async function updateManifest(data: any) {
   try {
     const { db } = await getAdminServices();
-
     await db.collection('config').doc('manifest').set(data, { merge: true });
-
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

@@ -4,11 +4,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
+import { Store, VoiceAliasGroup, CommandGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
-import { generalCommands as defaultGeneralCommands, CommandGroup } from './locales/commands';
+import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
@@ -22,7 +22,6 @@ export interface ProfileFormValues {
 
 export interface AppState {
   stores: Store[];
-  masterProducts: Product[];
   userStore: Store | null; 
   loading: boolean;
   isInitialized: boolean;
@@ -43,11 +42,8 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  productPrices: Record<string, ProductPrice | null>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
-  getProductName: (product: Product) => string;
   getAllAliases: (key: string) => Record<string, string[]>;
 }
 
@@ -62,11 +58,9 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
-      masterProducts: [],
       userStore: null,
       locales: {},
       commands: {},
-      productPrices: {},
       loading: false,
       isInitialized: false,
       appReady: false,
@@ -102,8 +96,7 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // OPTIMIZATION: Only fetch essential Shell data. 
-          // Page-specific data (Analytics, Orders) is moved to SWR hooks in components.
+          // Parallel fetch of critical platform collections
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
             getDocs(query(collection(db, 'stores'), limit(50))).catch(() => ({ docs: [] })),
             getDocs(query(collection(db, 'voiceAliasGroups'), limit(100))).catch(() => ({ docs: [] })),
@@ -126,7 +119,13 @@ export const useAppStore = create<AppState>()(
               set({ deviceId: Math.random().toString(36).substring(2, 15) });
           }
 
-          console.log(`[PERF] App Bootstrap in ${(performance.now() - start).toFixed(0)}ms`);
+          // FIND AND PERSIST USER'S STORE IDENTITY
+          let userStore = state.userStore;
+          if (userId) {
+              userStore = stores.find(s => s.ownerId === userId) || null;
+          }
+
+          console.log(`[PERF] Shell Bootstrap in ${(performance.now() - start).toFixed(0)}ms`);
 
           set({
             stores,
@@ -135,7 +134,7 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             loading: false,
             appReady: true,
-            userStore: userId ? (stores.find(s => s.ownerId === userId) || null) : state.userStore,
+            userStore,
             readCount: state.readCount + storesSnap.docs.length + 2
           });
           
@@ -145,29 +144,12 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          // Legacy stub
-          return Promise.resolve();
-      },
-
-      getProductName: (product: Product) => {
-        if (!product || !product.name) return '';
-        const lang = get().language;
-        const key = product.name.toLowerCase().replace(/ /g, '-');
-        const entry = get().locales[key];
-        if (entry) {
-            const regional = entry[lang.split('-')[0]];
-            if (regional) return Array.isArray(regional) ? regional[0] : regional;
-        }
-        return product.name;
-      },
-
       getAllAliases: (key: string) => {
         return getAliasesFromLocales(get().locales, key);
       }
     }),
     {
-      name: 'adires-ops-v16', 
+      name: 'adires-ops-v17', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -181,14 +163,17 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, loading, isInitialized, setAppReady } = useAppStore();
+    const { fetchInitialData, loading, isInitialized, setAppReady, userStore } = useAppStore();
 
     useEffect(() => {
+        // App is ready as soon as hydration is finished
         if (isInitialized) setAppReady(true);
-        if (firestore && !isUserLoading && !loading && (!isInitialized || (user && !useAppStore.getState().userStore))) {
+        
+        // Refetch if not initialized or if we logged in and don't have a store yet
+        if (firestore && !isUserLoading && !loading && (!isInitialized || (user && !userStore))) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady, userStore]);
 
     return { isLoading: loading };
 };
