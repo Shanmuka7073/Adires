@@ -150,7 +150,7 @@ export type Order = {
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
   orderType: 'dine-in' | 'takeaway' | 'delivery' | 'counter';
-  orderDate: Timestamp | Date | string;
+  orderDate: any; // Allow FieldValue for serverTimestamp
   phone: string;
   email: string;
   translatedList?: string;
@@ -318,6 +318,7 @@ export type SiteConfig = {
     liveVideoUrl?: string;
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
     isMaintenance?: boolean;

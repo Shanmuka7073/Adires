@@ -3,12 +3,11 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, serverTimestamp, query, limit, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, query, limit } from 'firebase/firestore';
 import type { Store, Menu, MenuItem, Order, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Search, Plus, Minus, Receipt, Loader2, X, ShoppingBag, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Search, Receipt, Loader2, ShoppingBag, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
@@ -81,12 +80,13 @@ export default function QuickPOSPage() {
                 price: c.item.price,
             }));
 
-            const orderData: Partial<Order> = {
+            // Cast to any to handle serverTimestamp FieldValue vs Timestamp strict mismatch
+            const orderData: any = {
                 id: orderId,
                 storeId: myStore.id,
                 customerName: 'Counter Guest',
                 orderType: 'counter',
-                status: 'Billed', // Mark as billed immediately for counter sales
+                status: 'Billed', 
                 isActive: true,
                 orderDate: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -114,7 +114,6 @@ export default function QuickPOSPage() {
 
     return (
         <div className="h-screen flex flex-col bg-[#FDFCF7]">
-            {/* HEADER */}
             <div className="p-4 bg-white border-b flex items-center justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full h-10 w-10">
@@ -136,7 +135,6 @@ export default function QuickPOSPage() {
                 </div>
             </div>
 
-            {/* ITEM GRID */}
             <ScrollArea className="flex-1 p-3">
                 <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                     {filteredItems.map(item => (
@@ -159,7 +157,6 @@ export default function QuickPOSPage() {
                 </div>
             </ScrollArea>
 
-            {/* BILL FOOTER */}
             <div className="p-4 bg-white border-t-4 border-black/5 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] shrink-0">
                 <div className="max-w-md mx-auto space-y-4">
                     {cartItems.length > 0 ? (

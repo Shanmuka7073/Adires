@@ -25,7 +25,7 @@ export function getFirebaseApp(): FirebaseApp | null {
 
   if (!isValidPid) {
     console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing or invalid. Check your environment variables.");
-    // We throw a clear error to stop initialization of invalid paths
+    // We stop initialization to prevent invalid Firestore segments
     return null;
   }
 
