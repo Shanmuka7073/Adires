@@ -319,7 +319,6 @@ export type SiteConfig = {
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
-    isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
     isMaintenance?: boolean;
 };
