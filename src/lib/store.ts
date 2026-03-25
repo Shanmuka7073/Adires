@@ -7,7 +7,7 @@ import { Firestore, collection, getDocs, query, where, limit } from 'firebase/fi
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups,t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
 
