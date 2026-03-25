@@ -8,7 +8,6 @@ import type { Order, User, EmployeeProfile, SalarySlip, Product, MenuItem, GetIn
 /**
  * DEEP SERIALIZATION UTILITY
  * Recursively converts Firestore Timestamps and Dates to ISO strings.
- * This prevents the "Server Component" render crash.
  */
 function sanitizeForClient(data: any): any {
     if (data === null || data === undefined) return data;
@@ -52,14 +51,22 @@ export async function getPlatformAnalytics() {
             return sanitizeForClient(statsDoc.data());
         }
 
+        // FALLBACK: Manual Aggregation
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfTodayTs = Timestamp.fromDate(startOfToday);
+
         const [usersCount, storesCount, ordersSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
-            db.collection('orders').where('status', 'in', ['Completed', 'Delivered']).get(),
+            db.collection('orders')
+                .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+                .where('orderDate', '>=', startOfTodayTs)
+                .get(),
         ]);
 
-        let totalRevenue = 0;
-        ordersSnap.docs.forEach(doc => { totalRevenue += (doc.data().totalAmount || 0); });
+        let todayRevenue = 0;
+        ordersSnap.docs.forEach(doc => { todayRevenue += (doc.data().totalAmount || 0); });
 
         const result = {
             totalUsers: usersCount.data().count,
@@ -67,24 +74,43 @@ export async function getPlatformAnalytics() {
             activeSessions: ordersSnap.size,
             periods: {
                 today: {
-                    revenue: totalRevenue,
+                    revenue: todayRevenue,
                     orders: ordersSnap.size,
-                    aov: ordersSnap.size > 0 ? totalRevenue / ordersSnap.size : 0,
+                    aov: ordersSnap.size > 0 ? todayRevenue / ordersSnap.size : 0,
                     userReach: ordersSnap.size,
                     trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 }
                 }
             }
         };
         return sanitizeForClient(result);
-    } catch (error) { return null; }
+    } catch (error) { 
+        console.error("Aggregation Failed:", error);
+        return null; 
+    }
 }
 
 export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean; report?: ReportData; error?: string }> {
   try {
     const { db } = await getAdminServices();
+    
+    // 1. DETERMINE DATE RANGE
+    const now = new Date();
+    let startDate: Date;
+    if (period === 'daily') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (period === 'weekly') {
+        const firstDayOfWeek = now.getDate() - now.getDay();
+        startDate = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
+    } else { // monthly
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    const startTimestamp = Timestamp.fromDate(startDate);
+
+    // 2. FETCH ORDERS WITH INDEXED QUERY
     const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+        .where('orderDate', '>=', startTimestamp)
         .orderBy('orderDate', 'desc')
         .limit(500)
         .get();
@@ -96,20 +122,28 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     orders.forEach((o: any) => {
         totalSales += (o.totalAmount || 0);
         (o.items || []).forEach((it: any) => {
-            itemCounts[it.productName] = (itemCounts[it.productName] || 0) + it.quantity;
+            const name = it.productName || 'Unknown Item';
+            itemCounts[name] = (itemCounts[name] || 0) + (it.quantity || 1);
         });
     });
 
     const report: ReportData = {
         totalSales,
         totalOrders: orders.length,
-        totalItems: orders.length * 2,
-        topProducts: Object.entries(itemCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
+        totalItems: Object.values(itemCounts).reduce((a, b) => a + b, 0),
+        topProducts: Object.entries(itemCounts)
+            .sort((a,b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name, count]) => ({ name, count })),
         ingredientCost: totalSales * 0.45,
         orders: orders.slice(0, 20)
     };
+    
     return { success: true, report: sanitizeForClient(report) };
-  } catch (error: any) { return { success: false, error: error.message }; }
+  } catch (error: any) { 
+      console.error("Sales Report Server Error:", error);
+      return { success: false, error: error.message }; 
+  }
 }
 
 export async function sendBroadcastNotification(title: string, body: string) {

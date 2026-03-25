@@ -16,6 +16,8 @@ import {
   ShoppingBag,
   Plus,
   TrendingUp,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp
@@ -31,6 +33,7 @@ import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { getStoreSalesReport } from '@/app/actions';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: 'bg-red-500',
@@ -188,19 +191,45 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
 
 function InsightsTab({ storeId }: { storeId: string }) {
     const [report, setReport] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
+    const fetchReport = async () => {
         if (!storeId) return;
-        const fetchReport = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
             const res = await getStoreSalesReport({ storeId, period: 'daily' });
-            if (res.success) setReport(res.report);
+            if (res.success) {
+                setReport(res.report);
+            } else {
+                setError(res.error || "Failed to fetch analytical data.");
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
             setIsLoading(false);
-        };
+        }
+    };
+
+    useEffect(() => {
         fetchReport();
     }, [storeId]);
 
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+
+    if (error) return (
+        <div className="p-4 space-y-4">
+            <Alert variant="destructive" className="rounded-2xl border-2">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle className="font-black uppercase text-xs">Analytics Sync Failed</AlertTitle>
+                <AlertDescription className="text-xs font-bold opacity-60 uppercase">{error}</AlertDescription>
+            </Alert>
+            <Button onClick={fetchReport} variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2">
+                <RefreshCw className="mr-2 h-4 w-4" /> Retry Sync
+            </Button>
+        </div>
+    );
 
     const totalSales = report?.totalSales || 0;
     const totalOrders = report?.totalOrders || 0;
