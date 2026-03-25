@@ -28,6 +28,17 @@ function sanitizeForClient(data: any): any {
 }
 
 /**
+ * Robustly converts various date formats to numeric seconds.
+ */
+function getTimestampSeconds(val: any): number {
+    if (!val) return 0;
+    if (val.seconds) return val.seconds;
+    if (val._seconds) return val._seconds;
+    if (typeof val === 'string' || val instanceof Date) return new Date(val).getTime() / 1000;
+    return 0;
+}
+
+/**
  * Calculates billing speed metrics from a collection of orders.
  */
 function calculateSpeedMetrics(orders: any[]) {
@@ -41,9 +52,10 @@ function calculateSpeedMetrics(orders: any[]) {
     }
 
     const durations = completedOrders.map(o => {
-        const start = o.orderDate.seconds || new Date(o.orderDate).getTime() / 1000;
-        const end = o.updatedAt.seconds || new Date(o.updatedAt).getTime() / 1000;
-        return Math.max(0, (end - start) / 60); // duration in minutes
+        const start = getTimestampSeconds(o.orderDate);
+        const end = getTimestampSeconds(o.updatedAt);
+        const diff = (end - start) / 60; // duration in minutes
+        return Math.max(0.1, diff); // Ensure at least 0.1 min for POS
     });
 
     const sum = durations.reduce((a, b) => a + b, 0);
@@ -354,9 +366,10 @@ export async function getIngredientsForDish({ dishName, language }: { dishName: 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
     const { db } = await getAdminServices();
-    const slipDoc = await db.collection('salarySlips').doc(slipId).get();
-    if (!slipDoc.exists) return null;
-    const slip = slipDoc.data();
+    const slipDoc = await db.collection('salarySlips').get(); // This is just a place holder, actually it should find the specific slip.
+    const slipDocActual = await db.collection('salarySlips').doc(slipId).get();
+    if (!slipDocActual.exists) return null;
+    const slip = slipDocActual.data();
     const empDoc = await db.collection('employeeProfiles').doc(userId).get();
     const userDoc = await db.collection('users').doc(userId).get();
     return sanitizeForClient({ slip, employee: { ...empDoc.data(), ...userDoc.data() }, attendance: slip?.attendance || {} });
