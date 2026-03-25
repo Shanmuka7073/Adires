@@ -4,6 +4,7 @@
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, User, EmployeeProfile, SalarySlip, Product, MenuItem, GetIngredientsOutput, CartItem, ReportData } from '@/lib/types';
+import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -107,7 +108,6 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     const startTimestamp = Timestamp.fromDate(startDate);
 
     // 2. FETCH ORDERS WITH INDEXED QUERY
-    // Note: status 'in' and orderBy 'orderDate' requires a composite index
     const ordersSnap = await db.collection('orders')
         .where('storeId', '==', storeId)
         .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
@@ -216,7 +216,7 @@ export async function getPlaceholderImages() {
 export async function updatePlaceholderImages(data: any) {
     try {
         const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc('placeholder_images').set(data, { merge: true });
+        const doc = await db.collection('siteConfig').doc('placeholder_images').set(data, { merge: true });
         return { success: true };
     } catch (error: any) { return { success: false, error: error.message }; }
 }
@@ -290,18 +290,17 @@ export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: num
     } catch (error: any) { return { success: false, error: error.message }; }
 }
 
+/**
+ * UNIFIED INGREDIENT LOOKUP
+ * Standardizes the normalization and language suffixing for recipe lookups.
+ */
 export async function getIngredientsForDish({ dishName, language }: { dishName: string; language: 'en' | 'te' }) {
     try {
-        const { db } = await getAdminServices();
-        const cacheId = `${dishName.toLowerCase().replace(/\s+/g, '-')}_${language}`;
-        const cacheDoc = await db.collection('cachedRecipes').doc(cacheId).get();
-        
-        if (cacheDoc.exists) {
-            return { isSuccess: true, ...cacheDoc.data() } as GetIngredientsOutput;
-        }
-        
+        const result = await getIngredientsForDishFlow({ dishName, language });
+        return sanitizeForClient(result);
+    } catch (error) { 
         return { isSuccess: false, title: dishName, components: [], steps: [], itemType: 'product' };
-    } catch (error) { return null; }
+    }
 }
 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {

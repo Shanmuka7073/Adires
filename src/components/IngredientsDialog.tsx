@@ -97,7 +97,9 @@ export default function IngredientsDialog({
             <div className="p-5 pb-2 shrink-0 flex justify-between items-start">
                 <div className="min-w-0">
                     <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-gray-950 leading-tight truncate">{item.name}</h2>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">Chef's Choice</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">
+                        {itemType === 'service' ? 'Service Profile' : 'Dish Ingredients'}
+                    </p>
                 </div>
                 <button 
                     onClick={onClose}
@@ -113,7 +115,38 @@ export default function IngredientsDialog({
                         <p className="text-xs font-bold text-gray-500 leading-relaxed italic opacity-80">{item.description}</p>
                     )}
 
-                    {customizationGroups.length > 0 ? customizationGroups.map((group) => (
+                    {/* CACHED INGREDIENTS SECTION */}
+                    {isLoading ? (
+                        <div className="space-y-2">
+                            <Skeleton className="h-3 w-20" />
+                            <div className="flex flex-wrap gap-2">
+                                <Skeleton className="h-6 w-16" />
+                                <Skeleton className="h-6 w-24" />
+                                <Skeleton className="h-6 w-20" />
+                            </div>
+                        </div>
+                    ) : ingredients.length > 0 ? (
+                        <div className="space-y-3">
+                            <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">
+                                {itemType === 'service' ? 'Process Components' : 'Core Ingredients'}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {ingredients.map((ing, idx) => (
+                                    <Badge key={idx} variant="secondary" className="rounded-lg bg-primary/5 text-primary border-primary/10 font-bold text-[10px] py-1 px-2 uppercase tracking-tight">
+                                        {ing.name} {ing.quantity ? `• ${ing.quantity}` : ''}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-4 rounded-2xl bg-muted/20 border-2 border-dashed border-black/5 flex items-center gap-3">
+                            <Info className="h-4 w-4 opacity-20" />
+                            <p className="text-[9px] font-black uppercase opacity-40">No specific ingredients listed</p>
+                        </div>
+                    )}
+
+                    {/* CUSTOMIZATIONS SECTION */}
+                    {customizationGroups.length > 0 && customizationGroups.map((group) => (
                         <div key={group.title} className="space-y-3">
                             <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">{group.title}</h3>
                             <div className="grid grid-cols-1 gap-2">
@@ -141,12 +174,7 @@ export default function IngredientsDialog({
                                 })}
                             </div>
                         </div>
-                    )) : (
-                        <div className="py-10 text-center opacity-20 flex flex-col items-center gap-3">
-                            <Sparkles className="h-8 w-8" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">No options available</p>
-                        </div>
-                    )}
+                    ))}
                 </div>
             </ScrollArea>
 

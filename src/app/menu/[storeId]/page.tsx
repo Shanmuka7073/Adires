@@ -373,11 +373,9 @@ function LiveBillSheet({
 
                             <div className="space-y-1 pt-2">
                                 {order.items.map((it, iIdx) => (
-                                    <div key={iIdx} className="flex flex-col text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
-                                        <div className="flex justify-between">
-                                            <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
-                                            <span className="font-black">₹{it.price * it.quantity}</span>
-                                        </div>
+                                    <div key={iIdx} className="flex justify-between text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
+                                        <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
+                                        <span className="font-black">₹{it.price * it.quantity}</span>
                                     </div>
                                 ))}
                             </div>
@@ -392,18 +390,16 @@ function LiveBillSheet({
                     <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40" style={{ color: theme?.textColor || '#fff' }}>Selection (Ready to Send)</h4>
                     <div className="p-4 rounded-3xl border-2 border-dashed bg-white/5 space-y-3" style={{ borderColor: theme?.primaryColor + '30' }}>
                         {cartItems.map((it, idx) => (
-                            <div key={idx} className="flex flex-col text-xs" style={{ color: theme?.textColor || '#fff' }}>
-                                <div className="flex justify-between">
-                                    <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
-                                    <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
-                                </div>
+                            <div key={idx} className="flex justify-between text-xs" style={{ color: theme?.textColor || '#fff' }}>
+                                <span className="opacity-80 font-bold">{it.product.name} x{it.quantity}</span>
+                                <span className="font-black">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
                             </div>
                         ))}
                     </div>
                  </div>
              )}
 
-             {/* ORDER HISTORY (PREVIOUS VISITS) */}
+             {/* ORDER HISTORY */}
              {historyOrders.length > 0 && (
                  <div className="space-y-4 pt-4 border-t border-white/5">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -512,17 +508,29 @@ function MenuCard({ item, onAdd, onShowDetails, recentlyAdded, theme, isPersonal
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
-  const searchParams = useSearchParams(); const { firestore } = useFirebase(); const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState(''); const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const searchParams = useSearchParams(); 
+  const { firestore } = useFirebase(); 
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState(''); 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [vegOnly, setVegOnly] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
+  const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); 
+  const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); 
+  const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
-  const [tableNumber, setTableNumber] = useState<string | null>(null); const [deliveryAddress, setDeliveryAddress] = useState(''); const [customerName, setCustomerName] = useState(''); const [phone, setPhone] = useState(''); const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); const [isFetchingIngredients, startFetchingIngredients] = useTransition(); const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
+  const [tableNumber, setTableNumber] = useState<string | null>(null); 
+  const [deliveryAddress, setDeliveryAddress] = useState(''); 
+  const [customerName, setCustomerName] = useState(''); 
+  const [phone, setPhone] = useState(''); 
+  const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
+  const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
+  const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
-  const { isInitialized, fetchInitialData, setUserStore } = useAppStore();
+  const { isInitialized, fetchInitialData, setUserStore, language } = useAppStore();
   const { cartItems, addItem, clearCart } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
@@ -608,9 +616,6 @@ export default function PublicMenuPage() {
     }
   }, [searchParams, storeId]);
 
-  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-white min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-  if (!store) return <div className="p-12 text-center bg-white min-h-screen text-gray-900">Store not found.</div>;
-
   const handleAddItem = (item: MenuItem, qty: number = 1, customs?: Record<string, CustomizationOption[]>) => {
     const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: (item as any).imageUrl };
     const customsPrice = customs ? Object.values(customs).flat().reduce((acc, o) => acc + o.price, 0) : 0;
@@ -655,15 +660,26 @@ export default function PublicMenuPage() {
   const handleShowIngredients = (item: MenuItem) => {
     setIngredientsData(null); setSelectedItemForIngredients(item);
     startFetchingIngredients(async () => {
-      const res = await getIngredientsForDish({ dishName: item.name, language: 'en' });
-      if (res && res.isSuccess) setIngredientsData({
-        ...res,
-        itemType: res.itemType as "food" | "product" | "service"
-      });
+      const res = await getIngredientsForDish({ dishName: item.name, language: (language || 'en') as 'en' | 'te' });
+      if (res && res.isSuccess) {
+          setIngredientsData(res);
+      } else {
+          setIngredientsData({
+              isSuccess: false,
+              itemType: 'product',
+              title: item.name,
+              components: [],
+              steps: [],
+              nutrition: { calories: 0, protein: 0 }
+          });
+      }
     });
   };
 
   const handleStartNewOrder = () => { if (typeof window !== 'undefined') window.location.reload(); };
+
+  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-white min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (!store) return <div className="p-12 text-center bg-white min-h-screen text-gray-900">Store not found.</div>;
 
   const theme = menu?.theme;
   const isSessionFinalized = !!(placedOrders && placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status)));
@@ -671,7 +687,17 @@ export default function PublicMenuPage() {
   return (
     <>
       {selectedItemForIngredients && (
-        <IngredientsDialog open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} item={selectedItemForIngredients} isLoading={isFetchingIngredients} ingredients={(ingredientsData?.components as any) || []} recommendations={upsellItems} itemType={ingredientsData?.itemType} onAdd={(customs) => { handleAddItem(selectedItemForIngredients, 1, customs); setSelectedItemForIngredients(null); }} onShowRecommendation={(rec) => { setSelectedItemForIngredients(rec); handleShowIngredients(rec); }} />
+        <IngredientsDialog 
+            open={!!selectedItemForIngredients} 
+            onClose={() => setSelectedItemForIngredients(null)} 
+            item={selectedItemForIngredients} 
+            isLoading={isFetchingIngredients} 
+            ingredients={(ingredientsData?.components as any) || []} 
+            recommendations={upsellItems} 
+            itemType={ingredientsData?.itemType} 
+            onAdd={(customs) => { handleAddItem(selectedItemForIngredients, 1, customs); setSelectedItemForIngredients(null); }} 
+            onShowRecommendation={(rec) => { setSelectedItemForIngredients(rec); handleShowIngredients(rec); }} 
+        />
       )}
       <DeliveryDetailsDialog isOpen={isDeliveryDetailsOpen} onOpenChange={setIsDeliveryDetailsOpen} onSave={(d: any) => { setCustomerName(d.name); setPhone(d.phone); setDeliveryAddress(d.address); if(d.lat) setDeliveryCoords({lat:d.lat, lng:d.lng}); localStorage.setItem(`last_address_${storeId}`, d.name); localStorage.setItem(`last_phone_${storeId}`, d.phone); localStorage.setItem(`last_address_${storeId}`, d.address); setIsDeliveryDetailsOpen(false); }} initialData={{ name: customerName, phone, address: deliveryAddress }} theme={theme} />
       <ModeSelectionDialog isOpen={isModeDialogOpen} onOpenChange={setIsModeDialogOpen} onSelectMode={(m: any, v: any) => { if(m==='delivery') setTableNumber(null); else if(v) setTableNumber(v); setIsModeDialogOpen(false); handleStartNewOrder(); }} currentMode={tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'table' : 'delivery')} theme={theme} isSalon={isSalon} />
