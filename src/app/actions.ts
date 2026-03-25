@@ -336,8 +336,8 @@ export async function getSystemStatus() {
     const { db, auth } = await getAdminServices();
 
     // Test DB connection
-    const usersSnap = await db.collection('users').limit(1).get();
-    const storesSnap = await db.collection('stores').limit(1).get();
+    const usersCount = await db.collection('users').count().get();
+    const storesCount = await db.collection('stores').count().get();
 
     return {
       status: 'ok',
@@ -346,8 +346,8 @@ export async function getSystemStatus() {
       identity: 'Firebase Admin Connected',
       isCredentialError: false,
       counts: {
-        users: usersSnap.size,
-        stores: storesSnap.size
+        users: usersCount.data().count,
+        stores: storesCount.data().count
       }
     };
   } catch (error: any) {
