@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -14,7 +13,7 @@ import { useAppStore } from '@/lib/store';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { generateBreakfastPack, GenerateBreakfastPackOutput } from '@/ai/flows/generate-breakfast-pack-flow';
+import { generateBreakfastPack, type GenerateBreakfastPackOutput } from '@/ai/flows/generate-breakfast-pack-flow';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -79,8 +78,9 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
                 price: generatedPack.estimatedCost,
                 items: generatedPack.shoppingList.map(item => ({ name: item.itemName, quantity: item.quantity })),
                 schedule: generatedPack.schedule.map(day => ({
-                    ...day,
-                    day: String(day.day),
+                    day: Number(day.day), // ENSURE DAY IS A NUMBER
+                    mainItem: day.mainItem,
+                    sideItem: day.sideItem
                   })),
             };
 
@@ -232,7 +232,6 @@ function ExistingPacks({ storeId }: { storeId: string }) {
         if (!pack.items) return;
         let itemsAdded = 0;
         
-        // Use a typed reference to avoid 'never' narrowing during build
         const products = (masterProducts || []) as Product[];
 
         pack.items.forEach(packItem => {
@@ -240,7 +239,7 @@ function ExistingPacks({ storeId }: { storeId: string }) {
 
             products.forEach(product => {
                 const similarity = calculateSimilarity(packItem.name.toLowerCase(), product.name.toLowerCase());
-                if (!bestMatch || similarity > bestMatch.score) {
+                if (!bestMatch || similarity > (bestMatch as any).score) {
                     bestMatch = { product, score: similarity };
                 }
             });

@@ -1,11 +1,10 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 
 /**
  * HARDENED FIREBASE APP LOADER
- * Specifically checks for missing Project ID to prevent the "projects//databases" error.
+ * Strictly checks for Project ID validity to prevent "projects//databases" path errors.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,16 +18,18 @@ const firebaseConfig = {
 export function getFirebaseApp(): FirebaseApp | null {
   if (getApps().length) return getApp();
   
-  // CRITICAL: Prevent "Invalid segment (projects//databases)" error
+  // 1. VALIDATION CHECK: Prevent "projects//databases" path corruption
   const pid = firebaseConfig.projectId;
-  if (!pid || pid === 'undefined' || pid === '' || pid.includes('{')) {
-    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing or invalid in environment variables.");
+  const isValidPid = pid && pid !== 'undefined' && pid !== '' && !pid.includes('{');
+
+  if (!isValidPid) {
+    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing or invalid. Check your environment variables.");
     return null;
   }
 
-  // Ensure mandatory fields exist before attempting initialization
+  // 2. CONFIG COMPLETENESS CHECK
   if (!firebaseConfig.apiKey || !firebaseConfig.appId) {
-    console.error("CRITICAL ERROR: Firebase configuration is incomplete (apiKey or appId missing).");
+    console.error("CRITICAL ERROR: Firebase API Key or App ID is missing.");
     return null;
   }
 
