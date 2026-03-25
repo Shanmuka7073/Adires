@@ -3,26 +3,26 @@ import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
 export type ProductVariant = {
-  sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
-  weight: string; // e.g., '500gm', '1kg', '2kg'
+  sku: string;
+  weight: string;
   price: number;
-  stock: number; // The available quantity
+  stock: number;
 };
 
 export type Product = {
   id: string;
-  name: string; // Base name, e.g., 'Potatoes'
+  name: string;
   description: string;
   variants?: ProductVariant[]; 
   imageId: string;
   storeId: string;
   category?: string;
-  imageUrl?: string; // Data URI for AI-generated image
+  imageUrl?: string;
   imageHint?: string;
-  matchedAlias?: string; // The alias the user spoke
-  isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean; // Flag to identify a restaurant menu item
-  price?: number; // Direct price for menu items
+  matchedAlias?: string;
+  isAiAssisted?: boolean;
+  isMenuItem?: boolean;
+  price?: number;
 };
 
 export type MenuTheme = {
@@ -75,10 +75,10 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
-  tables?: string[]; // For restaurant table numbers
-  liveVideoUrl?: string; // URL for live kitchen stream
-  upiId?: string; // The UPI ID for receiving payments
-  businessType?: 'restaurant' | 'salon' | 'grocery'; // Business categorization
+  tables?: string[];
+  liveVideoUrl?: string;
+  upiId?: string;
+  businessType?: 'restaurant' | 'salon' | 'grocery';
 };
 
 export type User = {
@@ -89,7 +89,7 @@ export type User = {
     address: string;
     phoneNumber: string;
     accountType?: 'groceries' | 'restaurant' | 'employee';
-    storeId?: string; // For employees, the store they belong to.
+    storeId?: string;
     imageUrl?: string;
     latitude?: number;
     longitude?: number;
@@ -97,12 +97,12 @@ export type User = {
 }
 
 export type CartItem = {
-  product: Product; // The base product
-  variant: ProductVariant; // The specific variant chosen
+  product: Product;
+  variant: ProductVariant;
   quantity: number;
   tableNumber?: string;
   sessionId?: string;
-  selectedCustomizations?: Record<string, CustomizationOption[]>; // Track chosen options per group
+  selectedCustomizations?: Record<string, CustomizationOption[]>;
 };
 
 export type UnidentifiedCartItem = {
@@ -128,7 +128,7 @@ export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
-  menuItemId: string; // Reference to the original menu item
+  menuItemId: string;
   productName: string;
   variantSku: string;
   variantWeight: string;
@@ -157,60 +157,16 @@ export type Order = {
   store?: Store; 
   deliveryPartnerId?: string | null;
   tableNumber?: string | null;
-  sessionId?: string; // To group all orders for a single table session
+  sessionId?: string;
   paidAt?: Timestamp;
   paymentMode?: string;
   updatedAt?: any;
-  zoneId?: string; // Geographic partition ID derived from pincode
-  isActive?: boolean; // Flag for Operational Indexing optimization
-  appointmentTime?: string; // For salons
-  needsService?: boolean; // Waiter call flag
-  serviceType?: string; // Reason for waiter call
-  deviceId?: string; // For persistent device-level activity
-};
-
-export type ReasonEntry = {
-    text: string;
-    timestamp: any;
-    status: 'submitted' | 'approved' | 'rejected';
-    rejectionReason?: string;
-};
-
-export type AttendanceRecord = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    workDate: any;
-    workDateStr: string;
-    punchInTime: any;
-    punchOutTime: any;
-    status: 'present' | 'absent' | 'partially_present' | 'pending_approval' | 'approved' | 'rejected';
-    workHours: number;
-    rejectionCount?: number;
-    reasonHistory?: ReasonEntry[];
-};
-
-export type EmployeeProfile = {
-    userId: string;
-    storeId: string;
-    employeeId: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
-    role: string;
-    hireDate: string;
-    salaryRate: number;
-    salaryType: 'hourly' | 'monthly';
-    payoutMethod: 'bank' | 'upi';
-    upiId?: string | null;
-    bankDetails?: {
-        accountHolderName: string;
-        accountNumber: string;
-        ifscCode: string;
-    } | null;
-    reportingTo?: string | null;
+  zoneId?: string;
+  isActive?: boolean;
+  appointmentTime?: string;
+  needsService?: boolean;
+  serviceType?: string;
+  deviceId?: string;
 };
 
 export type SalarySlip = {
@@ -228,7 +184,7 @@ export type SalarySlip = {
 };
 
 export type DeliveryPartner = {
-  userId: string; // The user's UID
+  userId: string;
   totalEarnings: number;
   lastPayoutDate?: Timestamp;
   payoutsEnabled: boolean;
@@ -239,7 +195,7 @@ export type DeliveryPartner = {
     accountNumber: string;
     ifscCode: string;
   };
-  zoneId?: string; // Geographic partition ID derived from pincode
+  zoneId?: string;
 };
 
 export type Payout = {
@@ -250,27 +206,16 @@ export type Payout = {
   completionDate?: Timestamp;
   status: 'pending' | 'completed' | 'failed';
   payoutMethod: 'bank' | 'upi';
-  payoutDetails: any; // upiId or bankDetails
+  payoutDetails: any;
 };
 
-// Represents the canonical pricing for a product, managed by the admin.
 export type ProductPrice = {
-    productName: string; // The unique name of the product
+    productName: string;
     variants: ProductVariant[];
 }
 
-export type FailedVoiceCommand = {
-    id: string;
-    userId: string;
-    commandText: string;
-    language: string;
-    timestamp: Timestamp | Date | string;
-    reason: string;
-    status?: 'new' | 'no_suggestion'; // Status for processing
-}
-
 export type VoiceAliasGroup = {
-    id: string; // The canonical key, e.g., 'tomatoes'
+    id: string;
     type: 'product' | 'store' | 'command';
     [key: string]: any; 
 };
@@ -286,48 +231,6 @@ export interface GetIngredientsOutput {
         protein: number;
     };
 }
-
-export type CachedRecipe = {
-    id: string;
-    dishName: string;
-    itemType: 'food' | 'service' | 'product';
-    components: Ingredient[];
-    steps: InstructionStep[];
-    nutrition?: {
-        calories: number;
-        protein: number;
-    };
-    createdAt: any; // Allow serverTimestamp
-}
-
-export type DayPlan = {
-  day: number;
-  mainItem: string;
-  sideItem: string;
-};
-
-export type MonthlyPackage = {
-    id: string;
-    storeId: string;
-    name: string;
-    memberCount: number;
-    price: number;
-    items: {
-        name: string;
-        quantity: string;
-    }[];
-    schedule?: DayPlan[];
-};
-
-export type SiteConfig = {
-    liveVideoUrl?: string;
-    isPackGeneratorEnabled?: boolean;
-    isRecipeApiEnabled?: boolean;
-    isGeneralQuestionApiEnabled?: boolean;
-    isOrderVideoEnabled?: boolean;
-    isOrderVideoEnabled_V2?: boolean;
-    isAliasSuggesterEnabled?: boolean;
-};
 
 export type ReportData = {
   totalSales: number;
@@ -357,28 +260,6 @@ export type NluExtractedSentence = {
     confidence: number;
     status: 'pending' | 'approved' | 'rejected';
     createdAt: any;
-};
-
-export type CreateVoiceprintInput = {
-  userId: string;
-  audioDataUri: string;
-};
-
-export type CreateVoiceprintOutput = {
-  isSuccess: boolean;
-  enrollmentCount: number;
-  error?: string;
-};
-
-export type VerifyVoiceprintInput = {
-  userId: string;
-  audioDataUri: string;
-};
-
-export type VerifyVoiceprintOutput = {
-  isMatch: boolean;
-  confidence: number;
-  error?: string;
 };
 
 declare global {

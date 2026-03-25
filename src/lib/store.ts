@@ -1,8 +1,9 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -97,25 +98,19 @@ export const useAppStore = create<AppState>()(
         const state = get();
         if (state.loading) return;
         
+        const start = performance.now();
         set({ loading: true, error: null });
         
         try {
-          // Fetch critical platform data
+          // OPTIMIZATION: Only fetch essential Shell data. 
+          // Page-specific data (Analytics, Orders) is moved to SWR hooks in components.
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')).catch(() => ({ docs: [] })),
-            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] })),
-            getDocs(collection(db, 'voiceCommands')).catch(() => ({ docs: [] }))
+            getDocs(query(collection(db, 'stores'), limit(50))).catch(() => ({ docs: [] })),
+            getDocs(query(collection(db, 'voiceAliasGroups'), limit(100))).catch(() => ({ docs: [] })),
+            getDocs(query(collection(db, 'voiceCommands'), limit(50))).catch(() => ({ docs: [] }))
           ]);
 
-          set(s => ({ readCount: s.readCount + (storesSnap.docs.length || 0) + 2 }));
-
           const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
-          
-          let userStore = state.userStore;
-          if (userId) {
-              userStore = stores.find((s: Store) => s.ownerId === userId) || null;
-          }
-
           const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
@@ -125,14 +120,13 @@ export const useAppStore = create<AppState>()(
           }, {} as Record<string, CommandGroup>);
           
           const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
-
           initializeTranslations(locales); 
 
-          // Device ID generation is deferred until hydration to prevent mismatch
           if (!state.deviceId && typeof window !== 'undefined') {
-              const newId = Math.random().toString(36).substring(2, 15);
-              set({ deviceId: newId });
+              set({ deviceId: Math.random().toString(36).substring(2, 15) });
           }
+
+          console.log(`[PERF] App Bootstrap in ${(performance.now() - start).toFixed(0)}ms`);
 
           set({
             stores,
@@ -141,7 +135,8 @@ export const useAppStore = create<AppState>()(
             isInitialized: true,
             loading: false,
             appReady: true,
-            userStore,
+            userStore: userId ? (stores.find(s => s.ownerId === userId) || null) : state.userStore,
+            readCount: state.readCount + storesSnap.docs.length + 2
           });
           
         } catch (error) {
@@ -151,28 +146,8 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const { productPrices } = get();
-          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
-          if (namesToFetch.length === 0) return;
-          
-          try {
-              const pricesToUpdate: Record<string, ProductPrice | null> = {};
-              const batchSize = 30;
-              for (let i = 0; i < namesToFetch.length; i += batchSize) {
-                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
-                  if (batchNames.length > 0) {
-                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
-                      const priceSnapshot = await getDocs(priceQuery);
-                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
-                      batchNames.forEach(name => {
-                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
-                      });
-                  }
-              }
-              set(state => ({ productPrices: { ...state.productPrices, ...pricesToUpdate } }));
-          } catch (error) {
-              console.error("Failed to fetch product prices:", error);
-          }
+          // Legacy stub
+          return Promise.resolve();
       },
 
       getProductName: (product: Product) => {
@@ -192,13 +167,13 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v15', 
+      name: 'adires-ops-v16', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           deviceId: state.deviceId,
-          isInitialized: state.isInitialized, // Persist this to prevent hydration lag
+          isInitialized: state.isInitialized,
       }),
     }
   )
@@ -209,11 +184,7 @@ export const useInitializeApp = () => {
     const { fetchInitialData, loading, isInitialized, setAppReady } = useAppStore();
 
     useEffect(() => {
-        if (isInitialized) {
-            setAppReady(true);
-        }
-        
-        // Only fetch if not already done or if user ID is now available
+        if (isInitialized) setAppReady(true);
         if (firestore && !isUserLoading && !loading && (!isInitialized || (user && !useAppStore.getState().userStore))) {
             fetchInitialData(firestore, user?.uid);
         }
