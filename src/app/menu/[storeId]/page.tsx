@@ -559,7 +559,7 @@ export default function PublicMenuPage() {
   const [searchTerm, setSearchTerm] = useState(''); 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [vegOnly, setVegOnly] = useState(false);
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isSearchVisible, setSearchVisible] = useState(false);
   const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); 
   const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); 
   const [isUpiDialogOpen, setIsUpiDialogOpen] = useState(false);
@@ -698,8 +698,9 @@ export default function PublicMenuPage() {
   const handleCallWaiter = (type: string) => { 
     if (!firestore || !placedOrders?.length) return;
     const orderRef = doc(firestore, 'orders', placedOrders[0].id);
-    updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() }).catch(e => toast({ variant: 'destructive', title: 'Request Failed' }));
-    toast({ title: 'Request Sent' }); 
+    updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() })
+        .then(() => toast({ title: 'Help is on the way!', description: `A staff member has been notified: ${type}.` }))
+        .catch(e => toast({ variant: 'destructive', title: 'Request Failed' }));
   };
 
   const handleShowIngredients = (item: MenuItem) => {
@@ -761,7 +762,7 @@ export default function PublicMenuPage() {
                               onChange={e => setSearchTerm(e.target.value)}
                               className="h-9 rounded-xl border-2 border-gray-950 bg-white text-xs font-bold"
                           />
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full shrink-0" onClick={() => { setIsSearchVisible(false); setSearchTerm(''); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full shrink-0" onClick={() => { setSearchVisible(false); setSearchTerm(''); }}>
                               <X className="h-4 w-4" />
                           </Button>
                       </div>
@@ -780,7 +781,7 @@ export default function PublicMenuPage() {
                   )}
                   <div className="flex items-center gap-1.5">
                       {!isSearchVisible && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5 shrink-0" onClick={() => setIsSearchVisible(true)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-black/5 shrink-0" onClick={() => setSearchVisible(true)}>
                               <Search className="h-4 w-4 text-gray-950" />
                           </Button>
                       )}
@@ -842,7 +843,7 @@ export default function PublicMenuPage() {
                             </section>
                         ))
                     ) : (
-                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40 mx-1"><AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" /><p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p><button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); setIsSearchVisible(false); }}>Clear Filters</button></div>
+                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-40 mx-1"><AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" /><p className="text-[10px] font-black uppercase tracking-widest text-gray-950">Zero matches found</p><button className="mt-2 text-primary font-bold uppercase text-[8px] tracking-widest underline" onClick={() => { setSearchTerm(''); setSelectedCategory(null); setVegOnly(false); setSearchVisible(false); }}>Clear Filters</button></div>
                     )}
                 </div>
               )}

@@ -18,12 +18,14 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
+  BellRing,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useTransition } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
@@ -34,6 +36,7 @@ import { format } from 'date-fns';
 import { getStoreSalesReport } from '@/app/actions';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 const STATUS_COLORS: Record<string, string> = {
   Pending: 'bg-red-500',
@@ -55,6 +58,8 @@ interface Session {
   status: Order['status'];
   orderType: Order['orderType'];
   lastActivity: Date;
+  needsService: boolean;
+  serviceType?: string;
 }
 
 function toDateSafe(d: any): Date {
@@ -70,15 +75,26 @@ function SessionRow({ session, isSalon, onClick }: { session: Session; isSalon: 
   const isDelivery = session.orderType === 'delivery';
 
   return (
-    <div onClick={onClick} className="flex items-center justify-between p-3 border-b border-black/5 bg-white active:bg-black/5 transition-colors group cursor-pointer">
+    <div onClick={onClick} className={cn(
+        "flex items-center justify-between p-3 border-b border-black/5 bg-white active:bg-black/5 transition-colors group cursor-pointer",
+        session.needsService && "bg-red-50/50"
+    )}>
         <div className="flex items-center gap-3 min-w-0">
-            <div className={cn("h-2 w-2 rounded-full shrink-0", STATUS_COLORS[session.status] || 'bg-gray-300')} />
+            {session.needsService ? (
+                <div className="relative">
+                    <BellRing className="h-4 w-4 text-red-600 animate-bounce" />
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-600 rounded-full animate-ping" />
+                </div>
+            ) : (
+                <div className={cn("h-2 w-2 rounded-full shrink-0", STATUS_COLORS[session.status] || 'bg-gray-300')} />
+            )}
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
                     <p className="text-[11px] font-black uppercase tracking-tight text-gray-950 truncate">
                         {session.tableNumber && session.tableNumber !== 'Counter' ? `${isSalon ? 'CH' : 'T'}-${session.tableNumber}` : (isDelivery ? 'HOME' : 'WALK')} • #{session.id.slice(-4)}
                     </p>
                     {isDelivery && <Badge className="bg-blue-500 text-white text-[7px] h-3.5 font-black uppercase px-1 border-0">Home</Badge>}
+                    {session.needsService && <Badge className="bg-red-600 text-white text-[7px] h-3.5 font-black uppercase px-1 border-0 animate-pulse">Help</Badge>}
                 </div>
                 <p className="text-[9px] font-bold opacity-40 uppercase truncate">
                     {session.customerName} • {session.orders.flatMap(o => o.items).length} items
@@ -95,7 +111,20 @@ function SessionRow({ session, isSalon, onClick }: { session: Session; isSalon: 
   )
 }
 
-function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }: { session: Session | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onStatusUpdate: (orderId: string, status: any) => void }) {
+function SessionDetailsDialog({ 
+    session, 
+    isOpen, 
+    onOpenChange, 
+    onStatusUpdate,
+    onResolveService 
+}: { 
+    session: Session | null, 
+    isOpen: boolean, 
+    onOpenChange: (open: boolean) => void, 
+    onStatusUpdate: (orderId: string, status: any) => void,
+    onResolveService: (orderId: string) => void
+}) {
+    const [isResolving, startResolve] = useTransition();
     if (!session) return null;
 
     const items = session.orders.flatMap(o => o.items);
@@ -104,6 +133,15 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
     const handleUpdateStatus = (status: string) => {
         session.orders.forEach(o => onStatusUpdate(o.id, status));
         onOpenChange(false);
+    };
+
+    const handleResolve = () => {
+        startResolve(() => {
+            const orderWithService = session.orders.find(o => o.needsService);
+            if (orderWithService) {
+                onResolveService(orderWithService.id);
+            }
+        });
     };
 
     const handleNavigate = () => {
@@ -121,11 +159,34 @@ function SessionDetailsDialog({ session, isOpen, onOpenChange, onStatusUpdate }:
                         <DialogTitle className="text-sm font-black uppercase tracking-tight">Order #{session.id.slice(-6)}</DialogTitle>
                         <p className="text-[10px] font-bold opacity-40 uppercase">{session.orderType} • {format(session.lastActivity, 'p')}</p>
                     </div>
-                    <Badge className={cn("rounded-md font-black uppercase text-[9px]", STATUS_COLORS[session.status])}>{session.status}</Badge>
+                    <div className="flex gap-2">
+                        {session.needsService && <Badge variant="destructive" className="rounded-md font-black uppercase text-[9px] animate-pulse">SERVICE REQUESTED</Badge>}
+                        <Badge className={cn("rounded-md font-black uppercase text-[9px]", STATUS_COLORS[session.status])}>{session.status}</Badge>
+                    </div>
                 </div>
 
                 <ScrollArea className="flex-1 p-5">
                     <div className="space-y-8 pb-10">
+                        {session.needsService && (
+                            <section className="animate-in zoom-in-95 duration-300">
+                                <Alert className="rounded-2xl border-2 border-red-200 bg-red-50 text-red-900 shadow-lg">
+                                    <BellRing className="h-5 w-5 text-red-600" />
+                                    <AlertTitle className="font-black uppercase text-xs tracking-widest">Active Call</AlertTitle>
+                                    <AlertDescription className="mt-2 space-y-4">
+                                        <p className="font-bold text-sm">Reason: <span className="uppercase text-red-600">{session.serviceType || 'General Assistance'}</span></p>
+                                        <Button 
+                                            onClick={handleResolve}
+                                            disabled={isResolving}
+                                            className="w-full h-10 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[9px] tracking-widest"
+                                        >
+                                            {isResolving ? <Loader2 className="animate-spin h-4 w-4 mr-2"/> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                                            Mark as Handled
+                                        </Button>
+                                    </AlertDescription>
+                                </Alert>
+                            </section>
+                        )}
+
                         <section className="space-y-3">
                             <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Customer Details</h4>
                             <Card className="rounded-2xl border-2 p-4 bg-muted/30 shadow-none">
@@ -277,6 +338,7 @@ export default function StoreOrdersPage() {
   const [liveFilter, setLiveFilter] = useState('all');
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const { stores, userStore } = useAppStore();
+  const { toast } = useToast();
 
   const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
 
@@ -312,11 +374,16 @@ export default function StoreOrdersPage() {
                 totalAmount: 0, 
                 status: o.status, 
                 orderType: o.orderType, 
-                lastActivity: toDateSafe(o.orderDate) 
+                lastActivity: toDateSafe(o.orderDate),
+                needsService: false
             };
         }
         tableSessions[o.sessionId!].orders.push(o);
         tableSessions[o.sessionId!].totalAmount += o.totalAmount;
+        if (o.needsService) {
+            tableSessions[o.sessionId!].needsService = true;
+            tableSessions[o.sessionId!].serviceType = o.serviceType;
+        }
         if (o.status === 'Pending') newCount++; else if (o.status === 'Processing') procCount++;
         active++;
     });
@@ -329,6 +396,13 @@ export default function StoreOrdersPage() {
       updateDoc(doc(firestore, 'orders', orderId), { status, isActive: !['Delivered', 'Completed', 'Cancelled'].includes(status), updatedAt: serverTimestamp() });
   };
 
+  const handleResolveService = (orderId: string) => {
+      if (!firestore) return;
+      updateDoc(doc(firestore, 'orders', orderId), { needsService: false, serviceType: null, updatedAt: serverTimestamp() })
+        .then(() => toast({ title: "Service Resolved" }))
+        .catch(() => toast({ variant: 'destructive', title: "Update Failed" }));
+  };
+
   if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
@@ -338,6 +412,7 @@ export default function StoreOrdersPage() {
             isOpen={!!selectedSession} 
             onOpenChange={(open) => !open && setSelectedSession(null)} 
             onStatusUpdate={handleOrderUpdate}
+            onResolveService={handleResolveService}
         />
 
         <main className="container mx-auto px-3 pt-4 animate-in fade-in duration-500">
