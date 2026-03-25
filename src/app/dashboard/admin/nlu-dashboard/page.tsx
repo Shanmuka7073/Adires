@@ -1,65 +1,27 @@
-
 'use client';
 
-import { useState } from 'react';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PDFUploadPanel } from './pdf-upload-panel';
-import { RuleReviewPanel } from './rule-review-panel';
-import { ApprovedRulesPanel } from './approved-rules-panel';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileUp, ListChecks, CheckCircle, Cog } from 'lucide-react';
-import { NLUDashboardProvider } from './nlu-dashboard-context';
+import { Loader2 } from 'lucide-react';
 
-export default function NluDashboardPage() {
-    const { isAdmin, isLoading } = useAdminAuth();
+/**
+ * NLU DASHBOARD (DECOMMISSIONED)
+ * This tool has been removed to lighten the platform bundle.
+ * All administrative functions are now centralized in the main Hub.
+ */
+export default function NluDashboardDecommissioned() {
     const router = useRouter();
-    
-    if (isLoading) {
-        return <div className="container mx-auto py-12">Loading...</div>;
-    }
-    
-    if (!isAdmin) {
-        router.replace('/dashboard');
-        return <div className="container mx-auto py-12">Redirecting...</div>;
-    }
+
+    useEffect(() => {
+        router.replace('/dashboard/admin');
+    }, [router]);
 
     return (
-        <NLUDashboardProvider>
-            <div className="container mx-auto py-12 px-4 md:px-6">
-                 <Card>
-                    <CardHeader>
-                        <div className="flex items-center gap-3">
-                            <Cog className="h-8 w-8 text-primary" />
-                            <div>
-                                <CardTitle className="text-3xl font-headline">NLU Training Dashboard</CardTitle>
-                                <CardDescription>
-                                    Improve the voice engine's understanding by uploading documents and approving new grammar rules.
-                                </CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Tabs defaultValue="upload">
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="upload"><FileUp className="mr-2 h-4 w-4" />Upload & Process</TabsTrigger>
-                                <TabsTrigger value="review"><ListChecks className="mr-2 h-4 w-4" />Review Pending Rules</TabsTrigger>
-                                <TabsTrigger value="approved"><CheckCircle className="mr-2 h-4 w-4" />View Approved Rules</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="upload" className="mt-6">
-                                <PDFUploadPanel />
-                            </TabsContent>
-                            <TabsContent value="review" className="mt-6">
-                                <RuleReviewPanel />
-                            </TabsContent>
-                            <TabsContent value="approved" className="mt-6">
-                                <ApprovedRulesPanel />
-                            </TabsContent>
-                        </Tabs>
-                    </CardContent>
-                </Card>
-            </div>
-        </NLUDashboardProvider>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+            <p className="text-muted-foreground font-black uppercase text-[10px] tracking-[0.3em]">
+                Redirecting to Hub...
+            </p>
+        </div>
     );
 }

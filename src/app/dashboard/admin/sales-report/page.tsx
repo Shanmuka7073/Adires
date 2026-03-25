@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useTransition, useMemo, useCallback } from 'react';
@@ -11,8 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useFirebase } from '@/firebase';
 import { collection, query, where, Timestamp, getDocs, orderBy } from 'firebase/firestore';
-import type { Order, Product } from '@/lib/types';
-import { useAppStore } from '@/lib/store';
+import type { Order } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';

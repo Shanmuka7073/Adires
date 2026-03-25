@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -92,22 +91,20 @@ export const useAppStore = create<AppState>()(
         const state = get();
         if (state.loading) return;
         
-        const start = performance.now();
         set({ loading: true, error: null });
         
         try {
-          // Parallel fetch of critical platform collections
           const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
             getDocs(query(collection(db, 'stores'), limit(50))).catch(() => ({ docs: [] })),
             getDocs(query(collection(db, 'voiceAliasGroups'), limit(100))).catch(() => ({ docs: [] })),
             getDocs(query(collection(db, 'voiceCommands'), limit(50))).catch(() => ({ docs: [] }))
           ]);
 
-          const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
-          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const stores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           
-          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
+          const dbCommands = (commandDocs as any).docs.reduce((acc: any, doc: any) => {
               acc[doc.id] = doc.data() as CommandGroup;
               return acc;
           }, {} as Record<string, CommandGroup>);
@@ -119,13 +116,10 @@ export const useAppStore = create<AppState>()(
               set({ deviceId: Math.random().toString(36).substring(2, 15) });
           }
 
-          // FIND AND PERSIST USER'S STORE IDENTITY
           let userStore = state.userStore;
           if (userId) {
-              userStore = stores.find(s => s.ownerId === userId) || null;
+              userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
-
-          console.log(`[PERF] Shell Bootstrap in ${(performance.now() - start).toFixed(0)}ms`);
 
           set({
             stores,
@@ -135,11 +129,10 @@ export const useAppStore = create<AppState>()(
             loading: false,
             appReady: true,
             userStore,
-            readCount: state.readCount + storesSnap.docs.length + 2
+            readCount: state.readCount + (storesSnap as any).docs.length + 2
           });
           
         } catch (error) {
-          console.error("fetchInitialData failed:", error);
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -149,7 +142,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v17', 
+      name: 'adires-ops-v18', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -166,10 +159,7 @@ export const useInitializeApp = () => {
     const { fetchInitialData, loading, isInitialized, setAppReady, userStore } = useAppStore();
 
     useEffect(() => {
-        // App is ready as soon as hydration is finished
         if (isInitialized) setAppReady(true);
-        
-        // Refetch if not initialized or if we logged in and don't have a store yet
         if (firestore && !isUserLoading && !loading && (!isInitialized || (user && !userStore))) {
             fetchInitialData(firestore, user?.uid);
         }
