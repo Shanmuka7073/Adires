@@ -38,7 +38,7 @@ export function PDFUploadPanel() {
         const formData = new FormData();
         formData.append('pdf', file);
 
-        const result = await processPdfAndExtractRules(formData);
+        const result = await processPdfAndExtractRules(file);
 
         if (result.success) {
           setProgress(100);

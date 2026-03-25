@@ -259,3 +259,45 @@ export async function approveRegularization(
       return { success: false, error: error.message };
     }
   }
+  export async function getPlaceholderImages(): Promise<Record<string, any>> {
+    try {
+      const { db } = await getAdminServices();
+  
+      const doc = await db.collection('siteConfig').doc('placeholders').get();
+  
+      return doc.exists ? doc.data() || {} : {};
+    } catch (error: any) {
+      return {};
+    }
+  }
+
+// Update placeholder images
+export async function updatePlaceholderImages(data: any) {
+  try {
+    const { db } = await getAdminServices();
+
+    await db.collection('siteConfig').doc('placeholders').set(data, { merge: true });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+// PDF processing (temporary stub)
+export async function processPdfAndExtractRules(file: File) {
+  try {
+    return {
+      success: true,
+      rules: [],
+      sentenceCount: 0, // ✅ REQUIRED
+      message: "PDF processing not implemented yet"
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      rules: [],
+      sentenceCount: 0, // ✅ ALSO REQUIRED HERE
+      error: error.message
+    };
+  }
+}
