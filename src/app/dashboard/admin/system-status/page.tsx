@@ -117,7 +117,7 @@ export default function SystemStatusPage() {
       try {
         const result = await getSystemStatus();
         setStatus({
-            status: result.status,
+            status: result.status as 'ok' | 'error' | 'loading',
             llmStatus: result.llmStatus as any,
             serverDbStatus: result.serverDbStatus as any,
             errorMessage: (result as any).errorMessage || null,

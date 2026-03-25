@@ -25,7 +25,7 @@ function SalarySlipDisplay({ slip, employee, store, attendance }: { slip: Salary
                 companyName: store.name,
                 payslipNo: `PSL-${slip.id.slice(0, 8)}`,
                 employeeName: `${employee.firstName} ${employee.lastName}`,
-                employeeId: employee.employeeId,
+                employeeId: employee.employeeId || '' ,
                 designation: employee.role,
                 payPeriod: format(new Date(slip.periodStart), 'MMMM yyyy'),
                 totalHours: (attendance?.presentDays || 0) * 8,

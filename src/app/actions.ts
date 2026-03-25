@@ -301,3 +301,113 @@ export async function processPdfAndExtractRules(file: File) {
     };
   }
 }
+export async function approveRule(ruleId: string, rawText: string) {
+  try {
+    const { db } = await getAdminServices();
+
+    await db.collection('rules').doc(ruleId).set({
+      id: ruleId,
+      text: rawText,
+      status: 'approved',
+      createdAt: new Date(),
+    }, { merge: true });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+export async function rejectRule(ruleId: string) {
+  try {
+    const { db } = await getAdminServices();
+
+    await db.collection('rules').doc(ruleId).update({
+      status: 'rejected',
+      updatedAt: new Date()
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+export async function getSystemStatus() {
+  try {
+    const { db, auth } = await getAdminServices();
+
+    // Test DB connection
+    const usersSnap = await db.collection('users').limit(1).get();
+    const storesSnap = await db.collection('stores').limit(1).get();
+
+    return {
+      status: 'ok',
+      llmStatus: 'Online', // you can improve later
+      serverDbStatus: 'Online',
+      identity: 'Firebase Admin Connected',
+      isCredentialError: false,
+      counts: {
+        users: usersSnap.size,
+        stores: storesSnap.size
+      }
+    };
+  } catch (error: any) {
+    return {
+      status: 'error',
+      llmStatus: 'Offline',
+      serverDbStatus: 'Offline',
+      errorMessage: error.message,
+      isCredentialError: true,
+      counts: {
+        users: 0,
+        stores: 0
+      }
+    };
+  }
+}
+export async function getSalarySlipData(
+  slipId: string,
+  userId: string,
+  storeId?: string
+) {
+  try {
+    const { db } = await getAdminServices();
+
+    // Get slip
+    const slipDoc = await db.collection('salarySlips').doc(slipId).get();
+
+    if (!slipDoc.exists) {
+      return null;
+    }
+
+    const slip = slipDoc.data();
+
+    // Security check (VERY IMPORTANT)
+    if (slip?.userId !== userId) {
+      return null;
+    }
+
+    // Get employee
+    const empDoc = await db.collection('employeeProfiles').doc(userId).get();
+    const employee = empDoc.data();
+
+    // Get user (name details)
+    const userDoc = await db.collection('users').doc(userId).get();
+    const user = userDoc.data();
+
+    // Get store
+    let store = null;
+    if (storeId) {
+      const storeDoc = await db.collection('stores').doc(storeId).get();
+      store = storeDoc.data();
+    }
+
+    return {
+      slip,
+      employee: { ...employee, ...user },
+      store,
+      attendance: slip?.attendance || {}
+    };
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
+}
