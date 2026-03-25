@@ -344,3 +344,8 @@ declare global {
       deferredInstallPrompt: any;
   }
 }
+export type FailedVoiceCommand = {
+  text: string;
+  reason?: string;
+  timestamp?: number;
+};
