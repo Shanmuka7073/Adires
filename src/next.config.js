@@ -8,8 +8,6 @@ const withPWA = require('next-pwa')({
     /middleware-manifest\.json$/, 
     /app-build-manifest\.json$/,
     /precache-manifest\..*\.js$/,
-    // EXCLUDE HEAVY SOURCE HELP PAGES FROM PRECACHE
-    /dashboard\/admin\/.*-help.*/
   ],
   runtimeCaching: [
     {

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import {
   Users,
   Store,
@@ -16,14 +16,11 @@ import {
   Loader2,
   ImageIcon,
   ShieldCheck,
-  QrCode,
   WifiOff,
   Globe,
   ExternalLink,
-  Info,
-  AlertTriangle
+  Info
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
@@ -211,7 +208,6 @@ export default function AdminDashboardPage() {
                     <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
                     <AdminActionCard title="Image Management" description="Centralized asset control." href="/dashboard/admin/image-management" icon={ImageIcon} />
-                    <AdminActionCard title="QR Menu Logic" description="Source code for ordering system." href="/dashboard/admin/menu-help" icon={QrCode} />
                 </div>
             </div>
         </section>
@@ -224,7 +220,7 @@ export default function AdminDashboardPage() {
                 <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white overflow-hidden">
                     <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
                         <CardTitle className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
-                            <ExternalLink className="h-3 w-3" /> Deployment Info
+                            <Globe className="h-3 w-3" /> Deployment Info
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
@@ -238,9 +234,6 @@ export default function AdminDashboardPage() {
                                 Ensure domain is authorized in Firebase Console.
                             </AlertDescription>
                         </Alert>
-                        <Button asChild variant="outline" className="w-full h-10 rounded-xl font-black uppercase text-[8px] tracking-widest border-2">
-                            <Link href="/dashboard/admin/manifest-help">Edit PWA Manifest</Link>
-                        </Button>
                     </CardContent>
                 </Card>
             </div>
