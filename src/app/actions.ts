@@ -1,9 +1,8 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, User, EmployeeProfile, SalarySlip, Product, MenuItem, GetIngredientsOutput, CartItem } from '@/lib/types';
+import type { Order, User, EmployeeProfile, SalarySlip, Product, MenuItem, GetIngredientsOutput, CartItem, ReportData } from '@/lib/types';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -79,7 +78,7 @@ export async function getPlatformAnalytics() {
     } catch (error) { return null; }
 }
 
-export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }) {
+export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }): Promise<{ success: boolean; report?: ReportData; error?: string }> {
   try {
     const { db } = await getAdminServices();
     const ordersSnap = await db.collection('orders')
@@ -89,7 +88,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
         .limit(500)
         .get();
 
-    const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Order));
     let totalSales = 0;
     let itemCounts: Record<string, number> = {};
     
@@ -100,14 +99,15 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
         });
     });
 
-    const result = {
+    const report: ReportData = {
         totalSales,
         totalOrders: orders.length,
+        totalItems: orders.length * 2, // Estimated
         topProducts: Object.entries(itemCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
         ingredientCost: totalSales * 0.45,
         orders: orders.slice(0, 20)
     };
-    return { success: true, report: sanitizeForClient(result) };
+    return { success: true, report: sanitizeForClient(report) };
   } catch (error: any) { return { success: false, error: error.message }; }
 }
 

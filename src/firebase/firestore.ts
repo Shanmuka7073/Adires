@@ -13,9 +13,8 @@ import { getFirebaseApp } from './app';
 let firestoreInstance: Firestore | null = null;
 
 /**
- * MODULAR FIRESTORE GETTER
- * Hardened to prevent "initializeFirestore() has already been called" errors.
- * Uses persistent local cache for high-performance offline support.
+ * MODULAR FIRESTORE GETTER (RESILIENT)
+ * Wraps persistence initialization to handle IndexedDB corruption or tab conflicts.
  */
 export function getFirestoreInstanceInternal(): Firestore | null {
   const app = getFirebaseApp();
@@ -25,18 +24,21 @@ export function getFirestoreInstanceInternal(): Firestore | null {
   if (firestoreInstance) return firestoreInstance;
 
   try {
-    // Attempt to initialize with persistence
+    // Attempt to initialize with multi-tab persistence
     firestoreInstance = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
       ignoreUndefinedProperties: true,
     });
+    console.log("Firestore initialized with Persistent Cache (Multi-Tab)");
   } catch (e: any) {
-    // If already initialized (e.g. via HMR or other lazy loader), use getFirestore
+    // FALLBACK 1: If already initialized, just get the existing instance
     if (e.code === 'failed-precondition' || e.message?.includes('already been called')) {
       firestoreInstance = getFirestore(app);
-    } else {
-      console.error("Firestore init error:", e);
-      return null;
+    } 
+    // FALLBACK 2: If IndexedDB fails (Corruption/Tab Lock), initialize with memory only
+    else {
+      console.warn("Firestore Persistence failed. Falling back to Memory Cache:", e.message);
+      firestoreInstance = getFirestore(app);
     }
   }
   
