@@ -59,6 +59,19 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
+/**
+ * Sync-Safe Device ID Generator
+ */
+const getOrGenerateDeviceId = () => {
+    if (typeof window === 'undefined') return null;
+    let id = localStorage.getItem('adires-device-id');
+    if (!id) {
+        id = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('adires-device-id', id);
+    }
+    return id;
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -74,7 +87,7 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
-      deviceId: null,
+      deviceId: getOrGenerateDeviceId(),
       isCartOpen: false,
       readCount: 0,
       writeCount: 0,
@@ -191,15 +204,11 @@ export const useInitializeApp = () => {
     const setDeviceId = useAppStore(state => state.setDeviceId);
 
     useEffect(() => {
-        // CLIENT-ONLY: Ensure deviceId is stable across renders
-        if (typeof window !== 'undefined' && !deviceId) {
-            const existingId = localStorage.getItem('adires-device-id');
-            if (existingId) {
-                setDeviceId(existingId);
-            } else {
-                const newId = Math.random().toString(36).substring(2, 15);
-                localStorage.setItem('adires-device-id', newId);
-                setDeviceId(newId);
+        // Double-lock the device identity on first load
+        if (typeof window !== 'undefined') {
+            const id = getOrGenerateDeviceId();
+            if (id && id !== deviceId) {
+                setDeviceId(id);
             }
         }
     }, [deviceId, setDeviceId]);

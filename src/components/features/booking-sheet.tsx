@@ -6,10 +6,9 @@ import { SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
-import { format, addDays, startOfDay } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { getAvailableSlots, createBooking } from '@/app/actions';
 import { useFirebase } from '@/firebase';
 import { useAppStore } from '@/lib/store';
@@ -25,7 +24,7 @@ interface BookingSheetProps {
 
 export function BookingSheet({ store, service, onComplete }: BookingSheetProps) {
     const { user } = useFirebase();
-    const { deviceId } = useAppStore();
+    const { deviceId: storedDeviceId } = useAppStore();
     const { toast } = useToast();
     
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -56,11 +55,14 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
     const handleConfirmBooking = () => {
         if (!selectedTime || !customerName || !phone) return;
 
+        // Ensure we have a valid identity string
+        const finalDeviceId = storedDeviceId || localStorage.getItem('adires-device-id') || 'unknown';
+
         startBooking(async () => {
             const res = await createBooking({
                 storeId: store.id,
                 userId: user?.uid || 'guest',
-                deviceId: deviceId || undefined,
+                deviceId: finalDeviceId,
                 serviceId: service.id,
                 serviceName: service.name,
                 price: service.price,
@@ -112,7 +114,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                                     key={offset}
                                     onClick={() => {
                                         setSelectedDate(date);
-                                        setSelectedTime(null); // Reset time when date changes
+                                        setSelectedTime(null);
                                     }}
                                     className={cn(
                                         "flex flex-col items-center justify-center min-w-[70px] h-20 rounded-2xl border-2 transition-all shrink-0",
