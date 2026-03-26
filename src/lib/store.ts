@@ -79,7 +79,6 @@ export const useAppStore = create<AppState>()(
       readCount: 0,
       writeCount: 0,
 
-      // DECOUPLED COUNTERS: Using functional updates to avoid triggering unnecessary re-renders
       incrementReadCount: (count = 1) => set(state => ({ readCount: state.readCount + count })),
       incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
@@ -126,6 +125,7 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
+          // If offline, ensure we still mark as initialized to show cached UI
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -133,7 +133,7 @@ export const useAppStore = create<AppState>()(
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
         
-        // LOOP PREVENTION: Check if we already have the correct identity
+        // Return immediately if we already have the profile to avoid re-renders
         if (state.loading || (state.userStore && state.userStore.ownerId === userId)) {
             if (!state.appReady) set({ appReady: true });
             return;
@@ -157,6 +157,7 @@ export const useAppStore = create<AppState>()(
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
+            // On error (likely offline), mark ready anyway to show what we have in cache
             set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -188,13 +189,11 @@ export const useAppStore = create<AppState>()(
 );
 
 /**
- * OPTIMIZED INITIALIZATION HOOK
- * Uses specific selectors to avoid re-renders on unrelated state changes (like readCount).
+ * OFFLINE-FIRST INITIALIZATION HOOK
  */
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
     
-    // ATOMIC SELECTORS: Prevents the "Read Count" loop
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
@@ -202,14 +201,15 @@ export const useInitializeApp = () => {
     const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        // Instant Hydration from Cache
-        if (isInitialized && userStore) {
+        // OPTIMISTIC UNLOCK: If we have ANY cached identity data, show the app immediately.
+        // This makes the app work "Starting to Ending" without internet.
+        if (isInitialized) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading) {
             if (user) {
-                // Only fetch if identity is missing or incorrect
+                // Background sync only if missing or mismatched
                 if (!userStore || userStore.ownerId !== user.uid) {
                     fetchUserStore(firestore, user.uid);
                 } else {

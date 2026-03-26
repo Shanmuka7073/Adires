@@ -11,24 +11,24 @@ import { InstallProvider } from '@/components/install-provider';
 import GlobalLoader from './global-loader';
 
 /**
- * STRATEGIC CLIENT ROOT
- * Handles the delicate hydration sequence required for high-speed performance dashboards.
+ * RESILIENT OFFLINE ROOT
+ * Prioritizes showing the cached UI over waiting for cloud authentication.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [hasHydrated, setHasHydrated] = useState(false);
     const { appReady, isInitialized } = useAppStore();
     
-    // Core bootstrap logic: starts identity sync immediately
+    // Start identity and services bootstrap
     useInitializeApp();
 
     useEffect(() => {
         setHasHydrated(true);
     }, []);
     
-    // PREVENT HYDRATION MISMATCH AND FLASHING:
-    // We show the loader until we are certain the store has hydrated from localStorage
-    // OR we have received the initial targeted identity fetch from Firestore.
-    if (!hasHydrated || !isInitialized || !appReady) {
+    // OFFLINE LOGIC: 
+    // We show the loader ONLY on the very first visit (where isInitialized is false).
+    // On subsequent visits, we show the cached UI immediately (hasHydrated is enough).
+    if (!hasHydrated || (!isInitialized && !appReady)) {
         return <GlobalLoader />;
     }
 
