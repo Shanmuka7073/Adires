@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -7,7 +6,7 @@ import { User, Store as StoreType, Order } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2, Mic, Sparkles } from 'lucide-react';
+import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
@@ -60,54 +59,6 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
     );
 }
 
-function RecentActivity({ orders, stores }: { orders: Order[] | null, stores: StoreType[] }) {
-    if (!orders || orders.length === 0) return null;
-
-    const filtered = orders.filter(o => stores.some(s => s.id === o.storeId));
-    if (filtered.length === 0) return null;
-
-    return (
-        <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex justify-between items-end px-1">
-                <div>
-                    <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Recent Activity</h2>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pick up where you left off</p>
-                </div>
-                <Button asChild variant="link" className="h-auto p-0 font-black text-[9px] uppercase tracking-widest text-primary">
-                    <Link href="/dashboard/customer/my-orders">View All <ArrowRight className="ml-1 h-3 w-3" /></Link>
-                </Button>
-            </div>
-            <ScrollArea className="w-full whitespace-nowrap pb-4">
-                <div className="flex gap-4 px-1">
-                    {filtered.map(order => {
-                        const store = stores.find(s => s.id === order.storeId);
-                        return (
-                            <Link key={order.id} href={`/menu/${order.storeId}`} className="block w-64 flex-shrink-0 group">
-                                <Card className="rounded-[2rem] border-0 shadow-lg overflow-hidden group-hover:shadow-xl transition-all border-2 border-transparent group-hover:border-primary/20">
-                                    <CardContent className="p-4 flex items-center gap-4">
-                                        <div className="relative h-12 w-12 rounded-2xl overflow-hidden border shrink-0">
-                                            <Image src={store?.imageUrl || ADIRES_LOGO} alt={store?.name || 'Store'} fill className="object-cover" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="font-black text-xs uppercase truncate text-gray-900">{store?.name || 'Verified Store'}</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Badge variant={order.status === 'Delivered' || order.status === 'Completed' ? 'default' : 'secondary'} className="text-[7px] font-black uppercase h-4 px-1.5">{order.status}</Badge>
-                                                <span className="text-[9px] font-bold opacity-40">₹{order.totalAmount.toFixed(0)}</span>
-                                            </div>
-                                        </div>
-                                        <ArrowRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
-                                    </CardContent>
-                                </Card>
-                            </Link>
-                        )
-                    })}
-                </div>
-                <ScrollBar orientation="horizontal" className="opacity-0" />
-            </ScrollArea>
-        </section>
-    )
-}
-
 function HubNavigation() {
     return (
         <ScrollArea className="w-full whitespace-nowrap py-4 border-b bg-white">
@@ -131,7 +82,7 @@ export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const router = useRouter();
   const { isRestaurantOwner, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
-  const { loading: isAppLoading, isInitialized, stores, deviceId, fetchInitialData } = useAppStore();
+  const { stores, deviceId, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
@@ -139,31 +90,13 @@ export default function LocalBasketHomepage() {
 
   useEffect(() => {
     if (!isRoleLoading && user) {
-        if (isAdmin) {
-            router.replace('/dashboard/admin');
-        } else if (isRestaurantOwner) {
-            router.replace('/dashboard/restaurant');
-        }
+        if (isAdmin) router.replace('/dashboard/admin');
+        else if (isRestaurantOwner) router.replace('/dashboard/restaurant');
     }
   }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
 
-  const historyQuery = useMemoFirebase(() => {
-      if (!firestore) return null;
-      const identifier = user?.uid || deviceId;
-      if (!identifier) return null;
-      return query(
-          collection(firestore, 'orders'),
-          where(user?.uid ? 'userId' : 'deviceId', '==', identifier),
-          orderBy('orderDate', 'desc'),
-          limit(5)
-      );
-  }, [firestore, user?.uid, deviceId]);
-  const { data: recentOrders } = useCollection<Order>(historyQuery);
-
   useEffect(() => { 
-    if (firestore && !isInitialized) {
-        fetchInitialData(firestore, user?.uid); 
-    }
+    if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); 
   }, [firestore, isInitialized, fetchInitialData, user?.uid]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
@@ -171,10 +104,7 @@ export default function LocalBasketHomepage() {
   if (isRoleLoading || (user && (isRestaurantOwner || isAdmin))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Verifying Identity...</p>
-            </div>
+            <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
         </div>
     );
   }
@@ -182,62 +112,15 @@ export default function LocalBasketHomepage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
       <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
-      
       {!searchTerm && <HubNavigation />}
-
-      <main className="p-4 space-y-8">
-        <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-primary text-white p-8 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">
-                <Mic className="h-32 w-32" />
+      <main className="p-4 space-y-10">
+        <section className="space-y-4">
+            <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Marketplace Hub</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredStores.map(store => <StoreCard key={store.id} store={store} />)}
             </div>
-            <div className="relative z-10 space-y-4">
-                <div>
-                    <h2 className="text-4xl font-black font-headline tracking-tighter uppercase italic leading-none">Voice Hub</h2>
-                    <p className="font-bold opacity-80 text-xs uppercase tracking-widest mt-2">Natural Shopping Experience</p>
-                </div>
-                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest bg-white/20 w-fit px-3 py-1 rounded-full border border-white/10">
-                    <Sparkles className="h-3 w-3" /> Powered by Genkit AI
-                </div>
-            </div>
-        </Card>
-
-        {isAppLoading && !isInitialized ? (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Skeleton className="h-48 w-full rounded-2xl" />
-                    <Skeleton className="h-48 w-full rounded-2xl" />
-                </div>
-            </div>
-        ) : (
-             <div className="space-y-10">
-                {!searchTerm && <RecentActivity orders={recentOrders} stores={stores} />}
-
-                <section className="space-y-4">
-                    <div className="flex justify-between items-end px-1">
-                        <div>
-                            <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Marketplace Hub</h2>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Verified Local Businesses</p>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {filteredStores.map((store, index) => (
-                            <StoreCard 
-                                key={store.id} 
-                                store={store} 
-                                priority={index < 2} 
-                            />
-                        ))}
-                        {filteredStores.length === 0 && (
-                            <div className="col-span-full p-12 text-center bg-white rounded-3xl border-2 border-dashed opacity-40">
-                                <p className="text-xs font-bold uppercase tracking-widest">No matching businesses found</p>
-                            </div>
-                        )}
-                    </div>
-                </section>
-
-                <RecipeCard />
-            </div>
-        )}
+        </section>
+        <RecipeCard />
       </main>
     </div>
   );
