@@ -1,15 +1,15 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup, CanonicalProduct } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups,t as translate } from './locales';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
-import { createSlug } from './utils';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -22,9 +22,6 @@ export interface ProfileFormValues {
 
 export interface AppState {
   stores: Store[];
-  masterProducts: Product[];
-  productPrices: Record<string, ProductPrice | null>;
-  canonicalCatalog: Record<string, CanonicalProduct>; // Global branding registry
   userStore: Store | null; 
   loading: boolean;
   isInitialized: boolean;
@@ -45,11 +42,15 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  getProductName: (product: Product) => string;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getAllAliases: (key: string) => Record<string, string[]>;
+  // LEGACY STUBS (Removed for speed)
+  masterProducts: Product[];
+  productPrices: Record<string, ProductPrice | null>;
+  canonicalCatalog: Record<string, any>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
+  getProductName: (product: Product) => string;
 }
 
 const getInitialLanguage = (): string => {
@@ -68,7 +69,7 @@ export const useAppStore = create<AppState>()(
       canonicalCatalog: {},
       userStore: null,
       locales: {},
-      commands: {},
+      commands: defaultGeneralCommands,
       loading: false,
       isInitialized: false,
       appReady: false,
@@ -103,40 +104,10 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [storesSnap, aliasDocs, commandDocs, canonicalSnap] = await Promise.all([
-            getDocs(query(collection(db, 'stores'), limit(50))).catch(() => ({ docs: [] })),
-            getDocs(query(collection(db, 'voiceAliasGroups'), limit(100))).catch(() => ({ docs: [] })),
-            getDocs(query(collection(db, 'voiceCommands'), limit(50))).catch(() => ({ docs: [] })),
-            getDocs(query(collection(db, 'canonicalCatalog'), limit(500))).catch(() => ({ docs: [] }))
-          ]);
-
-          const stores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          // LEAN FETCH: Only fetch stores to identify the merchant
+          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(100)));
+          const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          // Identity Catalog
-          const canonicalCatalog: Record<string, CanonicalProduct> = {};
-          (canonicalSnap as any).docs.forEach((doc: any) => {
-              canonicalCatalog[doc.id] = { id: doc.id, ...doc.data() } as CanonicalProduct;
-          });
-
-          // Identify the master store for products
-          const masterStore = stores.find((s: Store) => s.name === 'LocalBasket');
-          let masterProducts: Product[] = [];
-          if (masterStore) {
-              const productsSnap = await getDocs(collection(db, 'stores', masterStore.id, 'products'));
-              masterProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-          }
-
-          const voiceAliasGroups = (aliasDocs as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
-          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-          
-          const dbCommands = (commandDocs as any).docs.reduce((acc: any, doc: any) => {
-              acc[doc.id] = doc.data() as CommandGroup;
-              return acc;
-          }, {} as Record<string, CommandGroup>);
-          
-          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
-          initializeTranslations(locales); 
-
           if (!state.deviceId && typeof window !== 'undefined') {
               set({ deviceId: Math.random().toString(36).substring(2, 15) });
           }
@@ -148,52 +119,22 @@ export const useAppStore = create<AppState>()(
 
           set({
             stores,
-            masterProducts,
-            canonicalCatalog,
-            locales,
-            commands: enrichedCommands,
             isInitialized: true,
             loading: false,
             appReady: true,
             userStore,
-            readCount: state.readCount + (storesSnap as any).docs.length + (canonicalSnap as any).docs.length + 2
+            readCount: state.readCount + storesSnap.docs.length
           });
           
         } catch (error) {
+          console.error("fetchInitialData failed:", error);
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const { productPrices } = get();
-          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
-
-          if (namesToFetch.length === 0) return;
-          
-          try {
-              const pricesToUpdate: Record<string, ProductPrice | null> = {};
-              const batchSize = 30;
-
-              for (let i = 0; i < namesToFetch.length; i += batchSize) {
-                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
-                  if (batchNames.length > 0) {
-                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
-                      const priceSnapshot = await getDocs(priceQuery);
-                      
-                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
-                      
-                      batchNames.forEach(name => {
-                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
-                      });
-                  }
-              }
-
-              set(state => ({
-                  productPrices: { ...state.productPrices, ...pricesToUpdate }
-              }));
-          } catch (error) {
-              console.error("Failed to fetch product prices:", error);
-          }
+          // Stubbed: No longer performing global pricing sync during boot
+          return Promise.resolve();
       },
 
       getProductName: (product: Product) => {
@@ -206,7 +147,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v20', 
+      name: 'adires-ops-lean-v1', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

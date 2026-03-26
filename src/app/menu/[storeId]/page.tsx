@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -31,7 +32,6 @@ import type {
 import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { format } from 'date-fns';
 
 import {
@@ -45,16 +45,7 @@ import {
   Search,
   Download,
   Eye,
-  CreditCard,
   PlusCircle,
-  BellRing,
-  ArrowLeft,
-  Sparkles,
-  Package,
-  CheckCircle,
-  AlertTriangle,
-  CookingPot,
-  LocateFixed,
   X,
   ShoppingBag,
   History,
@@ -80,13 +71,12 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -94,14 +84,9 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn, createSlug } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -127,8 +112,6 @@ const getCategoryIcon = (category: string) => {
     if (c.includes('starter') || c.includes('appetizer')) return <Star className="h-3 w-3" />;
     return <Utensils className="h-3 w-3" />;
 };
-
-// --- SUB-COMPONENTS ---
 
 function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme?: MenuTheme }) {
     const steps = [
@@ -209,7 +192,6 @@ function LiveBillSheet({
         </SheetHeader>
         
         <div className="flex-1 overflow-y-auto p-5 space-y-10 min-h-0">
-             {/* CURRENT ACTIVE ORDERS */}
              {placedOrders.length > 0 && (
                  <div className="space-y-6">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-1">
@@ -237,7 +219,6 @@ function LiveBillSheet({
                  </div>
              )}
 
-             {/* UN-PLACED ITEMS */}
              {cartItems.length > 0 && (
                  <div className="space-y-3">
                     <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Selection (Ready to Send)</h4>
@@ -257,7 +238,6 @@ function LiveBillSheet({
                  </div>
              )}
 
-             {/* ORDER HISTORY */}
              {historyOrders.length > 0 && (
                  <div className="space-y-4 pt-4 border-t border-black/5">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 px-1">
@@ -299,7 +279,7 @@ function LiveBillSheet({
                         <Button className="w-full h-14 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20" variant="destructive">Finalize Bill & Pay</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                        <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">Close Session?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will notify the staff that you are ready to pay your bill of ₹{sessionTotal.toFixed(0)}.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogHeader><AlertDialogTitle className="font-black uppercase">Close Session?</AlertDialogTitle><AlertDialogDescription className="font-bold">This will notify the staff that you are ready to pay your bill.</AlertDialogDescription></AlertDialogHeader>
                         <AlertDialogFooter className="gap-2"><AlertDialogCancel className="rounded-xl font-bold">Back</AlertDialogCancel><AlertDialogAction onClick={onFinalizeBill} className="rounded-xl font-bold bg-primary text-white">Yes, Finalize</AlertDialogAction></AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -310,13 +290,9 @@ function LiveBillSheet({
   );
 }
 
-function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, theme: MenuTheme | undefined, currentQtyInCart: number }) {
+function MenuCard({ item, onAdd, onShowDetails, currentQtyInCart }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, currentQtyInCart: number }) {
     const isOutOfStock = item.isAvailable === false;
-    const { canonicalCatalog } = useAppStore();
-    
-    // UNIVERSAL BRANDING LOGIC
-    const canonicalEntry = canonicalCatalog[createSlug(item.name)];
-    const finalImageUrl = canonicalEntry?.imageUrl || item.imageUrl || ADIRES_LOGO;
+    const finalImageUrl = item.imageUrl || ADIRES_LOGO;
 
     return (
         <Card className={cn(
@@ -352,7 +328,6 @@ function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { ite
                             "h-7 w-7 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-all",
                             currentQtyInCart > 0 ? "bg-white text-gray-900" : "bg-primary text-white"
                         )}
-                        style={currentQtyInCart === 0 ? { backgroundColor: theme?.primaryColor } : {}}
                     >
                         <Plus className="h-3 w-3" />
                     </button>
@@ -361,8 +336,6 @@ function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { ite
         </Card>
     );
 }
-
-// --- MAIN PAGE ---
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
@@ -374,25 +347,19 @@ export default function PublicMenuPage() {
   const [isSearchVisible, setSearchVisible] = useState(false);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); 
-  const [deliveryAddress, setDeliveryAddress] = useState(''); 
-  const [customerName, setCustomerName] = useState(''); 
-  const [phone, setPhone] = useState(''); 
-  const [deliveryCoords, setDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
-  const { isInitialized, fetchInitialData, setUserStore, language, canonicalCatalog } = useAppStore();
+  const { fetchInitialData, language } = useAppStore();
   const { cartItems, addItem, clearCart, updateQuantity, cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
-  useEffect(() => { if (store) setUserStore(store); }, [store, setUserStore]);
-
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   useEffect(() => {
       if (typeof window !== 'undefined') {
           let dId = localStorage.getItem(`device_id_${storeId}`);
@@ -404,7 +371,6 @@ export default function PublicMenuPage() {
   const sessionId = useMemo(() => {
     if (!deviceId) return 'loading';
     const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
-    if (tableNumber === 'Counter') return `counter-${Date.now()}-${storeId}`; 
     if (tableNumber) return `table-${tableNumber}-${dS}-${storeId}`;
     return `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
@@ -418,8 +384,7 @@ export default function PublicMenuPage() {
   }, [firestore, storeId, deviceId]);
   const { data: historyOrders } = useCollection<Order>(historyQuery);
 
-  const activeItemCount = useMemo(() => (placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0) + cartItems.length, [placedOrders, cartItems]);
-  const isSalon = useMemo(() => !!(store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon')), [store]);
+  const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
   const availableCategories = useMemo(() => {
       if (!menu?.items) return [];
       const cats = Array.from(new Set(menu.items.map(i => i.category))).sort();
@@ -435,19 +400,14 @@ export default function PublicMenuPage() {
     return filtered.reduce((acc, i) => { const c = i.category || 'Other'; if(!acc[c]) acc[c] = []; acc[c].push(i); return acc; }, {} as Record<string, MenuItem[]>);
   }, [menu, searchTerm, selectedCategory]);
 
-  useEffect(() => { if (firestore && !isInitialized) fetchInitialData(firestore); }, [firestore, isInitialized, fetchInitialData]);
+  useEffect(() => { if (firestore) fetchInitialData(firestore); }, [firestore, fetchInitialData]);
 
   useEffect(() => {
     const urlTable = searchParams.get('table'); if (urlTable) setTableNumber(urlTable);
-    if (typeof window !== 'undefined') {
-        const sA = localStorage.getItem(`last_address_${storeId}`); const sN = localStorage.getItem(`last_name_${storeId}`); const sP = localStorage.getItem(`last_phone_${storeId}`);
-        if (sA) setDeliveryAddress(sA); if (sN) setCustomerName(sN); if (sP) setPhone(sP);
-    }
-  }, [searchParams, storeId]);
+  }, [searchParams]);
 
   const handleAddItem = (item: MenuItem, qty: number = 1) => {
-    const canonical = canonicalCatalog[createSlug(item.name)];
-    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: canonical?.imageUrl || (item as any).imageUrl };
+    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: item.imageUrl };
     const variant: ProductVariant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
     
     if (qty === 0) {
@@ -463,16 +423,14 @@ export default function PublicMenuPage() {
   const handlePlaceOrder = () => {
     if (!firestore) return;
     startAdding(async () => {
-        const isCounter = tableNumber === 'Counter';
         const orderId = doc(collection(firestore, 'orders')).id;
         const orderRef = doc(firestore, 'orders', orderId);
         const orderItems: OrderItem[] = cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderId, productId: item.product.id, menuItemId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price }));
         const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        const orderData = { id: orderId, storeId: storeId, tableNumber: tableNumber ? String(tableNumber) : null, sessionId: sessionId, deviceId: deviceId, userId: 'guest', customerName: customerName || (tableNumber === 'Counter' ? 'Walk-in Guest' : (tableNumber ? `Table ${tableNumber}` : 'Guest')), deliveryAddress: deliveryAddress || (tableNumber ? 'In-store dining' : 'TBD'), deliveryLat: deliveryCoords?.lat || 0, deliveryLng: deliveryCoords?.lng || 0, phone: phone || '', status: isCounter ? 'Billed' : 'Pending', orderType: tableNumber === 'Counter' ? 'counter' : (tableNumber ? 'dine-in' : 'delivery'), isActive: true, orderDate: serverTimestamp(), updatedAt: serverTimestamp(), items: orderItems, totalAmount: totalAmount };
-        setDoc(orderRef, orderData).catch(async (e) => { errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orderRef.path, operation: 'create' as const, requestResourceData: orderData })); });
-        toast({ title: isCounter ? 'Bill Generated!' : 'Sent to Kitchen!' }); 
+        const orderData = { id: orderId, storeId: storeId, tableNumber: tableNumber ? String(tableNumber) : null, sessionId: sessionId, deviceId: deviceId, userId: 'guest', customerName: tableNumber ? `Table ${tableNumber}` : 'Guest', deliveryAddress: tableNumber ? 'In-store dining' : 'TBD', status: 'Pending', orderType: tableNumber ? 'dine-in' : 'delivery', isActive: true, orderDate: serverTimestamp(), updatedAt: serverTimestamp(), items: orderItems, totalAmount: totalAmount };
+        await setDoc(orderRef, orderData);
+        toast({ title: 'Sent to Staff!' }); 
         clearCart(); 
-        if(isCounter) handleStartNewOrder(); 
     });
   };
 
@@ -492,12 +450,9 @@ export default function PublicMenuPage() {
     });
   };
 
-  const handleStartNewOrder = () => { if (typeof window !== 'undefined') window.location.reload(); };
-
   if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900">Store not found.</div>;
 
-  const theme = menu?.theme;
   const isSessionFinalized = !!(placedOrders && placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status)));
 
   return (
@@ -511,7 +466,7 @@ export default function PublicMenuPage() {
             ingredients={(ingredientsData?.components as any) || []} 
             recommendations={[]} 
             itemType={ingredientsData?.itemType} 
-            onAdd={(customs) => { handleAddItem(selectedItemForIngredients, 1); setSelectedItemForIngredients(null); }} 
+            onAdd={() => { handleAddItem(selectedItemForIngredients, 1); setSelectedItemForIngredients(null); }} 
             onShowRecommendation={(rec) => { setSelectedItemForIngredients(rec); handleShowIngredients(rec); }} 
         />
       )}
@@ -525,27 +480,18 @@ export default function PublicMenuPage() {
                               <Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" />
                           </div>
                           <div>
-                              <div className="flex items-center gap-1">
-                                  <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none">
-                                      {customerName || (tableNumber ? `TABLE ${tableNumber}` : 'WELCOME')}
-                                  </h1>
-                                  <ChevronDown className="h-2.5 w-2.5 text-primary" />
-                              </div>
+                              <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none">
+                                  {tableNumber ? `TABLE ${tableNumber}` : 'WELCOME'}
+                              </h1>
                               <p className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-0.5">{store.name}</p>
                           </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                          <button 
-                            onClick={() => setSearchVisible(!isSearchVisible)}
-                            className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border border-black/5 active:scale-90 transition-all"
-                          >
+                          <button onClick={() => setSearchVisible(!isSearchVisible)} className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border border-black/5 active:scale-90 transition-all">
                               {isSearchVisible ? <X className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
                           </button>
                           {canInstall && (
-                            <button 
-                                onClick={triggerInstall}
-                                className="h-8 px-3 rounded-full bg-white shadow-sm flex items-center gap-1.5 border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest"
-                            >
+                            <button onClick={triggerInstall} className="h-8 px-3 rounded-full bg-white shadow-sm flex items-center gap-1.5 border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest">
                                 <Download className="h-3 w-3 text-primary" /> Install
                             </button>
                           )}
@@ -554,13 +500,7 @@ export default function PublicMenuPage() {
 
                   {isSearchVisible && (
                       <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                          <Input 
-                              autoFocus
-                              placeholder="Search dishes..." 
-                              value={searchTerm} 
-                              onChange={e => setSearchTerm(e.target.value)}
-                              className="h-10 rounded-xl border-2 border-gray-950 bg-white text-[10px] font-bold shadow-md"
-                          />
+                          <Input autoFocus placeholder="Search dishes..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-10 rounded-xl border-2 border-gray-950 bg-white text-[10px] font-bold shadow-md" />
                       </div>
                   )}
 
@@ -568,16 +508,8 @@ export default function PublicMenuPage() {
                       {availableCategories.map(cat => {
                           const isActive = selectedCategory === cat;
                           return (
-                              <button 
-                                  key={cat} 
-                                  onClick={() => setSelectedCategory(cat)}
-                                  className={cn(
-                                      "px-4 h-9 rounded-full font-black text-[9px] uppercase tracking-widest transition-all shrink-0 flex items-center gap-1.5 shadow-sm border",
-                                      isActive ? "bg-[#B22222] border-[#B22222] text-white scale-105" : "bg-white border-black/5 text-gray-500"
-                                  )}
-                              >
-                                  {getCategoryIcon(cat)}
-                                  {cat}
+                              <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 h-9 rounded-full font-black text-[9px] uppercase tracking-widest transition-all shrink-0 flex items-center gap-1.5 shadow-sm border", isActive ? "bg-[#B22222] border-[#B22222] text-white scale-105" : "bg-white border-black/5 text-gray-500")}>
+                                  {getCategoryIcon(cat)} {cat}
                               </button>
                           );
                       })}
@@ -588,83 +520,52 @@ export default function PublicMenuPage() {
           <div className="container mx-auto px-5 max-w-2xl mt-2">
               {isSessionFinalized ? (
                   <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8 bg-white">
-                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-green-50 border-4 border-green-100 shadow-inner"><CheckCircle className="h-10 w-10 text-green-600" /></div>
+                      <CheckCircle className="mx-auto h-16 w-16 mb-6 text-green-600" />
                       <h2 className="text-2xl font-black mb-3 text-gray-950 tracking-tight uppercase italic">Visit Completed</h2>
-                      <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest opacity-60">Thank you for dining with us!</p>
-                      <Button onClick={handleStartNewOrder} className="rounded-2xl h-12 w-full uppercase font-black text-[10px] tracking-[0.2em] shadow-xl bg-primary">Start New Session</Button>
+                      <Button onClick={() => window.location.reload()} className="rounded-2xl h-12 w-full uppercase font-black text-[10px] tracking-[0.2em] shadow-xl bg-primary">Start New Session</Button>
                   </Card>
               ) : (
                 <div className="space-y-6">
-                    {Object.keys(groupedMenu).length > 0 ? (
-                        Object.entries(groupedMenu).map(([category, items]) => (
-                            <section key={category} className="space-y-3">
-                                <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
-                                <div className="grid grid-cols-1 gap-3">
-                                    {items.map((item) => {
-                                        const cartItem = cartItems.find(i => i.product.id === item.id);
-                                        return (
-                                            <MenuCard 
-                                                key={item.id} 
-                                                item={item} 
-                                                onAdd={handleAddItem} 
-                                                onShowDetails={handleShowIngredients} 
-                                                theme={theme} 
-                                                currentQtyInCart={cartItem?.quantity || 0}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                        ))
-                    ) : (
-                        <div className="text-center py-24 opacity-20"><Utensils className="h-10 w-10 mx-auto mb-3" /><p className="text-[9px] font-black uppercase tracking-widest">No dishes found</p></div>
-                    )}
+                    {Object.entries(groupedMenu).map(([category, items]) => (
+                        <section key={category} className="space-y-3">
+                            <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
+                            <div className="grid grid-cols-1 gap-3">
+                                {items.map((item) => {
+                                    const cartItem = cartItems.find(i => i.product.id === item.id);
+                                    return <MenuCard key={item.id} item={item} onAdd={handleAddItem} onShowDetails={handleShowIngredients} currentQtyInCart={cartItem?.quantity || 0} />;
+                                })}
+                            </div>
+                        </section>
+                    ))}
                 </div>
               )}
           </div>
 
-          {(activeItemCount > 0 || cartItems.length > 0) && !isSessionFinalized && (
+          {!isSessionFinalized && (
               <div className="fixed bottom-6 left-0 right-0 z-50 px-5">
                   <div className="max-w-md mx-auto">
-                      <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-[0_15px_40px_-10px_rgba(253,216,53,0.5)] border-4 border-white">
+                      <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white">
                           <div className="flex items-center gap-3">
-                              <div className="flex flex-col">
-                                  <span className="text-[8px] font-black uppercase tracking-tighter text-gray-900/60 leading-none">Your Selection</span>
-                                  <p className="text-base font-black text-gray-950 leading-none mt-0.5">
-                                      {activeItemCount} items <span className="mx-1 text-gray-950/20">|</span> ₹{cartTotal.toFixed(0)}
-                                  </p>
-                              </div>
+                              <p className="text-base font-black text-gray-950 leading-none">
+                                  {cartTotal > 0 ? `₹${cartTotal.toFixed(0)} Selected` : 'Select Items'}
+                              </p>
                           </div>
                           
                           <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                               <SheetTrigger asChild>
-                                  <Button className="h-10 rounded-full bg-gray-950 text-white font-black uppercase text-[9px] tracking-widest px-5 shadow-lg active:scale-95 transition-all">
-                                      View Cart <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                                  </Button>
+                                  <Button className="h-10 rounded-full bg-gray-950 text-white font-black uppercase text-[9px] tracking-widest px-5 shadow-lg">View Summary</Button>
                               </SheetTrigger>
                               <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                                  <LiveBillSheet 
-                                      sessionId={sessionId} 
-                                      theme={theme} 
-                                      store={store} 
-                                      isSalon={isSalon} 
-                                      placedOrders={placedOrders || []} 
-                                      historyOrders={historyOrders || []} 
-                                      isLoadingOrders={ordersLoading} 
-                                      onFinalizeBill={handleFinalizeBill}
-                                  />
+                                  <LiveBillSheet sessionId={sessionId} theme={menu?.theme} store={store} isSalon={isSalon} placedOrders={placedOrders || []} historyOrders={historyOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={handleFinalizeBill} />
                               </SheetContent>
                           </Sheet>
                       </div>
                       
                       {cartItems.length > 0 && (
-                          <div className="mt-2 animate-in slide-in-from-bottom-1">
-                              <Button 
-                                onClick={handlePlaceOrder}
-                                className="w-full h-11 rounded-full bg-primary text-white font-black uppercase text-[9px] tracking-widest shadow-lg"
-                              >
+                          <div className="mt-2">
+                              <Button onClick={handlePlaceOrder} className="w-full h-11 rounded-full bg-primary text-white font-black uppercase text-[9px] tracking-widest shadow-lg">
                                   {isAdding ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-1.5" /> : <PlusCircle className="h-3.5 w-3.5 mr-1.5" />}
-                                  {tableNumber ? `Send to ${isSalon ? 'Chair' : 'Kitchen'}` : 'Confirm Order'}
+                                  {tableNumber ? `Send to Staff` : 'Confirm Order'}
                               </Button>
                           </div>
                       )}
