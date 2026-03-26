@@ -110,7 +110,10 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                             return (
                                 <button
                                     key={offset}
-                                    onClick={() => setSelectedDate(date)}
+                                    onClick={() => {
+                                        setSelectedDate(date);
+                                        setSelectedTime(null); // Reset time when date changes
+                                    }}
                                     className={cn(
                                         "flex flex-col items-center justify-center min-w-[70px] h-20 rounded-2xl border-2 transition-all shrink-0",
                                         isSelected ? "bg-primary border-primary text-white shadow-lg" : "bg-white border-black/5 text-gray-500"
@@ -141,7 +144,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                                     className={cn(
                                         "h-11 rounded-xl font-black text-[10px] uppercase tracking-tighter border-2 transition-all",
                                         selectedTime === slot.time ? "bg-gray-950 border-gray-950 text-white shadow-md scale-105" : 
-                                        slot.available ? "bg-white border-black/5 text-gray-950" : "opacity-20 grayscale bg-muted"
+                                        slot.available ? "bg-white border-black/5 text-gray-950 hover:border-primary" : "opacity-20 grayscale bg-muted cursor-not-allowed"
                                     )}
                                 >
                                     {slot.label}
@@ -149,9 +152,9 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                             ))}
                         </div>
                     ) : (
-                        <div className="p-10 text-center rounded-2xl bg-white border-2 border-dashed border-black/5">
-                            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                            <p className="text-[10px] font-black uppercase opacity-40 tracking-widest">No slots available for this day</p>
+                        <div className="p-10 text-center rounded-2xl bg-white border-2 border-dashed border-black/5 flex flex-col items-center">
+                            <AlertCircle className="h-8 w-8 text-amber-500 mb-2 opacity-40" />
+                            <p className="text-[10px] font-black uppercase opacity-40 tracking-widest">No slots found for this schedule</p>
                         </div>
                     )}
                 </section>
@@ -172,7 +175,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                             placeholder="Special requests (optional)..." 
                             value={notes} 
                             onChange={e => setNotes(e.target.value)}
-                            className="w-full rounded-2xl border-2 p-4 text-xs font-bold bg-white min-h-[80px]"
+                            className="w-full rounded-2xl border-2 p-4 text-xs font-bold bg-white min-h-[80px] focus:outline-none focus:border-primary transition-colors"
                         />
                     </div>
                 </section>
@@ -182,10 +185,16 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                 <Button 
                     onClick={handleConfirmBooking}
                     disabled={!selectedTime || !customerName || !phone || isBooking}
-                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20"
+                    className={cn(
+                        "w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl transition-all active:scale-95",
+                        selectedTime ? "bg-primary text-white shadow-primary/20" : "bg-muted text-muted-foreground shadow-none"
+                    )}
                 >
-                    {isBooking ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                    Confirm Booking
+                    {isBooking ? (
+                        <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Processing...</>
+                    ) : (
+                        <><CheckCircle2 className="h-4 w-4 mr-2" /> {selectedTime ? 'Confirm Booking' : 'Select a time slot'}</>
+                    )}
                 </Button>
             </SheetFooter>
         </SheetContent>

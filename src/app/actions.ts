@@ -5,7 +5,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
-import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
+import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes, isBefore } from 'date-fns';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -336,13 +336,14 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
         const storeSnap = await db.collection('stores').doc(storeId).get();
         const storeData = storeSnap.data();
         
+        // Use Defaults if not provided
         const startHourStr = storeData?.workingHours?.start || '10:00';
         const endHourStr = storeData?.workingHours?.end || '20:00';
         
-        const startHour = parseInt(startHourStr.split(':')[0]);
-        const startMin = parseInt(startHourStr.split(':')[1] || '0');
-        const endHour = parseInt(endHourStr.split(':')[0]);
-        const endMin = parseInt(endHourStr.split(':')[1] || '0');
+        const startHour = parseInt(startHourStr.split(':')[0]) || 10;
+        const startMin = parseInt(startHourStr.split(':')[1] || '0') || 0;
+        const endHour = parseInt(endHourStr.split(':')[0]) || 20;
+        const endMin = parseInt(endHourStr.split(':')[1] || '0') || 0;
 
         const bookingsSnap = await db.collection('bookings')
             .where('storeId', '==', storeId)
@@ -355,15 +356,17 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
         const slots = [];
         const baseDate = parse(date, 'yyyy-MM-dd', new Date());
         
-        let current = setHours(setMinutes(startOfDay(baseDate), startMin), startHour);
-        const end = setHours(setMinutes(startOfDay(baseDate), endMin), endHour);
+        // Start and end points for the day
+        const startTime = setHours(setMinutes(startOfDay(baseDate), startMin), startHour);
+        const endTime = setHours(setMinutes(startOfDay(baseDate), endMin), endHour);
         
+        let current = startTime;
         const now = new Date();
-
-        // Safety break to prevent infinite loops if duration is 0 or negative
         const interval = Math.max(15, duration || 30);
 
-        while (current < end) {
+        // Generate full grid of slots regardless of "past" status
+        // This ensures the grid is always shown to the user
+        while (current < endTime) {
             const timeStr = format(current, 'HH:mm');
             const isBooked = bookedTimes.has(timeStr);
             const isPast = isAfter(now, current);
