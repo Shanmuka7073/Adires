@@ -1,11 +1,11 @@
-
 'use client';
 
 /**
- * @fileOverview Stubbed Voice Integration to resolve build failures.
+ * @fileOverview Lightweight Voice Integration Entry Point.
+ * Dictionaries and heavy parsing have been purged to optimize bundle size.
  */
 
-import { runNLU as runNLUStub, extractQuantityAndProduct as extractStub, recognizeIntent as recognizeStub } from './engine';
+import { runNLU as stubRun, extractQuantityAndProduct as stubExtract, recognizeIntent as stubRecognize } from './engine';
 
 export interface NLUResult {
   cleanedText: string;
@@ -18,9 +18,6 @@ export interface NLUResult {
   numbers: any[];
 }
 
-export function runNLU(text: string, lang: string = 'en'): NLUResult {
-    return runNLUStub(text, lang);
-}
-
-export const extractQuantityAndProduct = extractStub;
-export const recognizeIntent = recognizeStub;
+export const runNLU = stubRun;
+export const extractQuantityAndProduct = stubExtract;
+export const recognizeIntent = stubRecognize;

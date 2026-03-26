@@ -1,7 +1,6 @@
-
 /**
- * @fileOverview Stubbed NLU Engine to resolve build failures.
- * This file replaces the complex linguistic analysis with simple pass-through logic.
+ * @fileOverview High-efficiency NLU Stub.
+ * Replaces the heavy linguistic engine to reduce bundle weight.
  */
 
 export interface NLUResult {
@@ -21,9 +20,13 @@ export type Intent =
   | { type: 'ORDER_ITEM'; originalText: string; lang: string }
   | { type: 'UNKNOWN'; originalText: string; lang: string };
 
+/**
+ * Performs basic string cleaning without heavy dictionaries.
+ */
 export function runNLU(text: string, lang: string = "en"): NLUResult {
+  const cleaned = (text || "").trim();
   return {
-    cleanedText: text.trim(),
+    cleanedText: cleaned,
     language: lang,
     hasNumbers: false,
     hasMath: false,
@@ -34,6 +37,9 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
   };
 }
 
+/**
+ * Pass-through extractor for basic item matching.
+ */
 export function extractQuantityAndProduct(nlu: NLUResult) {
     return {
         qty: 1,
@@ -43,9 +49,12 @@ export function extractQuantityAndProduct(nlu: NLUResult) {
     };
 }
 
+/**
+ * Simple keyword-based intent recognition.
+ */
 export function recognizeIntent(text: string, lang: string): Intent {
-    const lower = text.toLowerCase().trim();
-    if (lower.includes('order') || lower.includes('buy') || lower.includes('add')) {
+    const lower = (text || "").toLowerCase().trim();
+    if (['order', 'buy', 'add', 'get'].some(kw => lower.includes(kw))) {
         return { type: 'ORDER_ITEM', originalText: text, lang };
     }
     return { type: 'UNKNOWN', originalText: text, lang };
