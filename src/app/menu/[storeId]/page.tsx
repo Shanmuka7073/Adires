@@ -264,26 +264,17 @@ export default function PublicMenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); 
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
-  const { fetchInitialData, language, incrementWriteCount } = useAppStore();
-  const { cartItems, addItem, clearCart, updateQuantity, cartTotal } = useCart();
+  const { language, deviceId } = useAppStore();
+  const { addItem, cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
-
-  useEffect(() => {
-      if (typeof window !== 'undefined') {
-          let dId = localStorage.getItem(`device_id_${storeId}`);
-          if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_id_${storeId}`, dId); }
-          setDeviceId(dId);
-      }
-  }, [storeId]);
 
   const sessionId = useMemo(() => {
     if (!deviceId) return 'loading';
