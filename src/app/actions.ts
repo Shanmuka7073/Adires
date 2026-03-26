@@ -3,12 +3,12 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, ReportData, MenuItem, CartItem } from '@/lib/types';
+import type { Order, ReportData, MenuItem, CartItem, Booking } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
+import { format, addMinutes, isAfter, parse } from 'date-fns';
 
 /**
  * DEEP SERIALIZATION UTILITY
- * Recursively converts Firestore Timestamps and Dates to ISO strings.
  */
 function sanitizeForClient(data: any): any {
     if (data === null || data === undefined) return data;
@@ -27,33 +27,6 @@ function sanitizeForClient(data: any): any {
     return data;
 }
 
-/**
- * Calculates billing speed metrics from a collection of orders.
- */
-function calculateSpeedMetrics(orders: any[]) {
-    const completedOrders = orders.filter(o => 
-        (o.status === 'Completed' || o.status === 'Billed' || o.status === 'Delivered') && 
-        o.orderDate && o.updatedAt
-    );
-
-    if (completedOrders.length === 0) {
-        return { avg: 0, fastest: 0, slowest: 0 };
-    }
-
-    const durations = completedOrders.map(o => {
-        const start = o.orderDate.seconds || new Date(o.orderDate).getTime() / 1000;
-        const end = o.updatedAt.seconds || new Date(o.updatedAt).getTime() / 1000;
-        const diff = (end - start) / 60; // duration in minutes
-        return Math.max(0.1, diff); 
-    });
-
-    return {
-        avg: durations.reduce((a, b) => a + b, 0) / durations.length,
-        fastest: Math.min(...durations),
-        slowest: Math.max(...durations)
-    };
-}
-
 export async function getFirebaseConfig() {
   try {
     const { app } = await getAdminServices();
@@ -70,10 +43,6 @@ export async function getFirebaseConfig() {
   } catch (e) { return null; }
 }
 
-/**
- * OPTIMIZED PLATFORM ANALYTICS
- * Uses count() aggregation to minimize read costs.
- */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
@@ -81,7 +50,6 @@ export async function getPlatformAnalytics() {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfTodayTs = Timestamp.fromDate(startOfToday);
 
-        // CHEAP AGGREGATIONS: Only costs 1 read per 1000 items
         const [usersCount, storesCount, ordersCountSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
@@ -92,7 +60,6 @@ export async function getPlatformAnalytics() {
         ]);
 
         let todayRevenue = 0;
-        // We only fetch the actual documents for detailed metrics, limited to avoid explosion
         const ordersSnap = await db.collection('orders')
             .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
             .where('orderDate', '>=', startOfTodayTs)
@@ -103,42 +70,26 @@ export async function getPlatformAnalytics() {
             todayRevenue += (doc.data().totalAmount || 0); 
         });
 
-        let speedMetrics = { avg: 0, fastest: 0, slowest: 0 };
-        try {
-            const recentSnap = await db.collection('orders')
-                .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
-                .orderBy('updatedAt', 'desc')
-                .limit(20)
-                .get();
-            speedMetrics = calculateSpeedMetrics(recentSnap.docs.map(d => d.data()));
-        } catch (e) {}
-
         return sanitizeForClient({
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
             activeSessions: ordersCountSnap.data().count,
-            avgBillingSpeed: speedMetrics.avg,
-            fastestBill: speedMetrics.fastest,
-            slowestBill: speedMetrics.slowest,
             periods: {
                 today: {
                     revenue: todayRevenue,
                     orders: ordersCountSnap.data().count,
                     aov: ordersCountSnap.data().count > 0 ? todayRevenue / ordersCountSnap.data().count : 0,
-                    userReach: ordersCountSnap.data().count,
-                    trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 }
                 }
             }
         });
     } catch (error) { 
-        console.error("Platform Analytics Failure:", error);
         return null; 
     }
 }
 
 export async function getSystemStatus() {
   try {
-    const { db, auth } = await getAdminServices();
+    const { db } = await getAdminServices();
     const [usersCount, storesCount] = await Promise.all([
         db.collection('users').count().get(),
         db.collection('stores').count().get()
@@ -148,192 +99,101 @@ export async function getSystemStatus() {
       status: 'ok',
       llmStatus: 'Online',
       serverDbStatus: 'Online',
-      identity: 'Service Account Verified',
       counts: { users: usersCount.data().count, stores: storesCount.data().count }
     };
   } catch (error: any) {
     return { 
         status: 'error', 
-        llmStatus: 'Offline', 
-        serverDbStatus: 'Offline', 
-        errorMessage: error.message,
-        isCredentialError: error.message.includes('SERVICE_ACCOUNT'),
         counts: { users: 0, stores: 0 } 
     };
   }
 }
 
-export async function getStoreSalesReport({ storeId, period }: { storeId: string; period: 'daily' | 'weekly' | 'monthly' }) {
-  try {
-    const { db } = await getAdminServices();
-    const now = new Date();
-    let startDate: Date;
-    if (period === 'daily') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    else if (period === 'weekly') {
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        startDate = new Date(now.setDate(diff));
-        startDate.setHours(0,0,0,0);
-    } else startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
+    try {
+        const { db } = await getAdminServices();
+        const bookingId = `${data.storeId}_${data.date}_${data.time.replace(':', '')}`;
+        const bookingRef = db.collection('bookings').doc(bookingId);
 
-    const ordersSnap = await db.collection('orders')
-        .where('storeId', '==', storeId)
-        .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
-        .where('orderDate', '>=', Timestamp.fromDate(startDate))
-        .orderBy('orderDate', 'desc')
-        .limit(500)
-        .get();
+        // ATOMIC CHECK: Use a transaction to prevent double-booking
+        const result = await db.runTransaction(async (transaction) => {
+            const snap = await transaction.get(bookingRef);
+            if (snap.exists && snap.data()?.status !== 'Cancelled') {
+                throw new Error('This slot has just been taken. Please choose another time.');
+            }
 
-    const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    let totalSales = 0;
-    let itemCounts: Record<string, number> = {};
-    
-    orders.forEach((o: any) => {
-        totalSales += (o.totalAmount || 0);
-        (o.items || []).forEach((it: any) => {
-            const name = it.productName || 'Unknown';
-            itemCounts[name] = (itemCounts[name] || 0) + (it.quantity || 1);
+            const bookingData = {
+                ...data,
+                id: bookingId,
+                status: 'Booked',
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+            };
+
+            transaction.set(bookingRef, bookingData);
+            return bookingId;
         });
-    });
 
-    const report: ReportData = {
-        totalSales,
-        totalOrders: orders.length,
-        totalItems: Object.values(itemCounts).reduce((a, b) => a + b, 0),
-        topProducts: Object.entries(itemCounts).sort((a,b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count })),
-        ingredientCost: totalSales * 0.45,
-        orders: orders.slice(0, 20) as any
-    };
-    
-    return { success: true, report: sanitizeForClient(report) };
-  } catch (error: any) { 
-      return { success: false, error: error.message }; 
-  }
+        return { success: true, bookingId: result };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
 
-export async function sendBroadcastNotification(title: string, body: string) {
+export async function getAvailableSlots(storeId: string, date: string, duration: number) {
     try {
-        const { messaging, db } = await getAdminServices();
-        const usersSnap = await db.collection('users').where('fcmToken', '!=', null).limit(500).get();
-        if (usersSnap.empty) return { success: false, error: 'No active recipients found.' };
-        const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
+        const { db } = await getAdminServices();
+        const storeSnap = await db.collection('stores').doc(storeId).get();
+        const storeData = storeSnap.data();
         
-        const response = await messaging.sendEachForMulticast({
-            tokens,
-            notification: { title, body },
+        const startHour = parseInt(storeData?.workingHours?.start?.split(':')[0] || '10');
+        const endHour = parseInt(storeData?.workingHours?.end?.split(':')[0] || '20');
+
+        // Fetch existing bookings for this day
+        const bookingsSnap = await db.collection('bookings')
+            .where('storeId', '==', storeId)
+            .where('date', '==', date)
+            .where('status', '!=', 'Cancelled')
+            .get();
+        
+        const bookedTimes = new Set(bookingsSnap.docs.map(doc => doc.data().time));
+
+        const slots = [];
+        let current = parse(`${date} ${startHour}:00`, 'yyyy-MM-dd H:mm', new Date());
+        const end = parse(`${date} ${endHour}:00`, 'yyyy-MM-dd H:mm', new Date());
+        const now = new Date();
+
+        while (current < end) {
+            const timeStr = format(current, 'HH:mm');
+            const isBooked = bookedTimes.has(timeStr);
+            const isPast = isAfter(now, current);
+
+            slots.push({
+                time: timeStr,
+                label: format(current, 'hh:mm a'),
+                available: !isBooked && !isPast
+            });
+
+            current = addMinutes(current, duration || 30);
+        }
+
+        return { success: true, slots };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateBookingStatus(bookingId: string, status: Booking['status']) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('bookings').doc(bookingId).update({
+            status,
+            updatedAt: FieldValue.serverTimestamp()
         });
-        
-        return { success: true, results: { totalTokens: tokens.length, successCount: response.successCount, failureCount: response.failureCount } };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function updateEmployee(userId: string, data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('employeeProfiles').doc(userId).set(data, { merge: true });
         return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function getSiteConfig(id: string) {
-    try {
-        const { db } = await getAdminServices();
-        const snap = await db.collection('siteConfig').doc(id).get();
-        return sanitizeForClient(snap.data() || {});
-    } catch (e) { return {}; }
-}
-
-export async function updateSiteConfig(id: string, data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc(id).set(data, { merge: true });
-        return { success: true };
-    } catch (e: any) { return { success: false, error: e.message }; }
-}
-
-export async function getPlaceholderImages() {
-    try {
-        const { db } = await getAdminServices();
-        const doc = await db.collection('siteConfig').doc('placeholder_images').get();
-        return { success: true, placeholderImages: doc.exists ? doc.data()?.placeholderImages || [] : [] };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function updatePlaceholderImages(data: any) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('siteConfig').doc('placeholder_images').set(data, { merge: true });
-        return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, item, quantity }: { storeId: string; sessionId: string; tableNumber: string | null; item: MenuItem; quantity: number }) {
-    try {
-        const { db } = await getAdminServices();
-        const orderId = `${storeId}_${sessionId}`;
-        const orderRef = db.collection('orders').doc(orderId);
-
-        const orderItem = {
-            id: Math.random().toString(36).substring(7),
-            orderId,
-            productId: item.id,
-            menuItemId: item.id,
-            productName: item.name,
-            quantity,
-            price: item.price,
-        };
-
-        await orderRef.set({
-            id: orderId,
-            storeId,
-            tableNumber,
-            sessionId,
-            status: 'Pending',
-            isActive: true,
-            orderDate: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-            items: FieldValue.arrayUnion(orderItem),
-            totalAmount: FieldValue.increment(item.price * quantity),
-        }, { merge: true });
-
-        return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function placeRestaurantOrder(cartItems: CartItem[], cartTotal: number, guestInfo: { name: string, phone: string, tableNumber: string }, idToken: string) {
-    try {
-        const { db, auth } = await getAdminServices();
-        const decodedToken = await auth.verifyIdToken(idToken);
-        const uid = decodedToken.uid;
-        const storeId = cartItems[0].product.storeId;
-        const sessionId = cartItems[0].sessionId || `guest-${Date.now()}`;
-        const orderId = `${storeId}_${sessionId}`;
-
-        const orderData = {
-            id: orderId,
-            userId: uid,
-            storeId,
-            customerName: guestInfo.name,
-            phone: guestInfo.phone,
-            tableNumber: guestInfo.tableNumber,
-            sessionId,
-            status: 'Pending',
-            isActive: true,
-            orderDate: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-            totalAmount: cartTotal,
-            items: cartItems.map(it => ({
-                id: Math.random().toString(36).substring(7),
-                productName: it.product.name,
-                productId: it.product.id,
-                quantity: it.quantity,
-                price: it.variant.price
-            }))
-        };
-
-        await db.collection('orders').doc(orderId).set(orderData);
-        return { success: true, orderId };
-    } catch (error: any) { return { success: false, error: error.message }; }
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
 
 export async function getIngredientsForDish({ dishName, language }: { dishName: string; language: 'en' | 'te' }) {
@@ -348,34 +208,11 @@ export async function getIngredientsForDish({ dishName, language }: { dishName: 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
     const { db } = await getAdminServices();
-    const slipDocActual = await db.collection('salarySlips').doc(slipId).get();
+    const slipDocActual = await db.collection("stores").doc(storeId!).collection("salarySlips").doc(slipId).get();
     if (!slipDocActual.exists) return null;
     const slip = slipDocActual.data();
     const empDoc = await db.collection('employeeProfiles').doc(userId).get();
     const userDoc = await db.collection('users').doc(userId).get();
     return sanitizeForClient({ slip, employee: { ...empDoc.data(), ...userDoc.data() }, attendance: slip?.attendance || {} });
   } catch (error: any) { throw new Error(error.message); }
-}
-
-export async function approveRegularization(attendanceId: string, storeId: string, approved: boolean) {
-    try {
-      const { db } = await getAdminServices();
-      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
-        status: approved ? 'approved' : 'present',
-        updatedAt: Timestamp.now(),
-      });
-      return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
-}
-
-export async function rejectRegularization(attendanceId: string, storeId: string, reason: string) {
-    try {
-      const { db } = await getAdminServices();
-      await db.doc(`stores/${storeId}/attendance/${attendanceId}`).update({
-        status: 'rejected',
-        rejectionReason: reason,
-        updatedAt: Timestamp.now(),
-      });
-      return { success: true };
-    } catch (error: any) { return { success: false, error: error.message }; }
 }
