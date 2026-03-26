@@ -213,7 +213,7 @@ export default function PublicMenuPage() {
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
   const { language, deviceId, isInitialized } = useAppStore();
-  const { cartTotal } = useCart();
+  const { cartTotal, setSessionId } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => { setHasMounted(true); }, []);
@@ -227,17 +227,23 @@ export default function PublicMenuPage() {
       if (table) setTableNumber(table);
   }, [searchParams]);
 
-  const sessionId = useMemo(() => {
+  const stableSessionId = useMemo(() => {
     if (!deviceId) return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
     return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
 
-  const ordersQuery = useMemoFirebase(() => (hasMounted && firestore && sessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, hasMounted]);
+  useEffect(() => {
+      if (stableSessionId !== 'loading') {
+          setSessionId(stableSessionId);
+      }
+  }, [stableSessionId, setSessionId]);
+
+  const ordersQuery = useMemoFirebase(() => (hasMounted && firestore && stableSessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) : null), [firestore, stableSessionId, hasMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId || !isInitialized) return null;
+      if (!hasMounted || !firestore || !storeId || !deviceId || !isInitialized) return null;
       const baseCol = collection(firestore, 'bookings');
       const identifier = user?.uid || deviceId;
       if (!identifier) return null;

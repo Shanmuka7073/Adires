@@ -441,7 +441,7 @@ export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, 
     }
 }
 
-export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string) {
+export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string, sessionId?: string, deviceId?: string) {
     try {
         const { db } = await getAdminServices();
         const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -468,7 +468,8 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
             updatedAt: FieldValue.serverTimestamp(),
             storeId: cartItems[0]?.product.storeId,
             userId: 'guest', 
-            sessionId: `session-${Date.now()}`,
+            sessionId: sessionId || `session-${Date.now()}`,
+            deviceId: deviceId || null,
             orderType: 'takeaway'
         };
 

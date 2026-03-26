@@ -35,6 +35,8 @@ interface CartContextType {
   cartTotal: number;
   activeStoreId: string | null;
   setActiveStoreId: (id: string | null) => void;
+  sessionId: string | null;
+  setSessionId: (id: string | null) => void;
 }
 
 
@@ -75,6 +77,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activeStoreId, setActiveStoreId] = useState<string | null>(null);
   const [unidentifiedItems, setUnidentifiedItems] = useState<UnidentifiedCartItem[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   /* ---------------- ADD ITEM ---------------- */
   const addItem = useCallback(
@@ -83,15 +86,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       variant: ProductVariant,
       quantity = 1,
       tableNumber?: string,
-      sessionId?: string,
+      sId?: string,
       customizations?: Record<string, CustomizationOption[]>
     ) => {
       // Play interaction sound
       playTickSound();
 
       setCartItems(prev => {
-        // Create a unique key that accounts for customizations
-        // Items with different options should be separate cart entries
         const customsString = customizations ? JSON.stringify(customizations) : '';
         const uniqueKey = `${product.id}_${variant.sku}_${customsString}`;
         
@@ -111,7 +112,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        return [...prev, { product, variant, quantity, tableNumber, sessionId, selectedCustomizations: customizations }];
+        return [...prev, { product, variant, quantity, tableNumber, sessionId: sId || sessionId || undefined, selectedCustomizations: customizations }];
       });
 
       toast({
@@ -119,12 +120,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         description: `${product.name} × ${quantity}`,
       });
     },
-    [toast]
+    [toast, sessionId]
   );
   
   const removeItem = (sku: string) => {
-    // Since SKU is no longer unique per cart item (due to customizations),
-    // we use the full variant sku + customization hash check
     setCartItems(prev => prev.filter(item => item.variant.sku !== sku));
   };
   
@@ -182,6 +181,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartTotal,
         activeStoreId,
         setActiveStoreId,
+        sessionId,
+        setSessionId
       }}
     >
       {children}

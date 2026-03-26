@@ -191,8 +191,16 @@ export const useInitializeApp = () => {
     const setDeviceId = useAppStore(state => state.setDeviceId);
 
     useEffect(() => {
-        if (!deviceId && typeof window !== 'undefined') {
-            setDeviceId(Math.random().toString(36).substring(2, 15));
+        // CLIENT-ONLY: Ensure deviceId is stable across renders
+        if (typeof window !== 'undefined' && !deviceId) {
+            const existingId = localStorage.getItem('adires-device-id');
+            if (existingId) {
+                setDeviceId(existingId);
+            } else {
+                const newId = Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('adires-device-id', newId);
+                setDeviceId(newId);
+            }
         }
     }, [deviceId, setDeviceId]);
 
