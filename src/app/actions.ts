@@ -2,7 +2,7 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig } from '@/lib/types';
+import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 import { format, addMinutes, isAfter, parse } from 'date-fns';
 
@@ -379,6 +379,114 @@ export async function updateBookingStatus(bookingId: string, status: Booking['st
             updatedAt: FieldValue.serverTimestamp()
         });
         return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/* ---------------- RESTAURANT ORDER ACTIONS ---------------- */
+
+export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, item, quantity }: { storeId: string, sessionId: string, tableNumber: string | null, item: MenuItem, quantity: number }) {
+    try {
+        const { db } = await getAdminServices();
+        const orderId = `${storeId}_${sessionId}`;
+        const orderRef = db.collection('orders').doc(orderId);
+
+        const orderItem: OrderItem = {
+            id: crypto.randomUUID(),
+            orderId,
+            productId: item.id,
+            menuItemId: item.id,
+            productName: item.name,
+            variantSku: `${item.id}-default`,
+            variantWeight: '1 pc',
+            quantity,
+            price: item.price,
+        };
+
+        await orderRef.set({
+            id: orderId,
+            storeId,
+            sessionId,
+            tableNumber,
+            status: 'Pending',
+            isActive: true,
+            orderDate: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            items: FieldValue.arrayUnion(orderItem),
+            totalAmount: FieldValue.increment(item.price * quantity),
+            userId: 'guest', 
+            orderType: 'dine-in',
+        }, { merge: true });
+
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string) {
+    try {
+        const { db } = await getAdminServices();
+        const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const orderRef = db.collection('orders').doc(orderId);
+
+        const orderData = {
+            id: orderId,
+            items: cartItems.map(item => ({
+                id: crypto.randomUUID(),
+                productId: item.product.id,
+                productName: item.product.name,
+                variantSku: item.variant.sku,
+                variantWeight: item.variant.weight,
+                quantity: item.quantity,
+                price: item.variant.price
+            })),
+            totalAmount: total,
+            customerName: guestInfo.name,
+            phone: guestInfo.phone,
+            tableNumber: guestInfo.tableNumber,
+            status: 'Pending',
+            isActive: true,
+            orderDate: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            storeId: cartItems[0]?.product.storeId,
+            userId: 'guest', 
+            sessionId: `session-${Date.now()}`,
+            orderType: 'takeaway'
+        };
+
+        await orderRef.set(orderData);
+        return { success: true, orderId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+/* ---------------- STORAGE ACTIONS ---------------- */
+
+export async function uploadStoreImage(storeId: string, base64Image: string) {
+    try {
+        const { storage, db } = await getAdminServices();
+        const bucket = storage.bucket();
+        const fileName = `stores/${storeId}/logo-${Date.now()}.jpg`;
+        const file = bucket.file(fileName);
+
+        const buffer = Buffer.from(base64Image.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+        
+        await file.save(buffer, {
+            metadata: { contentType: 'image/jpeg' },
+            public: true
+        });
+
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        
+        await db.collection('stores').doc(storeId).update({
+            imageUrl: publicUrl,
+            updatedAt: FieldValue.serverTimestamp()
+        });
+
+        return { success: true, imageUrl: publicUrl };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
