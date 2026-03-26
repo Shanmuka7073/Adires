@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -17,16 +16,14 @@ import {
   ImageIcon,
   ShieldCheck,
   WifiOff,
-  Globe,
   BellRing,
-  Info,
   Zap,
   FastForward,
   Clock,
-  LayoutGrid
+  LayoutGrid,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -124,7 +121,7 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
         <div className="min-w-0 flex-1">
             <h1 className="text-3xl md:text-6xl font-black font-headline tracking-tight uppercase italic leading-none text-gray-950 truncate">Decision Hub</h1>
-            <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System Administration & Intelligence</p>
+            <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Intelligence Hub</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             <div className="flex bg-black/5 p-1 rounded-2xl border self-end">
@@ -186,7 +183,7 @@ export default function AdminDashboardPage() {
 
       <div className="space-y-4">
           <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1 flex items-center gap-2">
-              <Zap className="h-3 w-3" /> Billing Efficiency (Last 100 Successes)
+              <Zap className="h-3 w-3" /> Billing Efficiency (Live Telemetry)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <KPICard 
@@ -216,14 +213,14 @@ export default function AdminDashboardPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 space-y-10">
             <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
+                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Modules</h2>
                 <div className="grid gap-4 md:grid-cols-2">
-                    <AdminActionCard title="Catalog Manager" description="Manage master products and visuals." href="/dashboard/admin/catalog-manager" icon={LayoutGrid} />
-                    <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
-                    <AdminActionCard title="Global Broadcast" description="Send push notifications to all users." href="/dashboard/admin/broadcast" icon={BellRing} />
-                    <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
+                    <AdminActionCard title="Market Intel" description="Detailed sales & revenue audit." href="/dashboard/admin/sales-report" icon={BarChart3} />
+                    <AdminActionCard title="System Status" description="Live health check of cloud services." href="/dashboard/admin/system-status" icon={Server} />
+                    <AdminActionCard title="Global Broadcast" description="Send push alerts to every device." href="/dashboard/admin/broadcast" icon={BellRing} />
+                    <AdminActionCard title="App Overview" description="Architecture & Design Blueprint." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
-                    <AdminActionCard title="Image Management" description="Centralized asset control." href="/dashboard/admin/image-management" icon={ImageIcon} />
+                    <AdminActionCard title="Asset Hub" description="Centralized branding & image control." href="/dashboard/admin/image-management" icon={ImageIcon} />
                 </div>
             </div>
         </section>
@@ -231,19 +228,19 @@ export default function AdminDashboardPage() {
         <section className="space-y-10">
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Rocket className="h-3 w-3" /> Infrastructure
+                    <Rocket className="h-3 w-3" /> Deployment Safety
                 </h2>
                 <div className="grid grid-cols-1 gap-4">
                     <div className="p-8 rounded-[2.5rem] bg-green-50 border-2 border-green-100 flex flex-col items-center justify-center text-center gap-2 shadow-sm">
                         <ShieldCheck className="h-10 w-10 text-green-600 opacity-40" />
-                        <p className="font-black uppercase text-xs text-green-900">Infrastructure Stable</p>
-                        <p className="text-[10px] font-bold text-green-800/60 uppercase">All core services operational.</p>
+                        <p className="font-black uppercase text-xs text-green-900">Edge Clusters Stable</p>
+                        <p className="text-[10px] font-bold text-green-800/60 uppercase">No incident reports detected.</p>
                     </div>
                     <Link href="/dashboard/admin/offline-audit">
                         <div className="p-8 rounded-[2.5rem] bg-indigo-50 border-2 border-indigo-100 flex flex-col items-center justify-center text-center gap-2 hover:bg-indigo-100 transition-colors group shadow-sm">
                             <WifiOff className="h-10 w-10 text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity" />
-                            <p className="font-black uppercase text-xs text-indigo-900">Offline Sync Audit</p>
-                            <p className="text-[10px] font-bold text-indigo-800/60 uppercase">Check PWA & Registry Status</p>
+                            <p className="font-black uppercase text-xs text-indigo-900">Offline Integrity Audit</p>
+                            <p className="text-[10px] font-bold text-indigo-800/60 uppercase">Check PWA Shell & Local Sync</p>
                         </div>
                     </Link>
                 </div>
