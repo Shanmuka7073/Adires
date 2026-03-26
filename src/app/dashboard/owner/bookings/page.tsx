@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -29,14 +30,14 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { updateBookingStatus } from '@/app/actions';
 
-function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (id: string, s: Booking['status']) => void }) {
+function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: () => void }) {
     const [isUpdating, startUpdate] = useTransition();
 
     const handleAction = (status: Booking['status']) => {
         startUpdate(async () => {
             const res = await updateBookingStatus(booking.id, status);
             if (res.success) {
-                onUpdate(booking.id, status);
+                onUpdate();
             }
         });
     };
@@ -84,9 +85,13 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
 
 export default function SalonBookingsPage() {
     const { firestore, user } = useFirebase();
-    const { userStore, stores } = useAppStore();
+    const { userStore, stores, fetchInitialData, isInitialized } = useAppStore();
     const { toast } = useToast();
     const [filter, setFilter] = useState<'all' | 'booked' | 'active' | 'completed'>('all');
+
+    useEffect(() => {
+        if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid);
+    }, [firestore, isInitialized, fetchInitialData, user?.uid]);
 
     const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
 
@@ -133,7 +138,7 @@ export default function SalonBookingsPage() {
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">{myStore.name} • Appointment Hub</p>
                 </div>
                 <button onClick={() => refetch()} className="h-10 w-10 rounded-full border-2 border-black/5 flex items-center justify-center active:scale-90 transition-all">
-                    <RefreshCw className="h-4 w-4 opacity-40" />
+                    <RefreshCw className={cn("h-4 w-4 opacity-40", isLoading && "animate-spin")} />
                 </button>
             </div>
 

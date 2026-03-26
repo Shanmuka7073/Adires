@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
@@ -10,10 +10,6 @@ import {
   limit,
   Timestamp,
   orderBy,
-  serverTimestamp,
-  updateDoc,
-  writeBatch,
-  setDoc,
 } from 'firebase/firestore';
 
 import type {
@@ -21,12 +17,7 @@ import type {
   Menu,
   MenuItem,
   Order,
-  OrderItem,
-  MenuTheme,
   GetIngredientsOutput,
-  Product,
-  ProductVariant,
-  CustomizationOption,
   Booking
 } from '@/lib/types';
 
@@ -36,54 +27,18 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 
 import {
-  Utensils,
-  Plus,
-  Minus,
   Receipt,
   Loader2,
-  Check,
   Clock,
-  Search,
   Download,
-  Eye,
-  PlusCircle,
-  X,
   ShoppingBag,
-  History,
   Trash2,
-  ChevronDown,
-  Pizza,
-  CupSoda,
-  Star,
-  ArrowRight,
-  LayoutGrid,
-  Package,
-  CookingPot,
   Sparkles,
-  CheckCircle,
-  CalendarCheck
+  CalendarCheck,
+  X
 } from 'lucide-react';
 
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-  AlertDialogDescription,
-} from '@/components/ui/alert-dialog';
-
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -91,28 +46,16 @@ import { useToast } from '@/hooks/use-toast';
 import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import IngredientsDialog from '@/components/IngredientsDialog';
-import { cn, createSlug } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { BookingSheet } from '@/components/features/booking-sheet';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-// --- HELPERS ---
-function toDateSafe(d: any): Date {
-    if (!d) return new Date();
-    if (d instanceof Date) return d;
-    if (d instanceof Timestamp) return d.toDate();
-    if (typeof d === 'string') return new Date(d);
-    if (typeof d === 'object' && d.seconds) return new Date(d.seconds * 1000);
-    return new Date();
-}
-
 function LiveBillSheet({ 
     isSalon,
     placedOrders,
-    historyOrders,
     isLoadingOrders,
     onFinalizeBill,
     customerBookings
@@ -270,22 +213,36 @@ export default function PublicMenuPage() {
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
   const { language, deviceId } = useAppStore();
-  const { addItem, cartTotal } = useCart();
+  const { cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
+  useEffect(() => {
+      const table = searchParams.get('table');
+      if (table) setTableNumber(table);
+  }, [searchParams]);
+
   const sessionId = useMemo(() => {
     if (!deviceId) return 'loading';
-    const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
+    const dS = format(new Date(), 'yyyy-MM-dd');
     return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
 
-  const ordersQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, deviceId]);
+  const ordersQuery = useMemoFirebase(() => (firestore && sessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  const bookingsQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'bookings'), where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10)) : null), [firestore, deviceId, storeId]);
+  const bookingsQuery = useMemoFirebase(() => {
+      if (!firestore || !deviceId || !storeId) return null;
+      // Dual-identifier query: check deviceId or userId if logged in
+      const baseCol = collection(firestore, 'bookings');
+      if (user?.uid) {
+          return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
+      }
+      return query(baseCol, where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
+  }, [firestore, deviceId, storeId, user?.uid]);
+
   const { data: customerBookings } = useCollection<Booking>(bookingsQuery);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
@@ -369,7 +326,18 @@ export default function PublicMenuPage() {
                                 isSalon ? (
                                     <ServiceCard key={item.id} item={item} onBook={setBookingService} onShowDetails={handleShowIngredients} />
                                 ) : (
-                                    <div key={item.id}>Restaurant Mode placeholder</div>
+                                    <Card key={item.id} className="p-4 rounded-3xl border-0 shadow-lg bg-white flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 bg-muted">
+                                                <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-[11px] uppercase tracking-tight">{item.name}</p>
+                                                <p className="font-black text-primary text-sm">₹{item.price}</p>
+                                            </div>
+                                        </div>
+                                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[10px] uppercase h-9">View</Button>
+                                    </Card>
                                 )
                             ))}
                         </div>
