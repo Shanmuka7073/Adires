@@ -1,13 +1,12 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Booking, Store } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isToday } from 'date-fns';
 import { 
@@ -26,7 +25,6 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { updateBookingStatus } from '@/app/actions';
@@ -37,7 +35,9 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
     const handleAction = (status: Booking['status']) => {
         startUpdate(async () => {
             const res = await updateBookingStatus(booking.id, status);
-            if (res.success) onUpdate(booking.id, status);
+            if (res.success) {
+                onUpdate(booking.id, status);
+            }
         });
     };
 
@@ -199,7 +199,7 @@ export default function SalonBookingsPage() {
                             </TableHeader>
                             <TableBody>
                                 {filteredBookings.map(b => (
-                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch()} />
+                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch && refetch()} />
                                 ))}
                             </TableBody>
                         </Table>

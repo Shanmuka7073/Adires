@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -138,7 +137,6 @@ export async function sendBroadcastNotification(title: string, body: string) {
     try {
         const { db, messaging } = await getAdminServices();
         
-        // Fetch all users with an FCM token
         const usersSnap = await db.collection('users').where('fcmToken', '!=', '').get();
         const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
 
@@ -151,7 +149,7 @@ export async function sendBroadcastNotification(title: string, body: string) {
             tokens: tokens,
         };
 
-        const response = await messaging.sendMulticast(message);
+        const response = await (messaging as any).sendMulticast(message);
         return {
             success: true,
             results: {
@@ -274,7 +272,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
 
         orders.forEach(order => {
             totalSales += order.totalAmount;
-            order.items.forEach(item => {
+            (order.items || []).forEach(item => {
                 const count = topProductsMap.get(item.productName) || 0;
                 topProductsMap.set(item.productName, count + item.quantity);
             });
@@ -291,7 +289,7 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
                 totalSales,
                 totalOrders: orders.length,
                 topProducts,
-                ingredientCost: totalSales * 0.45, // Simulating 45% COGS for gross profit calculation
+                ingredientCost: totalSales * 0.45, 
             }
         };
     } catch (error: any) {
