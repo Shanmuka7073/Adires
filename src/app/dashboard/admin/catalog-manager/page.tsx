@@ -184,6 +184,7 @@ export default function CatalogManagerPage() {
     const { toast } = useToast();
     
     const [searchTerm, setSearchTerm] = useState('');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'restaurant' | 'salon'>('all');
     const [editingProduct, setEditingProduct] = useState<CanonicalProduct | null>(null);
     const [isRefreshing, startRefresh] = useTransition();
     const [catalog, setCatalog] = useState<CanonicalProduct[]>([]);
@@ -209,6 +210,7 @@ export default function CatalogManagerPage() {
                         id: slug,
                         name: data.name,
                         category: data.category,
+                        businessType: data.isMenuItem ? 'restaurant' : (data.category?.toLowerCase().includes('salon') ? 'salon' : 'grocery'),
                         discoveredInStoreId: data.storeId,
                         discoveredAt: new Date().toISOString()
                     });
@@ -233,11 +235,13 @@ export default function CatalogManagerPage() {
     }, [isAdmin, isAdminLoading, router, syncCatalog]);
 
     const filteredCatalog = useMemo(() => {
-        return catalog.filter(p => 
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [catalog, searchTerm]);
+        return catalog.filter(p => {
+            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 p.category?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesType = typeFilter === 'all' || p.businessType === typeFilter;
+            return matchesSearch && matchesType;
+        });
+    }, [catalog, searchTerm, typeFilter]);
 
     if (isAdminLoading || isLoading) return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Building Market Intelligence...</p></div>;
 
@@ -252,7 +256,7 @@ export default function CatalogManagerPage() {
 
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Market Catalog</h1>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Catalog</h1>
                     <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Cross-Store Discovery & Branding</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -272,25 +276,43 @@ export default function CatalogManagerPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-slate-900 text-white flex items-center gap-4">
-                    <Globe className="h-10 w-10 text-primary opacity-40" />
+                <Card 
+                    onClick={() => setTypeFilter('all')}
+                    className={cn(
+                        "rounded-[2rem] border-0 shadow-lg p-6 flex items-center gap-4 cursor-pointer transition-all active:scale-95",
+                        typeFilter === 'all' ? "bg-slate-900 text-white shadow-2xl scale-[1.02]" : "bg-white border-2 border-primary/5 opacity-60 hover:opacity-100"
+                    )}
+                >
+                    <Globe className={cn("h-10 w-10", typeFilter === 'all' ? "text-primary" : "text-gray-400")} />
                     <div>
                         <p className="text-3xl font-black italic leading-none">{catalog.length}</p>
-                        <p className="text-[8px] font-black uppercase tracking-widest text-primary mt-1">Unique Items Discovered</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest mt-1">Unique Items Discovered</p>
                     </div>
                 </Card>
-                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-white border-2 border-primary/10 flex items-center gap-4">
-                    <Utensils className="h-10 w-10 text-orange-500 opacity-40" />
+                <Card 
+                    onClick={() => setTypeFilter('restaurant')}
+                    className={cn(
+                        "rounded-[2rem] border-0 shadow-lg p-6 flex items-center gap-4 cursor-pointer transition-all active:scale-95",
+                        typeFilter === 'restaurant' ? "border-orange-500 bg-orange-50 shadow-2xl scale-[1.02] border-2" : "bg-white border-2 border-primary/5 opacity-60 hover:opacity-100"
+                    )}
+                >
+                    <Utensils className={cn("h-10 w-10", typeFilter === 'restaurant' ? "text-orange-500" : "text-gray-400")} />
                     <div>
                         <p className="text-3xl font-black italic leading-none">{catalog.filter(p => p.businessType === 'restaurant').length}</p>
-                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">Restaurant Dishes</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest mt-1">Restaurant Dishes</p>
                     </div>
                 </Card>
-                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-white border-2 border-primary/10 flex items-center gap-4">
-                    <Scissors className="h-10 w-10 text-blue-600 opacity-40" />
+                <Card 
+                    onClick={() => setTypeFilter('salon')}
+                    className={cn(
+                        "rounded-[2rem] border-0 shadow-lg p-6 flex items-center gap-4 cursor-pointer transition-all active:scale-95",
+                        typeFilter === 'salon' ? "border-blue-600 bg-blue-50 shadow-2xl scale-[1.02] border-2" : "bg-white border-2 border-primary/5 opacity-60 hover:opacity-100"
+                    )}
+                >
+                    <Scissors className={cn("h-10 w-10", typeFilter === 'salon' ? "text-blue-600" : "text-gray-400")} />
                     <div>
                         <p className="text-3xl font-black italic leading-none">{catalog.filter(p => p.businessType === 'salon').length}</p>
-                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">Salon Services</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest mt-1">Salon Services</p>
                     </div>
                 </Card>
             </div>
@@ -348,7 +370,7 @@ export default function CatalogManagerPage() {
                             <TableRow>
                                 <TableCell colSpan={4} className="p-32 text-center opacity-20">
                                     <Utensils className="h-12 w-12 mx-auto mb-4" />
-                                    <p className="font-black uppercase tracking-widest text-xs">Zero products matched</p>
+                                    <p className="font-black uppercase tracking-widest text-xs">Zero items matched filter</p>
                                 </TableCell>
                             </TableRow>
                         )}
