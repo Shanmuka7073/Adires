@@ -401,7 +401,7 @@ export default function PublicMenuPage() {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} historyOrders={[]} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings} />
+                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} historyOrders={[]} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []}/>
                           </SheetContent>
                       </Sheet>
                   </div>
