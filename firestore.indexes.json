@@ -48,6 +48,20 @@
       ]
     },
     {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "sessionId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
