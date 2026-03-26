@@ -21,7 +21,8 @@ import {
   FastForward,
   Clock,
   LayoutGrid,
-  BarChart3
+  BarChart3,
+  Smartphone
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
