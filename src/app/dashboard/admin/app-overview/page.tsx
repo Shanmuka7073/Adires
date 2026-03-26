@@ -1,24 +1,15 @@
-
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { OverviewDisplay } from './overview-display';
-import { overviewText } from './overview-text';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-export default function AppOverviewPage() {
-    return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card className="max-w-4xl mx-auto">
-                <CardHeader>
-                    <CardTitle className="text-3xl font-headline">App Overview</CardTitle>
-                    <CardDescription>
-                        A complete breakdown of the app's features, architecture, and core components.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <OverviewDisplay overviewText={overviewText} />
-                </CardContent>
-            </Card>
-        </div>
-    );
+/**
+ * APP OVERVIEW (DECOMMISSIONED)
+ * Purged to reduce application bundle weight.
+ */
+export default function OverviewRemoved() {
+    const router = useRouter();
+    useEffect(() => { router.replace('/dashboard/admin'); }, [router]);
+    return <div className="flex h-screen items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 }

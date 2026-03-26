@@ -3,7 +3,6 @@
 import { useState, useEffect, useTransition } from 'react';
 import {
   Users,
-  Store,
   DollarSign,
   ShoppingBag,
   Target,
@@ -11,18 +10,14 @@ import {
   Rocket,
   Shield,
   Server,
-  FileSignature,
   Loader2,
-  ImageIcon,
   ShieldCheck,
   WifiOff,
   BellRing,
   Zap,
   FastForward,
   Clock,
-  LayoutGrid,
-  BarChart3,
-  Smartphone
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -219,9 +214,7 @@ export default function AdminDashboardPage() {
                     <AdminActionCard title="Market Intel" description="Detailed sales & revenue audit." href="/dashboard/admin/sales-report" icon={BarChart3} />
                     <AdminActionCard title="System Status" description="Live health check of cloud services." href="/dashboard/admin/system-status" icon={Server} />
                     <AdminActionCard title="Global Broadcast" description="Send push alerts to every device." href="/dashboard/admin/broadcast" icon={BellRing} />
-                    <AdminActionCard title="App Overview" description="Architecture & Design Blueprint." href="/dashboard/admin/app-overview" icon={FileSignature} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
-                    <AdminActionCard title="Asset Hub" description="Centralized branding & image control." href="/dashboard/admin/image-management" icon={ImageIcon} />
                 </div>
             </div>
         </section>

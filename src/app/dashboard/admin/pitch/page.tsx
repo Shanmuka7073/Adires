@@ -1,25 +1,15 @@
-
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PitchDisplay } from './pitch-display';
-import { pitchText } from './pitch-text'; // Store text in a separate file
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 
-// This is now a client component.
-export default function PitchPage() {
-    return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card className="max-w-4xl mx-auto">
-                <CardHeader>
-                    <CardTitle className="text-3xl font-headline">App Pitch & Vision</CardTitle>
-                    <CardDescription>
-                        This is the comprehensive pitch for the LocalBasket application, outlining the problem, solution, and vision.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <PitchDisplay pitchText={pitchText} />
-                </CardContent>
-            </Card>
-        </div>
-    );
+/**
+ * APP PITCH (DECOMMISSIONED)
+ * Purged to reduce application bundle weight.
+ */
+export default function PitchRemoved() {
+    const router = useRouter();
+    useEffect(() => { router.replace('/dashboard/admin'); }, [router]);
+    return <div className="flex h-screen items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 }
