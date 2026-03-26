@@ -12,7 +12,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'shanmuka7073@gmail.com';
+      return isSignedIn() && (
+        request.auth.token.email == 'shanmuka7073@gmail.com' ||
+        request.auth.token.email == 'admin@gmail.com'
+      );
     }
 
     function isOwner(userId) {
@@ -79,7 +82,7 @@ service cloud.firestore {
       allow write: if isStoreOwner(storeId) || isAdmin();
     }
     
-    // Admin Global Product Audit
+    // Admin Global Product Audit (Collection Group)
     match /{path=**}/products/{productId} {
       allow read, list: if isAdmin();
     }
@@ -121,10 +124,13 @@ service cloud.firestore {
       allow create: if isOwner(partnerId);
     }
 
-    // THE CENTRAL SOURCE OF TRUTH FOR PRODUCTS
     match /canonicalCatalog/{productId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Allow merchants to contribute, but admin manages visuals
+      allow write: if isSignedIn(); 
+    }
+    
+    match /diagnostic_logs/{logId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

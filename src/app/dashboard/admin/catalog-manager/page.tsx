@@ -2,15 +2,15 @@
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, writeBatch, limit, getDocs, collectionGroup, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import type { Product, Store, CanonicalProduct } from '@/lib/types';
+import { useFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, query, doc, limit, getDocs, collectionGroup, setDoc, serverTimestamp } from 'firebase/firestore';
+import type { Product, CanonicalProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, Save, Sparkles, ImageIcon, Edit3, RefreshCw, Layers, ShoppingBag, Utensils, Scissors, Globe } from 'lucide-react';
+import { Loader2, Search, Save, Sparkles, ImageIcon, Edit3, RefreshCw, Globe, Utensils, Scissors } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -79,23 +79,26 @@ function ProductEditDialog({
     const handleSave = () => {
         if (!firestore || !product) return;
         startSave(async () => {
-            try {
-                const slug = product.id;
-                const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
-                
-                await setDoc(canonicalRef, {
-                    ...product,
-                    name: formData.name,
-                    imageUrl: formData.imageUrl,
-                    category: formData.category,
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
+            const canonicalRef = doc(firestore, 'canonicalCatalog', product.id);
+            const updateData = {
+                ...product,
+                name: formData.name,
+                imageUrl: formData.imageUrl,
+                category: formData.category,
+                updatedAt: serverTimestamp()
+            };
 
+            try {
+                await setDoc(canonicalRef, updateData, { merge: true });
                 toast({ title: "Master Catalog Updated" });
                 onSave();
                 onOpenChange(false);
             } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Sync Failed', description: error.message });
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: canonicalRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData
+                }));
             }
         });
     };
@@ -186,12 +189,6 @@ export default function CatalogManagerPage() {
     const [catalog, setCatalog] = useState<CanonicalProduct[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    /**
-     * UNIVERSAL CATALOG SYNC logic
-     * 1. Fetches de-duplicated items from the 'canonicalCatalog' (Admin maintained).
-     * 2. Fetches current products from all stores via collectionGroup to find "Discovered" items.
-     * 3. Merges them to show a complete picture of everything on the platform.
-     */
     const syncCatalog = useCallback(async () => {
         if (!firestore) return;
         setIsLoading(true);
@@ -204,7 +201,6 @@ export default function CatalogManagerPage() {
             const productsQuery = query(collectionGroup(firestore, 'products'), limit(500));
             const productsSnap = await getDocs(productsQuery);
             
-            // C. Merge logic: Store products that aren't in canonicalCatalog are "New Discoveries"
             productsSnap.forEach(docSnap => {
                 const data = docSnap.data() as Product;
                 const slug = createSlug(data.name);
@@ -220,13 +216,16 @@ export default function CatalogManagerPage() {
             });
 
             setCatalog(Array.from(canonicalMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
-        } catch (e) {
-            console.error("Catalog sync error:", e);
-            toast({ variant: 'destructive', title: "Audit Sync Failed" });
+        } catch (error: any) {
+            console.error("Catalog audit sync failed:", error);
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: 'products_collection_group',
+                operation: 'list'
+            }));
         } finally {
             setIsLoading(false);
         }
-    }, [firestore, toast]);
+    }, [firestore]);
 
     useEffect(() => {
         if (!isAdminLoading && !isAdmin) router.replace('/dashboard');

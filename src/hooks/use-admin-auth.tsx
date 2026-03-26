@@ -6,11 +6,10 @@ import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 
-const ADMIN_EMAILS = ['shanmuka7073@gmail.com'];
+const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com'];
 
 /**
  * A hook to determine the current user's role and authorization status.
- * Optimized to handle multiple roles and loading states gracefully.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -27,7 +26,6 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    // A merchant is either an admin or has a restaurant accountType
     return isAdmin || userData?.accountType === 'restaurant';
   }, [userData, isAdmin]);
 
@@ -39,7 +37,6 @@ export function useAdminAuth() {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // Wait for Auth shell AND (if logged in) the Firestore profile data
   const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
 
   return {

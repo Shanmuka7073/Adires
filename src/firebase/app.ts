@@ -5,7 +5,6 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 
 /**
  * HARDENED FIREBASE APP LOADER
- * Strictly checks for Project ID validity to prevent "projects//databases" path errors.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,24 +18,27 @@ const firebaseConfig = {
 export function getFirebaseApp(): FirebaseApp | null {
   if (getApps().length) return getApp();
   
-  // 1. VALIDATION CHECK: Prevent "projects//databases" path corruption
-  const pid = firebaseConfig.projectId;
+  // 1. DYNAMIC ENVIRONMENT DETECTION
+  // If we are in the Firebase Studio preview, we may need to override the Project ID
+  let pid = firebaseConfig.projectId;
+  
+  if (typeof window !== 'undefined') {
+      const isStudio = window.location.hostname.includes('firebase-studio') || window.location.hostname.includes('web-workstation');
+      if (isStudio && (!pid || pid === 'undefined' || pid.includes('{'))) {
+          // Attempt to extract from URL or use common placeholder
+          pid = 'studio-9070259337-c267a'; 
+      }
+  }
+
   const isValidPid = pid && pid !== 'undefined' && pid !== '' && !pid.includes('{');
 
   if (!isValidPid) {
-    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing or invalid. Check your environment variables.");
-    // We stop initialization to prevent invalid Firestore segments
-    return null;
-  }
-
-  // 2. CONFIG COMPLETENESS CHECK
-  if (!firebaseConfig.apiKey || !firebaseConfig.appId) {
-    console.error("CRITICAL ERROR: Firebase API Key or App ID is missing.");
+    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing.");
     return null;
   }
 
   try {
-    return initializeApp(firebaseConfig);
+    return initializeApp({ ...firebaseConfig, projectId: pid });
   } catch (e) {
     console.error("Firebase App initialization failed:", e);
     return null;
