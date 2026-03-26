@@ -12,18 +12,16 @@ import {
     RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { collection, query, where, limit } from 'firebase/firestore';
-import type { Order, Store as StoreType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { useAppStore } from '@/lib/store';
 import { getPlatformAnalytics } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
