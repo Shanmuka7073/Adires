@@ -2,31 +2,33 @@
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
-import { useFirebase, useCollection, useDoc, useMemoFirebase, errorEmitter } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, setDoc, getDocs, getDoc, orderBy, Timestamp } from 'firebase/firestore';
-import type { Store, EmployeeProfile, AttendanceRecord, SalarySlip, ReasonEntry, User } from '@/lib/types';
+import { useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, orderBy, Timestamp } from 'firebase/firestore';
+import type { Store, EmployeeProfile, AttendanceRecord, User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye, Info, MessageSquare } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, isSameDay, isPast, differenceInDays, startOfDay } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+import { Calendar as CalendarIcon, Loader2, FileText, CheckCircle, XCircle, Eye, Info } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, startOfDay, differenceInDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FirestorePermissionError } from '@/firebase/errors';
-import Link from 'next/link';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { generateSalarySlipDoc } from '@/lib/generateSalarySlipDoc';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { approveRegularization, rejectRegularization } from '@/app/actions';
 
+// LAZY LOAD HEAVY DATE PICKER
+const Calendar = dynamic(() => import('@/components/ui/calendar').then(mod => mod.Calendar), { 
+    loading: () => <div className="h-64 w-full bg-muted animate-pulse rounded-xl" />
+});
+
+const Popover = dynamic(() => import('@/components/ui/popover').then(mod => mod.Popover), { ssr: false });
+const PopoverContent = dynamic(() => import('@/components/ui/popover').then(mod => mod.PopoverContent), { ssr: false });
+const PopoverTrigger = dynamic(() => import('@/components/ui/popover').then(mod => mod.PopoverTrigger), { ssr: false });
 
 function ApprovalRequests({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
@@ -45,455 +47,135 @@ function ApprovalRequests({ storeId }: { storeId: string }) {
 
     const { data: requests, isLoading, refetch } = useCollection<AttendanceRecord>(requestsQuery);
 
-    const toDateSafe = (d: any): Date => d instanceof Timestamp ? d.toDate() : new Date(d);
-
     const handleApproval = async (request: AttendanceRecord, isApproved: boolean) => {
         if (!isApproved && !rejectionReason.trim()) {
-            toast({ variant: "destructive", title: "Reason Required", description: "Please provide a reason for rejection." });
+            toast({ variant: "destructive", title: "Reason Required" });
             return;
         }
 
         startUpdate(async () => {
-            const actionPromise = isApproved
+            const action = isApproved
                 ? approveRegularization(request.id, storeId, true)
                 : rejectRegularization(request.id, storeId, rejectionReason);
             
             try {
-                await actionPromise;
-                toast({ title: 'Request Updated', description: `The attendance request has been ${isApproved ? 'approved' : 'rejected'}.` });
+                await action;
+                toast({ title: 'Success' });
                 setSelectedRequest(null);
                 setRejectionReason("");
                 if (refetch) refetch();
-            } catch (error) {
-                console.error("Failed to update request:", error);
-                toast({ variant: "destructive", title: "Update Failed", description: (error as Error).message });
+            } catch (e) {
+                toast({ variant: "destructive", title: "Failed" });
             }
         });
     };
 
-    if (isLoading) return <Skeleton className="h-24 w-full" />;
-
-    if (!requests || requests.length === 0) {
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle>No Pending Approvals</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">There are no missed attendance requests from your employees right now.</p>
-                </CardContent>
-            </Card>
-        );
-    }
+    if (isLoading) return <Skeleton className="h-24 w-full rounded-2xl" />;
+    if (!requests || requests.length === 0) return null;
 
     return (
         <>
-            <Dialog open={!!selectedRequest && selectedRequest.status === 'pending_approval'} onOpenChange={(isOpen) => !isOpen && setSelectedRequest(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Reject Regularization Request</DialogTitle>
-                        <DialogDescription>Please provide a reason for rejecting this request. This will be visible to the employee.</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="rejection-reason">Rejection Reason</Label>
-                        <Textarea id="rejection-reason" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSelectedRequest(null)}>Cancel</Button>
-                        <Button variant="destructive" onClick={handleApproval.bind(null, selectedRequest!, false)} disabled={isUpdating || !rejectionReason.trim()}>
-                            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            Confirm Rejection
-                        </Button>
-                    </DialogFooter>
+            <Dialog open={!!selectedRequest} onOpenChange={(o) => !o && setSelectedRequest(null)}>
+                <DialogContent className="rounded-[2rem] border-0 shadow-2xl">
+                    <DialogHeader><DialogTitle className="font-black uppercase">Reject Request</DialogTitle></DialogHeader>
+                    <div className="py-4"><Label className="text-[10px] font-black uppercase opacity-40">Reason for employee</Label><Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="rounded-xl border-2" /></div>
+                    <DialogFooter><Button variant="ghost" onClick={() => setSelectedRequest(null)}>Cancel</Button><Button variant="destructive" onClick={() => handleApproval(selectedRequest!, false)} disabled={isUpdating}>Confirm Reject</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Card className="border-amber-400 bg-amber-50">
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle className="text-amber-900">Attendance Approval Requests</CardTitle>
-                            <CardDescription className="text-amber-800">Review and approve or reject missed punch-in requests from your employees.</CardDescription>
+            <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1 text-amber-600">Pending Attendance Approvals</h3>
+                {requests.map(req => (
+                    <Card key={req.id} className="rounded-2xl border-2 border-amber-200 bg-amber-50/50 p-4 flex justify-between items-center">
+                        <div className="min-w-0">
+                            <p className="font-black text-xs uppercase text-amber-900 truncate">ID: {req.employeeId.slice(-6)}</p>
+                            <p className="text-[10px] font-bold text-amber-700 opacity-60 uppercase">{req.workDateStr}</p>
                         </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Employee</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Reason</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {requests.map(req => (
-                                <TableRow key={req.id}>
-                                    <TableCell className="font-mono">{req.employeeId.slice(0, 8)}...</TableCell>
-                                    <TableCell>{format(toDateSafe(req.workDate), 'PPP')}</TableCell>
-                                    <TableCell className="text-sm italic text-muted-foreground">{req.reasonHistory && req.reasonHistory.length > 0 ? req.reasonHistory[req.reasonHistory.length - 1].text : "No reason given"}</TableCell>
-                                    <TableCell className="text-right space-x-2">
-                                        <Button size="sm" variant="ghost" onClick={() => setSelectedRequest(req)} disabled={isUpdating}>
-                                            <XCircle className="mr-2 h-4 w-4 text-destructive" /> Reject
-                                        </Button>
-                                        <Button size="sm" onClick={() => handleApproval(req, true)} disabled={isUpdating}>
-                                            <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" className="h-8 rounded-lg text-amber-900" onClick={() => setSelectedRequest(req)}><XCircle className="h-4 w-4" /></Button>
+                            <Button size="sm" className="h-8 rounded-lg bg-amber-600 text-white" onClick={() => handleApproval(req, true)}><CheckCircle className="h-4 w-4" /></Button>
+                        </div>
+                    </Card>
+                ))}
+            </div>
         </>
     );
 }
-
-function GeneratedSlipsList({ employee, myStore }: { employee: EmployeeProfile, myStore: Store }) {
-    const { firestore } = useFirebase();
-    
-    const slipsQuery = useMemoFirebase(() => {
-        if (!firestore || !myStore || !employee) return null;
-        return query(
-            collection(firestore, `stores/${myStore.id}/salarySlips`),
-            where('employeeId', '==', employee.userId),
-            orderBy('periodStart', 'desc')
-        );
-    }, [firestore, myStore, employee]);
-
-    const { data: slips, isLoading } = useCollection<SalarySlip>(slipsQuery);
-
-    return (
-         <Card>
-            <CardHeader>
-                <CardTitle>Generated Salary Slips</CardTitle>
-                <CardDescription>A list of all salary slips generated for {employee.role}.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 {isLoading ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : slips && slips.length > 0 ? (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Pay Period</TableHead>
-                                <TableHead>Net Pay</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                         <TableBody>
-                            {slips.map(slip => (
-                                <TableRow key={slip.id}>
-                                    <TableCell>{format(new Date(slip.periodStart), 'MMMM yyyy')}</TableCell>
-                                    <TableCell className="font-bold">₹{slip.netPay.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button asChild variant="outline" size="sm">
-                                            <Link href={`/dashboard/salary-slip/${slip.id}`} target="_blank">
-                                                <Eye className="mr-2 h-4 w-4" />
-                                                View Slip
-                                            </Link>
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                ) : (
-                    <p className="text-muted-foreground text-center">No salary slips have been generated for this employee yet.</p>
-                )}
-            </CardContent>
-        </Card>
-    )
-}
-
 
 export default function SalaryReportsPage() {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date()),
-    });
+    const [dateRange, setDateRange] = useState<any>({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
     const [isGenerating, startGeneration] = useTransition();
-    const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[] | null>(null);
-    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const { userStore, stores, fetchInitialData } = useAppStore();
 
-    const storeQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-    }, [user, firestore]);
+    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
 
-    const { data: stores, isLoading: storeLoading } = useCollection<Store>(storeQuery);
-    const myStore = useMemo(() => stores?.[0], [stores]);
-
-    const employeesQuery = useMemoFirebase(() => {
-        if (!myStore || !firestore) return null;
-        return query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id));
-    }, [myStore, firestore]);
-
+    const employeesQuery = useMemoFirebase(() => (firestore && myStore) ? query(collection(firestore, 'employeeProfiles'), where('storeId', '==', myStore.id)) : null, [myStore, firestore]);
     const { data: employees, isLoading: employeesLoading } = useCollection<EmployeeProfile>(employeesQuery);
 
-    const selectedEmployee = useMemo(() => employees?.find(e => e.userId === selectedEmployeeId), [employees, selectedEmployeeId]);
-
-    const fetchAttendance = useCallback(async () => {
-        if (!myStore || !selectedEmployeeId || !dateRange?.from || !dateRange?.to || !firestore) {
-            setAttendanceRecords([]);
-            return;
-        }
-        setAttendanceLoading(true);
-        try {
-            const start = startOfDay(dateRange.from);
-            const end = endOfMonth(dateRange.to); // Ensure we get the full month
-            
-            const startTimestamp = Timestamp.fromDate(start);
-            const endTimestamp = Timestamp.fromDate(end);
-
-            const q = query(
-              collection(firestore, `stores/${myStore.id}/attendance`),
-              where('employeeId', '==', selectedEmployeeId),
-              where('workDate', '>=', startTimestamp),
-              where('workDate', '<=', endTimestamp),
-              orderBy('workDate', 'desc')
-            );
-            const querySnapshot = await getDocs(q);
-            const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-            setAttendanceRecords(records);
-        } catch (error) {
-            console.error("ATTENDANCE FETCH FAILED (Owner)", { employeeId: selectedEmployeeId, storeId: myStore.id, error });
-            toast({ variant: 'destructive', title: "Error", description: "Could not load attendance records. Check Firestore index and rules." });
-            setAttendanceRecords(null);
-        } finally {
-            setAttendanceLoading(false);
-        }
-    }, [myStore, selectedEmployeeId, dateRange, firestore, toast]);
-
-    useEffect(() => {
-        if (selectedEmployeeId && dateRange?.from && dateRange?.to) {
-            fetchAttendance();
-        }
-    }, [selectedEmployeeId, dateRange, fetchAttendance]);
-
-
-    const reportData = useMemo(() => {
-        if (!attendanceRecords || !selectedEmployee || !dateRange?.from || !dateRange.to) return null;
-
-        const uniqueDates = new Set<string>();
-        const presentOrApprovedRecords = attendanceRecords.filter(r => {
-            const workDateStr = r.workDate instanceof Timestamp ? r.workDate.toDate().toISOString().split('T')[0] : new Date(r.workDate).toISOString().split('T')[0];
-            const isCountable = (r.status === 'present' || r.status === 'approved' || r.status === 'partially_present');
-            if (isCountable && !uniqueDates.has(workDateStr)) {
-                uniqueDates.add(workDateStr);
-                return true;
-            }
-            return false;
-        });
-
-        const partialDaysRecords = presentOrApprovedRecords.filter(r => r.status === 'partially_present');
-        
-        let totalHours = 0;
-        let baseSalary = 0;
-        
-        const totalDaysInPeriod = differenceInDays(dateRange.to, dateRange.from) + 1;
-        if (!selectedEmployee || !selectedEmployee.salaryRate) return null;
-        if (selectedEmployee.salaryType === 'monthly') {
-            const daysInMonthOfSalary = getDaysInMonth(dateRange.from);
-            const perDaySalary = (selectedEmployee.salaryRate || 0) / daysInMonthOfSalary;
-            const payableDays = presentOrApprovedRecords.reduce((acc, record) => {
-                if (record.status === 'partially_present' &&(record.workHours || 0) > 0) {
-                    return acc + ((record.workHours || 0) / 8); 
-                }
-                return acc + 1;
-            }, 0);
-            baseSalary = perDaySalary * payableDays;
-            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 8), 0);
-        } else { // hourly
-            totalHours = presentOrApprovedRecords.reduce((acc, record) => acc + (record.workHours || 0), 0);
-            baseSalary = totalHours * selectedEmployee.salaryRate;
-        }
-
-        const netPay = baseSalary;
-
-        return { 
-            totalHours, 
-            baseSalary, 
-            netPay, 
-            records: presentOrApprovedRecords,
-            presentDays: uniqueDates.size,
-            totalDays: totalDaysInPeriod,
-            partialDays: partialDaysRecords.length,
-            absentDays: totalDaysInPeriod - uniqueDates.size,
-        };
-    }, [attendanceRecords, selectedEmployee, dateRange]);
-    
-    const handleGenerateSlip = async () => {
-        if (!myStore || !selectedEmployee || !reportData || !dateRange?.from || !dateRange.to || !firestore) {
-            toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Missing required data.' });
-            return;
-        }
-        if (reportData.baseSalary <= 0) {
-            toast({ variant: 'destructive', title: 'Cannot Generate', description: 'Calculated salary is zero.' });
-            return;
-        }
-        
-        startGeneration(async () => {
-            const db = firestore!;
-            const slipId = `${myStore.id}_${selectedEmployee.userId}_${format(dateRange.from!, 'yyyy-MM')}`;
-            const slipData: Omit<SalarySlip, 'id'|'generatedAt'> = {
-                employeeId: selectedEmployee.userId, storeId: myStore.id,
-                periodStart: dateRange.from!.toISOString(), periodEnd: dateRange.to!.toISOString(),
-                baseSalary: reportData.baseSalary, overtimeHours: 0, overtimePay: 0,
-                deductions: 0, netPay: reportData.netPay,
-            };
-
-            try {
-                // First, save the slip data to Firestore
-                const slipRef = doc(db, `stores/${myStore.id}/salarySlips`, slipId);
-                await setDoc(slipRef, { ...slipData, id: slipId, generatedAt: serverTimestamp() }, { merge: true });
-                toast({ title: 'Salary Slip Stored!', description: `A slip for ${selectedEmployee.role} has been saved.` });
-                
-                // Now, fetch the full user data for the DOCX generation
-                const userDoc = await getDoc(doc(db, 'users', selectedEmployee.userId));
-                if (!userDoc.exists()) {
-                    throw new Error("Could not retrieve full employee details for DOCX generation.");
-                }
-                const employeeUserData = userDoc.data() as User;
-                
-                // Finally, generate the document with all the required data.
-                await generateSalarySlipDoc({
-                    companyName: myStore.name,
-                    payslipNo: `PSL-${slipId.slice(0,8)}`,
-                    employeeName: `${employeeUserData.firstName} ${employeeUserData.lastName}`,
-                    employeeId: selectedEmployee.employeeId ??"",
-                    designation: selectedEmployee.role,
-                    payPeriod: format(new Date(slipData.periodStart), 'MMMM yyyy'),
-                    totalHours: reportData.totalHours,
-                    baseSalary: reportData.baseSalary,
-                    pf: 0,
-                    esi: 0,
-                    netPay: reportData.netPay,
-                });
-
-            } catch (error: any) {
-                console.error("Failed to generate salary slip:", error);
-                toast({ variant: 'destructive', title: 'Error', description: error.message });
-            }
-        });
+    const handleDownload = () => {
+        if (!selectedEmployeeId || !dateRange.from) return;
+        const period = format(dateRange.from, 'yyyy-MM');
+        const slipId = `${myStore?.id}_${selectedEmployeeId}_${period}`;
+        window.open(`/api/salary-slip/docx?slipId=${slipId}&storeId=${myStore?.id}`, '_blank');
     };
-    
-    if (storeLoading) return <div className="container mx-auto py-12">Loading store information...</div>
-    if (!myStore) return <div className="container mx-auto py-12">You must have a store to access this page.</div>
+
+    if (!myStore) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-3"><FileText className="h-8 w-8 text-primary" /> Salary Reports</CardTitle>
-                    <CardDescription>Select an employee and a date range to view attendance and generate salary slips.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {myStore && <ApprovalRequests storeId={myStore.id} />}
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Employee</Label>
-                            {employeesLoading ? <Skeleton className="h-10 w-full" /> : (
-                                <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId || ''}>
-                                    <SelectTrigger><SelectValue placeholder="Select an employee" /></SelectTrigger>
-                                    <SelectContent>
-                                        {employees?.map(emp => (
-                                            <SelectItem key={emp.userId} value={emp.userId}>{emp.role} ({emp.employeeId})</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                         <div className="space-y-2">
-                             <Label>Date Range</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange?.from ? (
-                                    dateRange.to ? (
-                                        `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}`
-                                    ) : (
-                                        format(dateRange.from, "LLL dd, y")
-                                    )
-                                    ) : (
-                                    <span>Pick a date</span>
-                                    )}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dateRange?.from}
-                                    selected={dateRange}
-                                    onSelect={setDateRange}
-                                    numberOfMonths={2}
-                                />
-                                </PopoverContent>
-                            </Popover>
-                         </div>
-                    </div>
+        <div className="container mx-auto py-12 px-4 md:px-6 max-w-4xl space-y-12 pb-32 animate-in fade-in duration-500">
+            <div className="border-b pb-10 border-black/5">
+                <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Payroll Audit</h1>
+                <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Financial Settlement Center</p>
+            </div>
 
-                    {selectedEmployeeId && (
-                        <>
-                        {selectedEmployee && myStore && <GeneratedSlipsList employee={selectedEmployee} myStore={myStore} />}
-                        <Card>
-                            <CardHeader><CardTitle>Attendance Details for Period</CardTitle></CardHeader>
-                            <CardContent>
-                                {attendanceLoading ? <p>Loading attendance...</p> : !reportData?.records || reportData.records.length === 0 ? (
-                                    <p className="text-muted-foreground">No attendance records found for this period.</p>
-                                ) : (
-                                    <Table>
-                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Punch In</TableHead><TableHead>Punch Out</TableHead><TableHead>Work Hours</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {reportData.records.map(rec => (
-                                                <TableRow key={rec.id}>
-                                                    <TableCell>{rec.workDate instanceof Timestamp ? format(rec.workDate.toDate(), 'PPP') : 'Invalid Date'}</TableCell>
-                                                    <TableCell>{rec.punchInTime ? format(rec.punchInTime instanceof Timestamp ? rec.punchInTime.toDate() : new Date(rec.punchInTime), 'p') : '—'}</TableCell>
-                                                    <TableCell>{rec.punchOutTime ? format(rec.punchOutTime instanceof Timestamp ? rec.punchOutTime.toDate() : new Date(rec.punchOutTime), 'p') : '—'}</TableCell>
-                                                    <TableCell>{(rec.workHours ?? 0) > 0 ? (rec.workHours ?? 0).toFixed(2) : '-'}</TableCell>
-                                                    <TableCell className="text-right font-mono capitalize">{rec.status.replace(/_/g, ' ')}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </CardContent>
-                        </Card>
-                        </>
-                    )}
+            <ApprovalRequests storeId={myStore.id} />
 
-                    {reportData && reportData.baseSalary > 0 && (
-                        <Card className="bg-primary/5 border-primary/20">
-                            <CardHeader><CardTitle>Salary Calculation</CardTitle></CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex justify-between"><span>Total Hours Worked:</span><span className="font-bold">{reportData.totalHours.toFixed(2)}</span></div>
-                                <div className="flex justify-between"><span>Base Salary:</span><span className="font-bold">₹{reportData.baseSalary.toFixed(2)}</span></div>
-                                <div className="flex justify-between text-lg font-bold text-primary border-t pt-2"><span>Net Payable:</span><span>₹{reportData.netPay.toFixed(2)}</span></div>
-                            </CardContent>
-                            <CardFooter>
-                                <Button className="w-full" onClick={handleGenerateSlip} disabled={isGenerating}>
-                                    {isGenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Generate & Download Slip
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    )}
-                </CardContent>
-            </Card>
+            <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase opacity-40">Target Employee</Label>
+                    <Select onValueChange={setSelectedEmployeeId} value={selectedEmployeeId || ''}>
+                        <SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue placeholder="Select staff member" /></SelectTrigger>
+                        <SelectContent className="rounded-xl border-2">
+                            {employees?.map(emp => (
+                                <SelectItem key={emp.userId} value={emp.userId} className="rounded-lg">{emp.role} • {emp.employeeId}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase opacity-40">Settlement Period</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full h-12 rounded-xl border-2 font-black text-[10px] uppercase justify-start">
+                                <CalendarIcon className="mr-2 h-4 w-4 opacity-40" />
+                                {dateRange.from ? format(dateRange.from, "MMM yyyy") : "Select Month"}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-0 shadow-2xl rounded-3xl overflow-hidden" align="end">
+                            <Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </div>
+
+            {selectedEmployeeId && (
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-slate-900 text-white relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><FileText className="h-32 w-32" /></div>
+                    <CardHeader className="p-8 pb-4 relative z-10">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Settlement Engine</CardTitle>
+                        <CardDescription className="text-white/40 font-bold text-[10px] uppercase">Review attendance before issuing slip</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0 relative z-10">
+                        <Button onClick={handleDownload} className="w-full h-14 rounded-2xl bg-white text-gray-950 font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-white/90">
+                            Download Official Statement
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
