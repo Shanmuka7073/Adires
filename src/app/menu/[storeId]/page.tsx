@@ -56,7 +56,9 @@ import {
   ArrowRight,
   LayoutGrid,
   Package,
-  CookingPot
+  CookingPot,
+  Sparkles,
+  CheckCircle
 } from 'lucide-react';
 
 import {
@@ -379,11 +381,11 @@ export default function PublicMenuPage() {
   const ordersQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, deviceId]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  const historyQuery = useMemoFirebase(() => {
+  const historyOrdersQuery = useMemoFirebase(() => {
       if (!firestore || !deviceId) return null;
       return query(collection(firestore, 'orders'), where('storeId', '==', storeId), where('deviceId', '==', deviceId), where('isActive', '==', false), orderBy('orderDate', 'desc'), limit(5));
   }, [firestore, storeId, deviceId]);
-  const { data: historyOrders } = useCollection<Order>(historyQuery);
+  const { data: historyOrders } = useCollection<Order>(historyOrdersQuery);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
   const availableCategories = useMemo(() => {
