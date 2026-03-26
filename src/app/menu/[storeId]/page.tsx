@@ -64,7 +64,8 @@ import {
   Pizza,
   CupSoda,
   Star,
-  ArrowRight
+  ArrowRight,
+  LayoutGrid
 } from 'lucide-react';
 
 import {
@@ -121,10 +122,11 @@ function toDateSafe(d: any): Date {
 
 const getCategoryIcon = (category: string) => {
     const c = category.toLowerCase();
-    if (c.includes('pizza')) return <Pizza className="h-3.5 w-3.5" />;
-    if (c.includes('drink') || c.includes('beverage')) return <CupSoda className="h-3.5 w-3.5" />;
-    if (c.includes('starter') || c.includes('appetizer')) return <Star className="h-3.5 w-3.5" />;
-    return <Utensils className="h-3.5 w-3.5" />;
+    if (c === 'all') return <LayoutGrid className="h-3 w-3" />;
+    if (c.includes('pizza')) return <Pizza className="h-3 w-3" />;
+    if (c.includes('drink') || c.includes('beverage')) return <CupSoda className="h-3 w-3" />;
+    if (c.includes('starter') || c.includes('appetizer')) return <Star className="h-3 w-3" />;
+    return <Utensils className="h-3 w-3" />;
 };
 
 // --- SUB-COMPONENTS ---
@@ -314,41 +316,41 @@ function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { ite
     
     return (
         <Card className={cn(
-            "rounded-[2.5rem] border-0 shadow-lg overflow-hidden bg-white hover:shadow-2xl transition-all duration-500",
+            "rounded-3xl border-0 shadow-lg overflow-hidden bg-white hover:shadow-2xl transition-all duration-500",
             isOutOfStock && "opacity-50 grayscale"
         )}>
-            <div className="p-4 flex items-center gap-4">
-                <div className="relative h-24 w-24 rounded-full overflow-hidden border-4 border-black/5 bg-muted shrink-0 shadow-inner cursor-pointer" onClick={() => onShowDetails(item)}>
+            <div className="p-3 flex items-center gap-3">
+                <div className="relative h-20 w-20 rounded-full overflow-hidden border-4 border-black/5 bg-muted shrink-0 shadow-inner cursor-pointer" onClick={() => onShowDetails(item)}>
                     <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
                 </div>
                 
-                <div className="flex-1 min-w-0 py-1">
-                    <h3 className="font-black text-sm uppercase tracking-tight text-gray-950 leading-tight mb-1">{item.name}</h3>
-                    <p className="text-xl font-black text-gray-900 tracking-tighter italic">₹{item.price.toFixed(0)}</p>
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-black text-[11px] uppercase tracking-tight text-gray-950 leading-tight mb-0.5 line-clamp-2">{item.name}</h3>
+                    <p className="text-lg font-black text-gray-900 tracking-tighter italic leading-none">₹{item.price.toFixed(0)}</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-black/5 p-1 rounded-full shadow-inner border border-black/5">
+                <div className="flex items-center gap-1.5 bg-black/5 p-1 rounded-full shadow-inner border border-black/5">
                     {currentQtyInCart > 0 && (
                         <>
                             <button 
                                 onClick={() => onAdd(item, currentQtyInCart - 1)}
-                                className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-gray-900 shadow-sm active:scale-90 transition-all"
+                                className="h-7 w-7 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-gray-900 shadow-sm active:scale-90 transition-all"
                             >
-                                <Minus className="h-4 w-4" />
+                                <Minus className="h-3 w-3" />
                             </button>
-                            <span className="w-4 text-center font-black text-xs text-gray-950">{currentQtyInCart}</span>
+                            <span className="w-3 text-center font-black text-[10px] text-gray-950">{currentQtyInCart}</span>
                         </>
                     )}
                     <button 
                         onClick={() => onAdd(item, currentQtyInCart + 1)}
                         disabled={isOutOfStock}
                         className={cn(
-                            "h-8 w-8 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-all",
+                            "h-7 w-7 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-all",
                             currentQtyInCart > 0 ? "bg-white text-gray-900" : "bg-primary text-white"
                         )}
                         style={currentQtyInCart === 0 ? { backgroundColor: theme?.primaryColor } : {}}
                     >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3 w-3" />
                     </button>
                 </div>
             </div>
@@ -414,14 +416,18 @@ export default function PublicMenuPage() {
 
   const activeItemCount = useMemo(() => (placedOrders?.reduce((acc, o) => acc + o.items.length, 0) || 0) + cartItems.length, [placedOrders, cartItems]);
   const isSalon = useMemo(() => !!(store?.businessType === 'salon' || store?.name.toLowerCase().includes('salon')), [store]);
-  const availableCategories = useMemo(() => menu?.items ? Array.from(new Set(menu.items.map(i => i.category))).sort() : [], [menu]);
+  const availableCategories = useMemo(() => {
+      if (!menu?.items) return [];
+      const cats = Array.from(new Set(menu.items.map(i => i.category))).sort();
+      return ['All', ...cats];
+  }, [menu]);
   
-  useEffect(() => { if (!selectedCategory && availableCategories.length > 0) setSelectedCategory(availableCategories[0]); }, [availableCategories, selectedCategory]);
+  useEffect(() => { if (!selectedCategory && availableCategories.length > 0) setSelectedCategory('All'); }, [availableCategories, selectedCategory]);
 
   const groupedMenu = useMemo(() => {
     if (!menu?.items) return {};
     let filtered = menu.items.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    if (selectedCategory) filtered = filtered.filter(i => i.category === selectedCategory);
+    if (selectedCategory && selectedCategory !== 'All') filtered = filtered.filter(i => i.category === selectedCategory);
     return filtered.reduce((acc, i) => { const c = i.category || 'Other'; if(!acc[c]) acc[c] = []; acc[c].push(i); return acc; }, {} as Record<string, MenuItem[]>);
   }, [menu, searchTerm, selectedCategory]);
 
@@ -506,54 +512,54 @@ export default function PublicMenuPage() {
       )}
       
       <div className="min-h-screen pb-40 bg-[#FDFCF7] font-body">
-          <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-6 pb-4">
-              <div className="max-w-2xl mx-auto space-y-6">
+          <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-4 pb-2">
+              <div className="max-w-2xl mx-auto space-y-4">
                   <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                          <div className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-primary shadow-sm">
+                      <div className="flex items-center gap-2">
+                          <div className="relative h-8 w-8 rounded-full overflow-hidden border-2 border-primary shadow-sm">
                               <Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" />
                           </div>
                           <div>
-                              <div className="flex items-center gap-1.5">
-                                  <h1 className="font-black text-sm uppercase tracking-tight text-gray-950 truncate leading-none">
+                              <div className="flex items-center gap-1">
+                                  <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none">
                                       {customerName || (tableNumber ? `TABLE ${tableNumber}` : 'WELCOME')}
                                   </h1>
-                                  <ChevronDown className="h-3 w-3 text-primary" />
+                                  <ChevronDown className="h-2.5 w-2.5 text-primary" />
                               </div>
-                              <p className="text-[8px] font-black uppercase tracking-widest text-primary opacity-60 mt-1">{store.name}</p>
+                              <p className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-0.5">{store.name}</p>
                           </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                           <button 
                             onClick={() => setSearchVisible(!isSearchVisible)}
-                            className="h-10 w-10 rounded-full bg-white shadow-md flex items-center justify-center border border-black/5 active:scale-90 transition-all"
+                            className="h-8 w-8 rounded-full bg-white shadow-sm flex items-center justify-center border border-black/5 active:scale-90 transition-all"
                           >
-                              {isSearchVisible ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                              {isSearchVisible ? <X className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
                           </button>
                           {canInstall && (
                             <button 
                                 onClick={triggerInstall}
-                                className="h-10 px-4 rounded-full bg-white shadow-md flex items-center gap-2 border border-black/5 active:scale-90 transition-all font-black text-[9px] uppercase tracking-widest"
+                                className="h-8 px-3 rounded-full bg-white shadow-sm flex items-center gap-1.5 border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest"
                             >
-                                <Download className="h-3.5 w-3.5 text-primary" /> Install
+                                <Download className="h-3 w-3 text-primary" /> Install
                             </button>
                           )}
                       </div>
                   </div>
 
                   {isSearchVisible && (
-                      <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="animate-in fade-in slide-in-from-top-1 duration-200">
                           <Input 
                               autoFocus
-                              placeholder="Search your favorite dishes..." 
+                              placeholder="Search dishes..." 
                               value={searchTerm} 
                               onChange={e => setSearchTerm(e.target.value)}
-                              className="h-12 rounded-2xl border-2 border-gray-950 bg-white text-xs font-bold shadow-lg"
+                              className="h-10 rounded-xl border-2 border-gray-950 bg-white text-[10px] font-bold shadow-md"
                           />
                       </div>
                   )}
 
-                  <div className="flex gap-2.5 overflow-x-auto no-scrollbar py-1">
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
                       {availableCategories.map(cat => {
                           const isActive = selectedCategory === cat;
                           return (
@@ -561,8 +567,8 @@ export default function PublicMenuPage() {
                                   key={cat} 
                                   onClick={() => setSelectedCategory(cat)}
                                   className={cn(
-                                      "px-5 h-11 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shrink-0 flex items-center gap-2 shadow-sm border",
-                                      isActive ? "bg-[#B22222] border-[#B22222] text-white shadow-lg scale-105" : "bg-white border-black/5 text-gray-500"
+                                      "px-4 h-9 rounded-full font-black text-[9px] uppercase tracking-widest transition-all shrink-0 flex items-center gap-1.5 shadow-sm border",
+                                      isActive ? "bg-[#B22222] border-[#B22222] text-white scale-105" : "bg-white border-black/5 text-gray-500"
                                   )}
                               >
                                   {getCategoryIcon(cat)}
@@ -574,21 +580,21 @@ export default function PublicMenuPage() {
               </div>
           </header>
 
-          <div className="container mx-auto px-5 max-w-2xl mt-4">
+          <div className="container mx-auto px-5 max-w-2xl mt-2">
               {isSessionFinalized ? (
-                  <Card className="rounded-[3rem] border-0 shadow-2xl text-center py-20 px-8 bg-white">
-                      <div className="mx-auto h-24 w-24 flex items-center justify-center rounded-full mb-8 bg-green-50 border-4 border-green-100 shadow-inner"><CheckCircle className="h-12 w-12 text-green-600" /></div>
-                      <h2 className="text-3xl font-black mb-4 text-gray-950 tracking-tight uppercase italic">Visit Completed</h2>
-                      <p className="text-sm font-bold text-gray-500 mb-8 uppercase tracking-widest opacity-60">Thank you for dining with us!</p>
-                      <Button onClick={handleStartNewOrder} className="rounded-2xl h-14 w-full uppercase font-black text-xs tracking-[0.2em] shadow-2xl bg-primary">Start New Session</Button>
+                  <Card className="rounded-[2.5rem] border-0 shadow-2xl text-center py-16 px-8 bg-white">
+                      <div className="mx-auto h-20 w-20 flex items-center justify-center rounded-full mb-6 bg-green-50 border-4 border-green-100 shadow-inner"><CheckCircle className="h-10 w-10 text-green-600" /></div>
+                      <h2 className="text-2xl font-black mb-3 text-gray-950 tracking-tight uppercase italic">Visit Completed</h2>
+                      <p className="text-xs font-bold text-gray-500 mb-6 uppercase tracking-widest opacity-60">Thank you for dining with us!</p>
+                      <Button onClick={handleStartNewOrder} className="rounded-2xl h-12 w-full uppercase font-black text-[10px] tracking-[0.2em] shadow-xl bg-primary">Start New Session</Button>
                   </Card>
               ) : (
-                <div className="space-y-10">
+                <div className="space-y-6">
                     {Object.keys(groupedMenu).length > 0 ? (
                         Object.entries(groupedMenu).map(([category, items]) => (
-                            <section key={category} className="space-y-4">
-                                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
-                                <div className="grid grid-cols-1 gap-4">
+                            <section key={category} className="space-y-3">
+                                <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
+                                <div className="grid grid-cols-1 gap-3">
                                     {items.map((item) => {
                                         const cartItem = cartItems.find(i => i.product.id === item.id);
                                         return (
@@ -606,20 +612,20 @@ export default function PublicMenuPage() {
                             </section>
                         ))
                     ) : (
-                        <div className="text-center py-32 opacity-20"><Utensils className="h-12 w-12 mx-auto mb-4" /><p className="text-[10px] font-black uppercase tracking-widest">No dishes found</p></div>
+                        <div className="text-center py-24 opacity-20"><Utensils className="h-10 w-10 mx-auto mb-3" /><p className="text-[9px] font-black uppercase tracking-widest">No dishes found</p></div>
                     )}
                 </div>
               )}
           </div>
 
           {(activeItemCount > 0 || cartItems.length > 0) && !isSessionFinalized && (
-              <div className="fixed bottom-8 left-0 right-0 z-50 px-5">
+              <div className="fixed bottom-6 left-0 right-0 z-50 px-5">
                   <div className="max-w-md mx-auto">
-                      <div className="bg-[#FDD835] rounded-full h-16 flex items-center justify-between pl-8 pr-2 shadow-[0_20px_50px_-15px_rgba(253,216,53,0.5)] border-4 border-white">
-                          <div className="flex items-center gap-4">
+                      <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-[0_15px_40px_-10px_rgba(253,216,53,0.5)] border-4 border-white">
+                          <div className="flex items-center gap-3">
                               <div className="flex flex-col">
-                                  <span className="text-[9px] font-black uppercase tracking-tighter text-gray-900/60 leading-none">Your Selection</span>
-                                  <p className="text-lg font-black text-gray-950 leading-none mt-1">
+                                  <span className="text-[8px] font-black uppercase tracking-tighter text-gray-900/60 leading-none">Your Selection</span>
+                                  <p className="text-base font-black text-gray-950 leading-none mt-0.5">
                                       {activeItemCount} items <span className="mx-1 text-gray-950/20">|</span> ₹{cartTotal.toFixed(0)}
                                   </p>
                               </div>
@@ -627,8 +633,8 @@ export default function PublicMenuPage() {
                           
                           <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                               <SheetTrigger asChild>
-                                  <Button className="h-12 rounded-full bg-gray-950 text-white font-black uppercase text-[10px] tracking-widest px-6 shadow-lg active:scale-95 transition-all">
-                                      View Cart <ArrowRight className="ml-2 h-4 w-4" />
+                                  <Button className="h-10 rounded-full bg-gray-950 text-white font-black uppercase text-[9px] tracking-widest px-5 shadow-lg active:scale-95 transition-all">
+                                      View Cart <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                                   </Button>
                               </SheetTrigger>
                               <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
@@ -647,12 +653,12 @@ export default function PublicMenuPage() {
                       </div>
                       
                       {cartItems.length > 0 && (
-                          <div className="mt-3 animate-in slide-in-from-bottom-2">
+                          <div className="mt-2 animate-in slide-in-from-bottom-1">
                               <Button 
                                 onClick={handlePlaceOrder}
-                                className="w-full h-12 rounded-full bg-primary text-white font-black uppercase text-[10px] tracking-widest shadow-xl"
+                                className="w-full h-11 rounded-full bg-primary text-white font-black uppercase text-[9px] tracking-widest shadow-lg"
                               >
-                                  {isAdding ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                                  {isAdding ? <Loader2 className="animate-spin h-3.5 w-3.5 mr-1.5" /> : <PlusCircle className="h-3.5 w-3.5 mr-1.5" />}
                                   {tableNumber ? `Send to ${isSalon ? 'Chair' : 'Kitchen'}` : 'Confirm Order'}
                               </Button>
                           </div>
