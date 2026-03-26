@@ -79,6 +79,7 @@ export const useAppStore = create<AppState>()(
       readCount: 0,
       writeCount: 0,
 
+      // DECOUPLED COUNTERS: Using functional updates to avoid triggering unnecessary re-renders
       incrementReadCount: (count = 1) => set(state => ({ readCount: state.readCount + count })),
       incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
@@ -102,7 +103,6 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // Optimization: Only fetch a limited set of stores for the marketplace initial view
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
@@ -111,7 +111,6 @@ export const useAppStore = create<AppState>()(
           }
 
           let userStore = state.userStore;
-          // If we have a userId but no identified store yet, find it in the list or fetch separately
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
@@ -133,9 +132,13 @@ export const useAppStore = create<AppState>()(
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
-        if (state.loading) return;
         
-        // Strategy: 1 Read Identity Verification
+        // LOOP PREVENTION: Check if we already have the correct identity
+        if (state.loading || (state.userStore && state.userStore.ownerId === userId)) {
+            if (!state.appReady) set({ appReady: true });
+            return;
+        }
+
         set({ loading: true, error: null });
 
         try {
@@ -184,22 +187,35 @@ export const useAppStore = create<AppState>()(
   )
 );
 
+/**
+ * OPTIMIZED INITIALIZATION HOOK
+ * Uses specific selectors to avoid re-renders on unrelated state changes (like readCount).
+ */
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchUserStore, loading, isInitialized, setAppReady, userStore } = useAppStore();
+    
+    // ATOMIC SELECTORS: Prevents the "Read Count" loop
+    const fetchUserStore = useAppStore(state => state.fetchUserStore);
+    const loading = useAppStore(state => state.loading);
+    const isInitialized = useAppStore(state => state.isInitialized);
+    const setAppReady = useAppStore(state => state.setAppReady);
+    const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        // Hydration check: if we already have a persisted business identity, show UI immediately
+        // Instant Hydration from Cache
         if (isInitialized && userStore) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading) {
             if (user) {
-                // Perform targeted 1-read fetch for the merchant to verify identity
-                fetchUserStore(firestore, user.uid);
+                // Only fetch if identity is missing or incorrect
+                if (!userStore || userStore.ownerId !== user.uid) {
+                    fetchUserStore(firestore, user.uid);
+                } else {
+                    setAppReady(true);
+                }
             } else {
-                // Guest mode: bypass DB boot and show marketplace
                 setAppReady(true);
             }
         }

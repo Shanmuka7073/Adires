@@ -70,6 +70,10 @@ export async function getFirebaseConfig() {
   } catch (e) { return null; }
 }
 
+/**
+ * OPTIMIZED PLATFORM ANALYTICS
+ * Uses count() aggregation to minimize read costs.
+ */
 export async function getPlatformAnalytics() {
     try {
         const { db } = await getAdminServices();
@@ -77,16 +81,24 @@ export async function getPlatformAnalytics() {
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfTodayTs = Timestamp.fromDate(startOfToday);
 
-        const [usersCount, storesCount, ordersSnap] = await Promise.all([
+        // CHEAP AGGREGATIONS: Only costs 1 read per 1000 items
+        const [usersCount, storesCount, ordersCountSnap] = await Promise.all([
             db.collection('users').count().get(),
             db.collection('stores').count().get(),
             db.collection('orders')
                 .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
                 .where('orderDate', '>=', startOfTodayTs)
-                .get(),
+                .count().get(),
         ]);
 
         let todayRevenue = 0;
+        // We only fetch the actual documents for detailed metrics, limited to avoid explosion
+        const ordersSnap = await db.collection('orders')
+            .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
+            .where('orderDate', '>=', startOfTodayTs)
+            .limit(100)
+            .get();
+
         ordersSnap.docs.forEach(doc => { 
             todayRevenue += (doc.data().totalAmount || 0); 
         });
@@ -96,7 +108,7 @@ export async function getPlatformAnalytics() {
             const recentSnap = await db.collection('orders')
                 .where('status', 'in', ['Completed', 'Delivered', 'Billed'])
                 .orderBy('updatedAt', 'desc')
-                .limit(50)
+                .limit(20)
                 .get();
             speedMetrics = calculateSpeedMetrics(recentSnap.docs.map(d => d.data()));
         } catch (e) {}
@@ -104,16 +116,16 @@ export async function getPlatformAnalytics() {
         return sanitizeForClient({
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
-            activeSessions: ordersSnap.size,
+            activeSessions: ordersCountSnap.data().count,
             avgBillingSpeed: speedMetrics.avg,
             fastestBill: speedMetrics.fastest,
             slowestBill: speedMetrics.slowest,
             periods: {
                 today: {
                     revenue: todayRevenue,
-                    orders: ordersSnap.size,
-                    aov: ordersSnap.size > 0 ? todayRevenue / ordersSnap.size : 0,
-                    userReach: ordersSnap.size,
+                    orders: ordersCountSnap.data().count,
+                    aov: ordersCountSnap.data().count > 0 ? todayRevenue / ordersCountSnap.data().count : 0,
+                    userReach: ordersCountSnap.data().count,
                     trends: { revenue: 0, orders: 0, aov: 0, userReach: 0 }
                 }
             }

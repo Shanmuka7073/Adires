@@ -1,11 +1,11 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Server, Database, ShieldAlert, RefreshCw, Globe, Lock, Key, Settings, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Server, Database, ShieldAlert, RefreshCw, Globe, Lock, Key, Settings, ExternalLink, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { useFirebase } from '@/firebase';
 import { cn } from '@/lib/utils';
 
 interface ServerStatus {
@@ -16,61 +16,6 @@ interface ServerStatus {
     identity?: string;
     isCredentialError?: boolean;
     counts: { users: number; stores: number };
-}
-
-function ConnectionRepairGuide() {
-    return (
-        <Card className="rounded-[2.5rem] border-0 shadow-2xl bg-slate-900 text-white overflow-hidden">
-            <CardHeader className="bg-primary p-8 border-b border-white/10">
-                <CardTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
-                    <Key className="h-6 w-6" />
-                    How to Fix "Offline" Status
-                </CardTitle>
-                <CardDescription className="text-white/60 font-bold uppercase text-[10px] tracking-widest mt-1">
-                    Follow these steps to connect your production backend
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="p-8 space-y-8">
-                <div className="space-y-6">
-                    <div className="flex gap-4">
-                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">1</div>
-                        <div className="space-y-1">
-                            <p className="font-black uppercase text-xs tracking-tight">Generate Firebase Key</p>
-                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
-                                Go to <strong>Firebase Console &gt; Project Settings &gt; Service Accounts</strong> and click <strong>"Generate New Private Key"</strong>.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex gap-4">
-                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">2</div>
-                        <div className="space-y-1">
-                            <p className="font-black uppercase text-xs tracking-tight">Add Secret to Vercel</p>
-                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
-                                Copy the <strong>ENTIRE JSON content</strong>. Go to your <strong>Vercel Dashboard &gt; Settings &gt; Environment Variables</strong>. Add a new key called <code className="bg-white/10 px-1.5 py-0.5 rounded text-primary">SERVICE_ACCOUNT</code> and paste the JSON as the value.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex gap-4">
-                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 font-black text-xs">3</div>
-                        <div className="space-y-1">
-                            <p className="font-black uppercase text-xs tracking-tight">Redeploy Application</p>
-                            <p className="text-[11px] font-medium text-white/60 leading-relaxed">
-                                Vercel needs a <strong>Redeploy</strong> to "pick up" the new secret. Go to the Deployments tab and trigger a rebuild.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="pt-4 border-t border-white/5">
-                    <Button asChild variant="outline" className="w-full h-12 rounded-xl border-white/20 text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest">
-                        <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">
-                            <Settings className="mr-2 h-4 w-4" /> Open Vercel Settings <ExternalLink className="ml-2 h-3 w-3 opacity-40" />
-                        </a>
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
-    );
 }
 
 export default function SystemStatusPage() {
@@ -113,6 +58,10 @@ export default function SystemStatusPage() {
   useEffect(() => {
     fetchStatus();
     if (typeof window !== 'undefined') setHostName(window.location.hostname);
+    
+    // REDUCED REFRESH RATE: 30 seconds to prevent unnecessary reads
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
   }, [fetchStatus]);
 
   const getStatusInfo = (currentStatus: string) => {
@@ -190,8 +139,6 @@ export default function SystemStatusPage() {
                           </div>
                       </div>
                   </div>
-                  
-                  {status.isCredentialError && <ConnectionRepairGuide />}
               </div>
           )}
           
