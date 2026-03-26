@@ -40,7 +40,7 @@ function ConnectionRepairGuide() {
                         <div className="space-y-1">
                             <p className="font-black uppercase text-xs tracking-tight">Generate Firebase Key</p>
                             <p className="text-[11px] font-medium text-white/60 leading-relaxed">
-                                Go to <strong>Firebase Console > Project Settings > Service Accounts</strong> and click <strong>"Generate New Private Key"</strong>.
+                                Go to <strong>Firebase Console &gt; Project Settings &gt; Service Accounts</strong> and click <strong>"Generate New Private Key"</strong>.
                             </p>
                         </div>
                     </div>
@@ -49,7 +49,7 @@ function ConnectionRepairGuide() {
                         <div className="space-y-1">
                             <p className="font-black uppercase text-xs tracking-tight">Add Secret to Vercel</p>
                             <p className="text-[11px] font-medium text-white/60 leading-relaxed">
-                                Copy the <strong>ENTIRE JSON content</strong>. Go to your <strong>Vercel Dashboard > Settings > Environment Variables</strong>. Add a new key called <code className="bg-white/10 px-1.5 py-0.5 rounded text-primary">SERVICE_ACCOUNT</code> and paste the JSON as the value.
+                                Copy the <strong>ENTIRE JSON content</strong>. Go to your <strong>Vercel Dashboard &gt; Settings &gt; Environment Variables</strong>. Add a new key called <code className="bg-white/10 px-1.5 py-0.5 rounded text-primary">SERVICE_ACCOUNT</code> and paste the JSON as the value.
                             </p>
                         </div>
                     </div>
