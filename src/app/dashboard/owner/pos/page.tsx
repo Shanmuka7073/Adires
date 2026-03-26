@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, setDoc, serverTimestamp, query, limit } from 'firebase/firestore';
 import type { Store, Menu, MenuItem, Order, OrderItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ export default function QuickPOSPage() {
     const { firestore, user } = useFirebase();
     const router = useRouter();
     const { toast } = useToast();
-    const { stores, userStore } = useAppStore();
+    const { stores, userStore, incrementWriteCount } = useAppStore();
     
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState<Record<string, { item: MenuItem, qty: number }>>({});
@@ -80,7 +80,6 @@ export default function QuickPOSPage() {
                 price: c.item.price,
             }));
 
-            // Cast to any to handle serverTimestamp FieldValue vs Timestamp strict mismatch
             const orderData: any = {
                 id: orderId,
                 storeId: myStore.id,
@@ -99,14 +98,20 @@ export default function QuickPOSPage() {
                 email: ''
             };
 
-            try {
-                await setDoc(orderRef, orderData);
-                toast({ title: "Bill Ready!", description: `Order #${orderId.slice(-4)} created.` });
-                setCart({});
-                router.push('/dashboard/owner/orders');
-            } catch (e) {
-                toast({ variant: 'destructive', title: "Failed to create bill" });
-            }
+            // OPTIMISTIC NON-BLOCKING WRITE
+            setDoc(orderRef, orderData).catch(async (e) => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: orderRef.path,
+                    operation: 'write',
+                    requestResourceData: orderData
+                }));
+            });
+
+            // Immediate UI feedback
+            toast({ title: "Bill Ready!", description: `Order #${orderId.slice(-4)} created locally.` });
+            incrementWriteCount(1);
+            setCart({});
+            router.push('/dashboard/owner/orders');
         });
     };
 

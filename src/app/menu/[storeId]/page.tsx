@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import {
   collection,
   query,
@@ -92,8 +93,6 @@ import { cn, createSlug } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -356,7 +355,7 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
-  const { fetchInitialData, language } = useAppStore();
+  const { fetchInitialData, language, incrementWriteCount } = useAppStore();
   const { cartItems, addItem, clearCart, updateQuantity, cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
@@ -430,19 +429,54 @@ export default function PublicMenuPage() {
         const orderRef = doc(firestore, 'orders', orderId);
         const orderItems: OrderItem[] = cartItems.map(item => ({ id: crypto.randomUUID(), orderId: orderId, productId: item.product.id, menuItemId: item.product.id, productName: item.product.name, variantSku: item.variant.sku, variantWeight: item.variant.weight, quantity: item.quantity, price: item.variant.price }));
         const totalAmount = orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        const orderData = { id: orderId, storeId: storeId, tableNumber: tableNumber ? String(tableNumber) : null, sessionId: sessionId, deviceId: deviceId, userId: 'guest', customerName: tableNumber ? `Table ${tableNumber}` : 'Guest', deliveryAddress: tableNumber ? 'In-store dining' : 'TBD', status: 'Pending', orderType: tableNumber ? 'dine-in' : 'delivery', isActive: true, orderDate: serverTimestamp(), updatedAt: serverTimestamp(), items: orderItems, totalAmount: totalAmount };
-        await setDoc(orderRef, orderData);
+        
+        const orderData: any = { 
+            id: orderId, 
+            storeId: storeId, 
+            tableNumber: tableNumber ? String(tableNumber) : null, 
+            sessionId: sessionId, 
+            deviceId: deviceId, 
+            userId: 'guest', 
+            customerName: tableNumber ? `Table ${tableNumber}` : 'Guest', 
+            deliveryAddress: tableNumber ? 'In-store dining' : 'TBD', 
+            status: 'Pending', 
+            orderType: tableNumber ? 'dine-in' : 'delivery', 
+            isActive: true, 
+            orderDate: serverTimestamp(), 
+            updatedAt: serverTimestamp(), 
+            items: orderItems, 
+            totalAmount: totalAmount 
+        };
+
+        // OPTIMISTIC NON-BLOCKING WRITE
+        setDoc(orderRef, orderData).catch(e => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: orderRef.path,
+                operation: 'write',
+                requestResourceData: orderData
+            }));
+        });
+
         toast({ title: 'Sent to Staff!' }); 
+        incrementWriteCount(1);
         clearCart(); 
     });
   };
 
   const handleFinalizeBill = () => { 
     if (!firestore || !placedOrders?.length) return;
+    
+    // OPTIMISTIC NON-BLOCKING UPDATES
     const batch = writeBatch(firestore);
-    placedOrders.forEach(order => { batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() }); });
+    placedOrders.forEach(order => { 
+        batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() }); 
+    });
+    
     batch.commit().catch(e => toast({ variant: 'destructive', title: 'Action Failed' }));
+    
     toast({ title: 'Bill Requested' });
+    incrementWriteCount(1);
+    setIsLiveBillOpen(false);
   };
 
   const handleShowIngredients = (item: MenuItem) => {

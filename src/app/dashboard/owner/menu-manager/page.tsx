@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
+import { cn, createSlug } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -39,18 +39,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
-
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
 
 const menuItemSchema = z.object({
   id: z.string().optional(),
@@ -239,6 +227,7 @@ function QRCodeDialog({ table, store }: { table: string, store: Store }) {
 function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, menu: Menu, onReplace: () => void }) {
     const { toast } = useToast(); 
     const { firestore } = useFirebase(); 
+    const { incrementWriteCount } = useAppStore();
     const [menu, setMenu] = useState(initialMenu);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false); 
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -247,52 +236,58 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 
     useEffect(() => { setMenu(initialMenu); }, [initialMenu]);
 
-    const persistMenu = async (uM: Menu) => {
-        if (!firestore) return false;
-        try { 
-            const batch = writeBatch(firestore);
-            batch.set(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); 
-            
-            // PUSH TO CANONICAL CATALOG FOR ADMIN
-            uM.items.forEach(item => {
-                const slug = createSlug(item.name);
-                const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
-                batch.set(canonicalRef, {
-                    id: slug,
-                    name: item.name,
-                    category: item.category,
-                    businessType: store.businessType || 'restaurant',
-                    discoveredInStoreId: store.id,
-                    discoveredAt: serverTimestamp()
-                }, { merge: true });
-            });
+    const persistMenu = (uM: Menu) => {
+        if (!firestore) return;
+        
+        const batch = writeBatch(firestore);
+        batch.set(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); 
+        
+        uM.items.forEach(item => {
+            const slug = createSlug(item.name);
+            const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
+            batch.set(canonicalRef, {
+                id: slug,
+                name: item.name,
+                category: item.category,
+                businessType: store.businessType || 'restaurant',
+                discoveredInStoreId: store.id,
+                discoveredAt: serverTimestamp()
+            }, { merge: true });
+        });
 
-            await batch.commit();
-            return true; 
-        } catch (e) { 
-            return false; 
-        }
+        // NON-BLOCKING COMMIT
+        batch.commit().catch(e => {
+            console.error("Menu persist failed:", e);
+        });
+        
+        incrementWriteCount(1);
     };
 
     const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
         let uI;
         if (isNew) { uI = [...menu.items, { ...itemData, id: createSlug(itemData.name), isAvailable: true }]; } 
         else { uI = menu.items.map(i => i.id === editingItem?.id ? { ...i, ...itemData } : i); }
-        const uM = { ...menu, items: uI }; setMenu(uM);
-        if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Saved!" });
+        const uM = { ...menu, items: uI }; 
+        setMenu(uM);
+        persistMenu(uM);
+        toast({ title: "Menu Queued!" });
     };
 
     const handleDeleteItem = async (it: MenuItem) => {
          const uI = menu.items.filter(i => i.id !== it.id);
-         const uM = { ...menu, items: uI }; setMenu(uM);
-         if (!(await persistMenu(uM))) setMenu(menu); else toast({ title: "Deleted" });
+         const uM = { ...menu, items: uI }; 
+         setMenu(uM);
+         persistMenu(uM);
+         toast({ title: "Deletion Queued" });
     }
 
     const toggleAvailability = async (it: MenuItem) => {
         const currentStatus = it.isAvailable !== false;
         const uI = menu.items.map(i => i.id === it.id ? { ...i, isAvailable: !currentStatus } : i);
-        const uM = { ...menu, items: uI }; setMenu(uM);
-        if (!(await persistMenu(uM))) { setMenu(menu); toast({ variant: 'destructive', title: 'Toggle Failed' }); }
+        const uM = { ...menu, items: uI }; 
+        setMenu(uM);
+        persistMenu(uM);
+        toast({ title: "Availability Updated" });
     };
 
     const handleAddZone = () => {
@@ -300,13 +295,12 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         startAddingZone(async () => {
             const currentTables = store.tables || [];
             const updatedTables = [...new Set([...currentTables, newZoneName.trim()])];
-            try {
-                await updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables });
-                toast({ title: "Zone Added!" });
-                setNewZoneName('');
-            } catch (e) {
-                toast({ variant: 'destructive', title: "Failed to add zone" });
-            }
+            updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
+                .catch(e => toast({ variant: 'destructive', title: "Update Failed" }));
+            
+            toast({ title: "Zone Queued!" });
+            setNewZoneName('');
+            incrementWriteCount(1);
         });
     }
 
@@ -315,6 +309,7 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
         const updatedTables = (store.tables || []).filter(t => t !== zone);
         updateDoc(doc(firestore, 'stores', store.id), { tables: updatedTables })
             .then(() => toast({ title: "Zone Removed" }));
+        incrementWriteCount(1);
     }
     
     return (
@@ -657,6 +652,7 @@ function EditMenuItemDialog({
 function MenuOnboardingTool({ storeId, onComplete, businessType }: { storeId: string, onComplete: () => void, businessType: string | undefined }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isProcessing, startProcessing] = useTransition();
     const [isSaving, startSave] = useTransition();
     const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
@@ -706,7 +702,6 @@ function MenuOnboardingTool({ storeId, onComplete, businessType }: { storeId: st
                 businessType: extractedData.businessType 
             });
 
-            // PUSH TO CANONICAL CATALOG
             extractedData.items.forEach(item => {
                 const slug = createSlug(item.name);
                 const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
@@ -720,19 +715,15 @@ function MenuOnboardingTool({ storeId, onComplete, businessType }: { storeId: st
                 }, { merge: true });
             });
 
-            try {
-                await batch.commit();
-                toast({ title: "Business Live!", description: "Digital menu and vertical synced successfully." });
-                setExtractedData(null);
-                onComplete();
-            } catch (error: any) {
-                const permissionError = new FirestorePermissionError({
-                    path: `stores/${storeId}/menus`,
-                    operation: 'create',
-                    requestResourceData: { items: extractedData.items }
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            }
+            // NON-BLOCKING COMMIT
+            batch.commit().catch(error => {
+                console.error("Batch commit failed:", error);
+            });
+
+            toast({ title: "Business Live!", description: "Digital menu and vertical synced successfully." });
+            incrementWriteCount(1);
+            setExtractedData(null);
+            onComplete();
         });
     };
 
@@ -810,12 +801,7 @@ function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: 
 
     const handleStartOver = async () => {
         if (!firestore || !menu) return;
-        try {
-            await deleteDoc(doc(firestore, `stores/${store.id}/menus`, menu.id));
-            onUpdate();
-        } catch (e) {
-            console.error(e);
-        }
+        deleteDoc(doc(firestore, `stores/${store.id}/menus`, menu.id)).then(() => onUpdate());
     };
 
     return (
@@ -842,7 +828,6 @@ export default function MenuManagerPage() {
 
     const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
     
-    // PRIORITY: Firestore data > Cached data
     const myStore = useMemo(() => ownerStores?.[0] || stores.find(s => s.ownerId === user?.uid), [ownerStores, stores, user?.uid]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);

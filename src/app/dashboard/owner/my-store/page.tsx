@@ -80,11 +80,8 @@ function StoreImageUploader({ store }: { store: Store }) {
             const storeRef = doc(firestore, 'stores', store.id);
             const updateData = { imageUrl: imageUrl };
 
+            // OPTIMISTIC NON-BLOCKING WRITE
             updateDoc(storeRef, updateData)
-                .then(() => {
-                    toast({ title: 'Image Updated!' });
-                    incrementWriteCount(1);
-                })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -92,6 +89,9 @@ function StoreImageUploader({ store }: { store: Store }) {
                         requestResourceData: updateData,
                     }));
                 });
+            
+            toast({ title: 'Image Queued!' });
+            incrementWriteCount(1);
         });
     };
 
@@ -154,13 +154,9 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         if (!firestore) return;
         startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
+            
+            // OPTIMISTIC NON-BLOCKING WRITE
             updateDoc(storeRef, data)
-                .then(() => {
-                    toast({ title: "Identity Updated!" });
-                    incrementWriteCount(1);
-                    setIsOpen(false);
-                    onUpdate();
-                })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -168,6 +164,11 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         requestResourceData: data,
                     }));
                 });
+            
+            toast({ title: "Changes Queued!" });
+            incrementWriteCount(1);
+            setIsOpen(false);
+            onUpdate();
         });
     };
 
@@ -251,7 +252,6 @@ export default function MyStorePage() {
 
     useEffect(() => {
         if (firestore && user && !userStore) {
-            // TARGETED 1-READ FETCH
             fetchUserStore(firestore, user.uid);
         }
     }, [firestore, user, userStore, fetchUserStore]);
