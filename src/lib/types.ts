@@ -25,6 +25,18 @@ export type Product = {
   price?: number;
 };
 
+// Central Product Registry for Admin Management
+export type CanonicalProduct = {
+    id: string; // The de-duplicated name slug
+    name: string;
+    imageUrl?: string;
+    category?: string;
+    businessType?: 'restaurant' | 'salon' | 'grocery';
+    discoveredInStoreId?: string;
+    discoveredAt?: any;
+    updatedAt?: any;
+};
+
 export type MenuTheme = {
     backgroundColor: string;
     primaryColor: string;
@@ -321,6 +333,7 @@ export type SiteConfig = {
     liveVideoUrl?: string;
     isPackGeneratorEnabled?: boolean;
     isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
     isMaintenance?: boolean;

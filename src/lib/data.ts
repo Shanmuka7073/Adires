@@ -1,6 +1,6 @@
 
 'use client';
-import type { Store, Product, ProductPrice, SiteConfig } from './types';
+import type { Store, Product, ProductPrice, CanonicalProduct } from './types';
 import {
   collection,
   doc,
@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import placeholderData from './placeholder-images.json';
 
-// OPTIMIZED: Use static import for placeholder data to avoid dynamic await inside loops
+// OPTIMIZED: Use static import for placeholder data
 const getImages = () => placeholderData.placeholderImages;
 
 const getImage = (id: string) => {
@@ -107,7 +107,30 @@ export async function getProductPrice(db: Firestore, productName: string): Promi
     return null;
 }
 
-// --- Optimized image functions ---
+/**
+ * STRATEGIC IMAGE LOOKUP
+ * 1. Checks for direct URL on the product.
+ * 2. Checks the global canonicalCatalog for a master image override.
+ * 3. Falls back to static placeholder identifiers.
+ */
+export async function getUnifiedProductImage(db: Firestore, product: Product) {
+    if (product.imageUrl) return { imageUrl: product.imageUrl, imageHint: product.name };
+
+    // Try canonical override
+    try {
+        const slug = product.name.toLowerCase().trim().replace(/\s+/g, '-');
+        const canonicalRef = doc(db, 'canonicalCatalog', slug);
+        const snap = await getDoc(canonicalRef);
+        if (snap.exists()) {
+            const data = snap.data() as CanonicalProduct;
+            if (data.imageUrl) return { imageUrl: data.imageUrl, imageHint: product.name };
+        }
+    } catch (e) {
+        console.warn("Canonical image fetch failed for", product.name);
+    }
+
+    return getImage(product.imageId);
+}
 
 export const getProductImage = (imageId: string) => getImage(imageId);
 export const getStoreImage = (store: Store) => {

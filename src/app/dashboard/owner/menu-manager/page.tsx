@@ -5,7 +5,7 @@ import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, limit, updateDoc, deleteDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import type { Store, Menu, MenuItem, MenuTheme, CustomizationGroup, CustomizationOption } from '@/lib/types';
+import type { Store, Menu, MenuItem, MenuTheme, CustomizationGroup, CustomizationOption, CanonicalProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -249,7 +249,29 @@ function MenuDisplay({ store, menu: initialMenu, onReplace }: { store: Store, me
 
     const persistMenu = async (uM: Menu) => {
         if (!firestore) return false;
-        try { await setDoc(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); return true; } catch (e) { return false; }
+        try { 
+            const batch = writeBatch(firestore);
+            batch.set(doc(firestore, `stores/${store.id}/menus`, uM.id), uM, { merge: true }); 
+            
+            // PUSH TO CANONICAL CATALOG FOR ADMIN
+            uM.items.forEach(item => {
+                const slug = createSlug(item.name);
+                const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
+                batch.set(canonicalRef, {
+                    id: slug,
+                    name: item.name,
+                    category: item.category,
+                    businessType: store.businessType || 'restaurant',
+                    discoveredInStoreId: store.id,
+                    discoveredAt: serverTimestamp()
+                }, { merge: true });
+            });
+
+            await batch.commit();
+            return true; 
+        } catch (e) { 
+            return false; 
+        }
     };
 
     const handleSaveItem = async (itemData: MenuItem, isNew: boolean) => {
@@ -632,7 +654,7 @@ function EditMenuItemDialog({
   );
 }
 
-function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
+function MenuOnboardingTool({ storeId, onComplete, businessType }: { storeId: string, onComplete: () => void, businessType: string | undefined }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
     const [isProcessing, startProcessing] = useTransition();
@@ -682,6 +704,20 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
             batch.update(doc(firestore, 'stores', storeId), { 
                 businessType: extractedData.businessType 
+            });
+
+            // PUSH TO CANONICAL CATALOG
+            extractedData.items.forEach(item => {
+                const slug = createSlug(item.name);
+                const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
+                batch.set(canonicalRef, {
+                    id: slug,
+                    name: item.name,
+                    category: item.category,
+                    businessType: extractedData.businessType,
+                    discoveredInStoreId: storeId,
+                    discoveredAt: serverTimestamp()
+                }, { merge: true });
             });
 
             try {
@@ -787,7 +823,7 @@ function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: 
         {menu ? (
             <MenuDisplay store={store} menu={menu} onReplace={handleStartOver} />
         ) : (
-            <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} />
+            <MenuOnboardingTool storeId={store.id} onComplete={onUpdate} businessType={store.businessType} />
         )}
       </div>
     );
@@ -806,7 +842,7 @@ export default function MenuManagerPage() {
 
     const { data: ownerStores, isLoading: isOwnerStoreLoading, refetch } = useCollection<Store>(ownerStoreQuery);
     
-    // PRIORITY: Firestore data > Cached data for real-time Floor Map updates
+    // PRIORITY: Firestore data > Cached data
     const myStore = useMemo(() => ownerStores?.[0] || stores.find(s => s.ownerId === user?.uid), [ownerStores, stores, user?.uid]);
 
     useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);

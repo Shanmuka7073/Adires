@@ -1,15 +1,16 @@
+
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, writeBatch, limit } from 'firebase/firestore';
-import type { Product, Store } from '@/lib/types';
+import { collection, query, where, doc, writeBatch, limit, getDocs, collectionGroup, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import type { Product, Store, CanonicalProduct } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, Save, Sparkles, ImageIcon, Edit3, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Save, Sparkles, ImageIcon, Edit3, RefreshCw, Layers, ShoppingBag, Utensils, Scissors, Globe } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -17,18 +18,29 @@ import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
+const createSlug = (text: string) => {
+    if(!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') 
+      .replace(/[^\w-]+/g, '') 
+      .replace(/--+/g, '-') 
+      .replace(/^-+/, '') 
+      .replace(/-+$/, ''); 
+};
+
 function ProductEditDialog({ 
     product, 
-    masterStoreId,
     isOpen, 
     onOpenChange, 
     onSave 
 }: { 
-    product: Product | null, 
-    masterStoreId: string,
+    product: CanonicalProduct | null, 
     isOpen: boolean, 
     onOpenChange: (open: boolean) => void, 
     onSave: () => void 
@@ -37,11 +49,15 @@ function ProductEditDialog({
     const { firestore } = useFirebase();
     const [isSaving, startSave] = useTransition();
     const [isGenerating, startGen] = useTransition();
-    const [formData, setFormData] = useState({ name: '', imageUrl: '' });
+    const [formData, setFormData] = useState({ name: '', imageUrl: '', category: '' });
 
     useEffect(() => {
         if (product) {
-            setFormData({ name: product.name, imageUrl: product.imageUrl || '' });
+            setFormData({ 
+                name: product.name, 
+                imageUrl: product.imageUrl || '',
+                category: product.category || ''
+            });
         }
     }, [product]);
 
@@ -61,26 +77,20 @@ function ProductEditDialog({
     };
 
     const handleSave = () => {
-        if (!firestore || !product || !masterStoreId) return;
+        if (!firestore || !product) return;
         startSave(async () => {
             try {
-                const batch = writeBatch(firestore);
+                const slug = product.id;
+                const canonicalRef = doc(firestore, 'canonicalCatalog', slug);
                 
-                // 1. Update Master Copy
-                const masterRef = doc(firestore, `stores/${masterStoreId}/products`, product.id);
-                batch.update(masterRef, {
+                await setDoc(canonicalRef, {
+                    ...product,
                     name: formData.name,
-                    imageUrl: formData.imageUrl
-                });
-
-                // 2. Update Alias Group if it exists
-                const slug = product.name.toLowerCase().replace(/\s+/g, '-');
-                const aliasRef = doc(firestore, 'voiceAliasGroups', slug);
-                batch.set(aliasRef, {
-                    en: [formData.name.toLowerCase()]
+                    imageUrl: formData.imageUrl,
+                    category: formData.category,
+                    updatedAt: serverTimestamp()
                 }, { merge: true });
 
-                await batch.commit();
                 toast({ title: "Master Catalog Updated" });
                 onSave();
                 onOpenChange(false);
@@ -97,7 +107,7 @@ function ProductEditDialog({
             <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden max-w-lg p-0">
                 <DialogHeader className="p-8 bg-primary/5 pb-4">
                     <DialogTitle className="text-xl font-black uppercase tracking-tight">Edit Master Entry</DialogTitle>
-                    <DialogDescription className="font-bold opacity-40 uppercase text-[10px]">Changes reflect across all store templates</DialogDescription>
+                    <DialogDescription className="font-bold opacity-40 uppercase text-[10px]">Changes reflect globally across all storefronts</DialogDescription>
                 </DialogHeader>
                 <div className="p-8 space-y-6">
                     <div className="space-y-2">
@@ -108,9 +118,19 @@ function ProductEditDialog({
                             className="h-12 rounded-xl border-2 font-bold"
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase opacity-40">Category Mapping</Label>
+                        <Input 
+                            value={formData.category} 
+                            onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                            placeholder="e.g. Main Course, Fresh Vegetables"
+                            className="h-12 rounded-xl border-2 font-bold"
+                        />
+                    </div>
                     
                     <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase opacity-40">Primary Visual</Label>
+                        <Label className="text-[10px] font-black uppercase opacity-40">Master Visual Override</Label>
                         <div className="relative aspect-video rounded-2xl overflow-hidden border-2 bg-muted flex items-center justify-center">
                             {formData.imageUrl ? (
                                 <Image src={formData.imageUrl} alt="Preview" fill className="object-cover" />
@@ -125,7 +145,7 @@ function ProductEditDialog({
                         </div>
                         <div className="flex gap-2">
                             <Input 
-                                placeholder="Paste URL..." 
+                                placeholder="Direct URL..." 
                                 value={formData.imageUrl}
                                 onChange={e => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
                                 className="h-10 rounded-xl border-2 text-xs"
@@ -146,7 +166,7 @@ function ProductEditDialog({
                     <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl font-bold">Cancel</Button>
                     <Button onClick={handleSave} disabled={isSaving} className="rounded-xl h-12 px-8 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
                         {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
-                        Commit Changes
+                        Commit Master Update
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -161,83 +181,134 @@ export default function CatalogManagerPage() {
     const { toast } = useToast();
     
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [editingProduct, setEditingProduct] = useState<CanonicalProduct | null>(null);
     const [isRefreshing, startRefresh] = useTransition();
+    const [catalog, setCatalog] = useState<CanonicalProduct[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const masterStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'), limit(1));
-    }, [firestore]);
+    /**
+     * UNIVERSAL CATALOG SYNC logic
+     * 1. Fetches de-duplicated items from the 'canonicalCatalog' (Admin maintained).
+     * 2. Fetches current products from all stores via collectionGroup to find "Discovered" items.
+     * 3. Merges them to show a complete picture of everything on the platform.
+     */
+    const syncCatalog = useCallback(async () => {
+        if (!firestore) return;
+        setIsLoading(true);
+        try {
+            // A. Get master registry
+            const canonicalSnap = await getDocs(collection(firestore, 'canonicalCatalog'));
+            const canonicalMap = new Map(canonicalSnap.docs.map(doc => [doc.id, { ...doc.data(), id: doc.id } as CanonicalProduct]));
 
-    const { data: masterStores, isLoading: storeLoading } = useCollection<Store>(masterStoreQuery);
-    const masterStoreId = masterStores?.[0]?.id;
+            // B. Get all existing store products via collectionGroup
+            const productsQuery = query(collectionGroup(firestore, 'products'), limit(500));
+            const productsSnap = await getDocs(productsQuery);
+            
+            // C. Merge logic: Store products that aren't in canonicalCatalog are "New Discoveries"
+            productsSnap.forEach(docSnap => {
+                const data = docSnap.data() as Product;
+                const slug = createSlug(data.name);
+                if (!canonicalMap.has(slug)) {
+                    canonicalMap.set(slug, {
+                        id: slug,
+                        name: data.name,
+                        category: data.category,
+                        discoveredInStoreId: data.storeId,
+                        discoveredAt: new Date().toISOString()
+                    });
+                }
+            });
 
-    const productsQuery = useMemoFirebase(() => {
-        if (!firestore || !masterStoreId) return null;
-        return collection(firestore, `stores/${masterStoreId}/products`);
-    }, [firestore, masterStoreId]);
-
-    const { data: products, isLoading: productsLoading, refetch } = useCollection<Product>(productsQuery);
+            setCatalog(Array.from(canonicalMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
+        } catch (e) {
+            console.error("Catalog sync error:", e);
+            toast({ variant: 'destructive', title: "Audit Sync Failed" });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [firestore, toast]);
 
     useEffect(() => {
         if (!isAdminLoading && !isAdmin) router.replace('/dashboard');
-    }, [isAdmin, isAdminLoading, router]);
+        if (isAdmin) syncCatalog();
+    }, [isAdmin, isAdminLoading, router, syncCatalog]);
 
-    const filteredProducts = useMemo(() => {
-        if (!products) return [];
-        return products.filter(p => 
+    const filteredCatalog = useMemo(() => {
+        return catalog.filter(p => 
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-        ).sort((a, b) => a.name.localeCompare(b.name));
-    }, [products, searchTerm]);
+        );
+    }, [catalog, searchTerm]);
 
-    if (isAdminLoading || storeLoading) return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /></div>;
+    if (isAdminLoading || isLoading) return <div className="p-12 text-center flex flex-col items-center justify-center h-[60vh] gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /><p className="text-[10px] font-black uppercase tracking-widest opacity-40">Building Market Intelligence...</p></div>;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-700">
             <ProductEditDialog 
                 product={editingProduct} 
-                masterStoreId={masterStoreId || ''}
                 isOpen={!!editingProduct} 
                 onOpenChange={o => !o && setEditingProduct(null)}
-                onSave={() => refetch && refetch()}
+                onSave={syncCatalog}
             />
 
-            <div className="flex justify-between items-end border-b pb-10 border-black/5">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Catalog Hub</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Master Product Repository & Visuals</p>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Market Catalog</h1>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Cross-Store Discovery & Branding</p>
                 </div>
-                <div className="flex gap-4">
-                    <div className="relative w-64">
+                <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                    <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-20" />
                         <Input 
-                            placeholder="Audit search..." 
+                            placeholder="Search everything..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="pl-9 h-11 rounded-xl border-2 font-bold"
+                            className="pl-9 h-11 rounded-xl border-2 font-bold bg-white"
                         />
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => startRefresh(async () => { refetch && refetch(); toast({ title: "Audit Sync Complete" }); })} disabled={isRefreshing} className="rounded-full h-11 px-6 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
-                        <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isRefreshing && "animate-spin")} /> Re-Sync
+                    <Button variant="outline" size="sm" onClick={() => startRefresh(syncCatalog)} disabled={isRefreshing} className="rounded-full h-11 px-6 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
+                        <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isRefreshing && "animate-spin")} /> Force Audit Sync
                     </Button>
                 </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-slate-900 text-white flex items-center gap-4">
+                    <Globe className="h-10 w-10 text-primary opacity-40" />
+                    <div>
+                        <p className="text-3xl font-black italic leading-none">{catalog.length}</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest text-primary mt-1">Unique Items Discovered</p>
+                    </div>
+                </Card>
+                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-white border-2 border-primary/10 flex items-center gap-4">
+                    <Utensils className="h-10 w-10 text-orange-500 opacity-40" />
+                    <div>
+                        <p className="text-3xl font-black italic leading-none">{catalog.filter(p => p.businessType === 'restaurant').length}</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">Restaurant Dishes</p>
+                    </div>
+                </Card>
+                <Card className="rounded-[2rem] border-0 shadow-lg p-6 bg-white border-2 border-primary/10 flex items-center gap-4">
+                    <Scissors className="h-10 w-10 text-blue-600 opacity-40" />
+                    <div>
+                        <p className="text-3xl font-black italic leading-none">{catalog.filter(p => p.businessType === 'salon').length}</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mt-1">Salon Services</p>
+                    </div>
+                </Card>
             </div>
 
             <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                 <Table>
                     <TableHeader className="bg-black/5">
                         <TableRow>
-                            <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Product Identity</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Discovery Hub</TableHead>
                             <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Category</TableHead>
+                            <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead>
                             <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40 pr-8">Modify</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {productsLoading ? (
-                            <TableRow><TableCell colSpan={3} className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></TableCell></TableRow>
-                        ) : filteredProducts.length > 0 ? (
-                            filteredProducts.map(p => (
+                        {filteredCatalog.length > 0 ? (
+                            filteredCatalog.map(p => (
                                 <TableRow key={p.id} className="hover:bg-muted/30 transition-colors border-b border-black/5">
                                     <TableCell className="py-6">
                                         <div className="flex items-center gap-4">
@@ -246,7 +317,7 @@ export default function CatalogManagerPage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-black text-sm uppercase tracking-tight text-gray-950 truncate leading-tight">{p.name}</p>
-                                                <p className="text-[8px] font-black text-primary opacity-40 uppercase tracking-widest mt-1">ID: {p.id}</p>
+                                                <p className="text-[8px] font-black text-primary opacity-40 uppercase tracking-widest mt-1">Slug: {p.id}</p>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -254,6 +325,13 @@ export default function CatalogManagerPage() {
                                         <div className="px-3 py-1 rounded-lg bg-black/5 border border-black/5 w-fit">
                                             <p className="text-[10px] font-black uppercase tracking-tighter opacity-60">{p.category || 'Uncategorized'}</p>
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {p.discoveredInStoreId ? (
+                                            <Badge variant="secondary" className="text-[7px] font-black uppercase tracking-widest">Discovered</Badge>
+                                        ) : (
+                                            <Badge variant="default" className="text-[7px] font-black uppercase tracking-widest">Master</Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right pr-8">
                                         <Button 
@@ -269,8 +347,8 @@ export default function CatalogManagerPage() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={3} className="p-32 text-center opacity-20">
-                                    <ImageIcon className="h-12 w-12 mx-auto mb-4" />
+                                <TableCell colSpan={4} className="p-32 text-center opacity-20">
+                                    <Utensils className="h-12 w-12 mx-auto mb-4" />
                                     <p className="font-black uppercase tracking-widest text-xs">Zero products matched</p>
                                 </TableCell>
                             </TableRow>

@@ -120,5 +120,11 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isOwner(partnerId);
     }
+
+    // THE CENTRAL SOURCE OF TRUTH FOR PRODUCTS
+    match /canonicalCatalog/{productId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Allow merchants to contribute, but admin manages visuals
+    }
   }
 }
