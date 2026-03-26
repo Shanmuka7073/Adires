@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, Sparkles } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Clock, User, Phone, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
 import { format, addDays, startOfDay } from 'date-fns';
 import { getAvailableSlots, createBooking } from '@/app/actions';
 import { useFirebase } from '@/firebase';
@@ -42,7 +42,12 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
         const fetchSlots = async () => {
             startLoadingSlots(async () => {
                 const res = await getAvailableSlots(store.id, format(selectedDate, 'yyyy-MM-dd'), service.duration || 30);
-                if (res.success) setSlots(res.slots || []);
+                if (res.success) {
+                    setSlots(res.slots || []);
+                } else {
+                    console.error("Failed to fetch slots:", res.error);
+                    setSlots([]);
+                }
             });
         };
         fetchSlots();
@@ -126,7 +131,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                     </h4>
                     {isLoadingSlots ? (
                         <div className="flex justify-center p-8 opacity-20"><Loader2 className="animate-spin h-6 w-6" /></div>
-                    ) : (
+                    ) : slots.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2">
                             {slots.map(slot => (
                                 <button
@@ -142,6 +147,11 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                                     {slot.label}
                                 </button>
                             ))}
+                        </div>
+                    ) : (
+                        <div className="p-10 text-center rounded-2xl bg-white border-2 border-dashed border-black/5">
+                            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                            <p className="text-[10px] font-black uppercase opacity-40 tracking-widest">No slots available for this day</p>
                         </div>
                     )}
                 </section>

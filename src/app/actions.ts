@@ -1,10 +1,11 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
-import { format, addMinutes, isAfter, parse } from 'date-fns';
+import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -335,8 +336,13 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
         const storeSnap = await db.collection('stores').doc(storeId).get();
         const storeData = storeSnap.data();
         
-        const startHour = parseInt(storeData?.workingHours?.start?.split(':')[0] || '10');
-        const endHour = parseInt(storeData?.workingHours?.end?.split(':')[0] || '20');
+        const startHourStr = storeData?.workingHours?.start || '10:00';
+        const endHourStr = storeData?.workingHours?.end || '20:00';
+        
+        const startHour = parseInt(startHourStr.split(':')[0]);
+        const startMin = parseInt(startHourStr.split(':')[1] || '0');
+        const endHour = parseInt(endHourStr.split(':')[0]);
+        const endMin = parseInt(endHourStr.split(':')[1] || '0');
 
         const bookingsSnap = await db.collection('bookings')
             .where('storeId', '==', storeId)
@@ -347,9 +353,15 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
         const bookedTimes = new Set(bookingsSnap.docs.map(doc => doc.data().time));
 
         const slots = [];
-        let current = parse(`${date} ${startHour}:00`, 'yyyy-MM-dd H:mm', new Date());
-        const end = parse(`${date} ${endHour}:00`, 'yyyy-MM-dd H:mm', new Date());
+        const baseDate = parse(date, 'yyyy-MM-dd', new Date());
+        
+        let current = setHours(setMinutes(startOfDay(baseDate), startMin), startHour);
+        const end = setHours(setMinutes(startOfDay(baseDate), endMin), endHour);
+        
         const now = new Date();
+
+        // Safety break to prevent infinite loops if duration is 0 or negative
+        const interval = Math.max(15, duration || 30);
 
         while (current < end) {
             const timeStr = format(current, 'HH:mm');
@@ -362,11 +374,12 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
                 available: !isBooked && !isPast
             });
 
-            current = addMinutes(current, duration || 30);
+            current = addMinutes(current, interval);
         }
 
         return { success: true, slots };
     } catch (error: any) {
+        console.error("Slot generation error:", error);
         return { success: false, error: error.message };
     }
 }
