@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
@@ -17,22 +16,10 @@ import Image from 'next/image';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, createSlug } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
-
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
 
 function ProductEditDialog({ 
     product, 

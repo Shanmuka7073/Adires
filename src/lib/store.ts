@@ -1,15 +1,15 @@
-
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
+import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup, CanonicalProduct } from './types';
 import { useEffect, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups,t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
+import { createSlug } from './utils';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -24,6 +24,7 @@ export interface AppState {
   stores: Store[];
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
+  canonicalCatalog: Record<string, CanonicalProduct>; // Global branding registry
   userStore: Store | null; 
   loading: boolean;
   isInitialized: boolean;
@@ -64,6 +65,7 @@ export const useAppStore = create<AppState>()(
       stores: [],
       masterProducts: [],
       productPrices: {},
+      canonicalCatalog: {},
       userStore: null,
       locales: {},
       commands: {},
@@ -101,14 +103,21 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
+          const [storesSnap, aliasDocs, commandDocs, canonicalSnap] = await Promise.all([
             getDocs(query(collection(db, 'stores'), limit(50))).catch(() => ({ docs: [] })),
             getDocs(query(collection(db, 'voiceAliasGroups'), limit(100))).catch(() => ({ docs: [] })),
-            getDocs(query(collection(db, 'voiceCommands'), limit(50))).catch(() => ({ docs: [] }))
+            getDocs(query(collection(db, 'voiceCommands'), limit(50))).catch(() => ({ docs: [] })),
+            getDocs(query(collection(db, 'canonicalCatalog'), limit(500))).catch(() => ({ docs: [] }))
           ]);
 
           const stores = (storesSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
+          // Identity Catalog
+          const canonicalCatalog: Record<string, CanonicalProduct> = {};
+          (canonicalSnap as any).docs.forEach((doc: any) => {
+              canonicalCatalog[doc.id] = { id: doc.id, ...doc.data() } as CanonicalProduct;
+          });
+
           // Identify the master store for products
           const masterStore = stores.find((s: Store) => s.name === 'LocalBasket');
           let masterProducts: Product[] = [];
@@ -140,13 +149,14 @@ export const useAppStore = create<AppState>()(
           set({
             stores,
             masterProducts,
+            canonicalCatalog,
             locales,
             commands: enrichedCommands,
             isInitialized: true,
             loading: false,
             appReady: true,
             userStore,
-            readCount: state.readCount + (storesSnap as any).docs.length + 2
+            readCount: state.readCount + (storesSnap as any).docs.length + (canonicalSnap as any).docs.length + 2
           });
           
         } catch (error) {
@@ -196,7 +206,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v19', 
+      name: 'adires-ops-v20', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

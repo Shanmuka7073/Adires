@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -97,7 +96,7 @@ import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import IngredientsDialog from '@/components/IngredientsDialog';
-import { cn } from '@/lib/utils';
+import { cn, createSlug } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -313,7 +312,12 @@ function LiveBillSheet({
 
 function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { item: MenuItem, onAdd: (item: MenuItem, qty: number) => void, onShowDetails: (item: MenuItem) => void, theme: MenuTheme | undefined, currentQtyInCart: number }) {
     const isOutOfStock = item.isAvailable === false;
+    const { canonicalCatalog } = useAppStore();
     
+    // UNIVERSAL BRANDING LOGIC
+    const canonicalEntry = canonicalCatalog[createSlug(item.name)];
+    const finalImageUrl = canonicalEntry?.imageUrl || item.imageUrl || ADIRES_LOGO;
+
     return (
         <Card className={cn(
             "rounded-3xl border-0 shadow-lg overflow-hidden bg-white hover:shadow-2xl transition-all duration-500",
@@ -321,7 +325,7 @@ function MenuCard({ item, onAdd, onShowDetails, theme, currentQtyInCart }: { ite
         )}>
             <div className="p-3 flex items-center gap-3">
                 <div className="relative h-20 w-20 rounded-full overflow-hidden border-4 border-black/5 bg-muted shrink-0 shadow-inner cursor-pointer" onClick={() => onShowDetails(item)}>
-                    <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
+                    <Image src={finalImageUrl} alt={item.name} fill className="object-cover" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -379,7 +383,7 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [isAdding, startAdding] = useTransition();
   const { canInstall, triggerInstall } = useInstall();
-  const { isInitialized, fetchInitialData, setUserStore, language } = useAppStore();
+  const { isInitialized, fetchInitialData, setUserStore, language, canonicalCatalog } = useAppStore();
   const { cartItems, addItem, clearCart, updateQuantity, cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
@@ -442,7 +446,8 @@ export default function PublicMenuPage() {
   }, [searchParams, storeId]);
 
   const handleAddItem = (item: MenuItem, qty: number = 1) => {
-    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: (item as any).imageUrl };
+    const canonical = canonicalCatalog[createSlug(item.name)];
+    const product: Product = { id: item.id, storeId: storeId, name: item.name, description: item.description || '', imageId: 'cat-restaurant', isMenuItem: true, price: item.price, imageUrl: canonical?.imageUrl || (item as any).imageUrl };
     const variant: ProductVariant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
     
     if (qty === 0) {

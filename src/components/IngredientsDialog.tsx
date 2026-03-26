@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from "react";
@@ -7,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Zap, X, CheckCircle, Info, Loader2, Sparkles, Star, Check, Plus, ArrowRight } from "lucide-react";
 import type { MenuItem, CustomizationOption } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, createSlug } from "@/lib/utils";
 import Image from "next/image";
 import { ScrollArea } from "./ui/scroll-area";
 import { Skeleton } from "./ui/skeleton";
+import { useAppStore } from "@/lib/store";
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -38,6 +38,7 @@ export default function IngredientsDialog({
   itemType = 'food',
 }: Props) {
   const [selectedCustoms, setSelectedCustoms] = useState<Record<string, CustomizationOption[]>>({});
+  const { canonicalCatalog } = useAppStore();
   const isFood = itemType === 'food';
 
   const customizationGroups = item.customizations || [];
@@ -62,13 +63,17 @@ export default function IngredientsDialog({
       return item.price + customsCost;
   }, [item.price, selectedCustoms]);
 
+  // UNIVERSAL BRANDING LOGIC
+  const canonicalEntry = canonicalCatalog[createSlug(item.name)];
+  const finalImageUrl = canonicalEntry?.imageUrl || item.imageUrl || ADIRES_LOGO;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="p-0 sm:max-w-2xl rounded-[2.5rem] md:rounded-[2.5rem] overflow-hidden border-0 shadow-2xl flex flex-col md:flex-row h-[92vh] md:h-auto max-h-[92vh] md:max-h-[85vh]">
         {/* Left Column: Media & Stats */}
         <div className="w-full md:w-[260px] shrink-0 bg-primary/5 flex flex-col h-[30vh] md:h-auto relative">
             <div className="relative flex-1 w-full bg-muted">
-                <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
+                <Image src={finalImageUrl} alt={item.name} fill className="object-cover" />
                 <button 
                     onClick={onClose}
                     className="absolute top-4 right-4 h-8 w-8 rounded-full bg-black/20 backdrop-blur-md text-white flex items-center justify-center md:hidden z-10"
