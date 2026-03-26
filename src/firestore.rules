@@ -76,7 +76,12 @@ service cloud.firestore {
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow write: if isStoreOwner(storeId);
+      allow write: if isStoreOwner(storeId) || isAdmin();
+    }
+    
+    // Admin Global Product Audit
+    match /{path=**}/products/{productId} {
+      allow read, list: if isAdmin();
     }
 
     match /stores/{storeId}/menus/{menuId} {

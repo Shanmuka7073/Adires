@@ -22,7 +22,8 @@ import {
   Info,
   Zap,
   FastForward,
-  Clock
+  Clock,
+  LayoutGrid
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -215,32 +216,12 @@ export default function AdminDashboardPage() {
       <div className="grid lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 space-y-10">
             <div className="space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Rocket className="h-3 w-3" /> System Health
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="p-8 rounded-[2.5rem] bg-green-50 border-2 border-green-100 flex flex-col items-center justify-center text-center gap-2">
-                        <ShieldCheck className="h-10 w-10 text-green-600 opacity-40" />
-                        <p className="font-black uppercase text-xs text-green-900">Infrastructure Stable</p>
-                        <p className="text-[10px] font-bold text-green-800/60 uppercase">All core services operational.</p>
-                    </div>
-                    <Link href="/dashboard/admin/offline-audit">
-                        <div className="p-8 rounded-[2.5rem] bg-indigo-50 border-2 border-indigo-100 flex flex-col items-center justify-center text-center gap-2 hover:bg-indigo-100 transition-colors group">
-                            <WifiOff className="h-10 w-10 text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity" />
-                            <p className="font-black uppercase text-xs text-indigo-900">Offline Sync Audit</p>
-                            <p className="text-[10px] font-bold text-indigo-800/60 uppercase">Check PWA & Registry Status</p>
-                        </div>
-                    </Link>
-                </div>
-            </div>
-
-            <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Control</h2>
                 <div className="grid gap-4 md:grid-cols-2">
+                    <AdminActionCard title="Catalog Manager" description="Manage master products and visuals." href="/dashboard/admin/catalog-manager" icon={LayoutGrid} />
                     <AdminActionCard title="System Status" description="Live health check of platform services." href="/dashboard/admin/system-status" icon={Server} />
                     <AdminActionCard title="Global Broadcast" description="Send push notifications to all users." href="/dashboard/admin/broadcast" icon={BellRing} />
                     <AdminActionCard title="App Overview" description="Complete design & architecture breakdown." href="/dashboard/admin/app-overview" icon={FileSignature} />
-                    <AdminActionCard title="Market Catalog" description="Manage master products and prices." href="/dashboard/owner/my-store" icon={Store} />
                     <AdminActionCard title="Security Rules" description="Production Firestore rule inspect." href="/dashboard/admin/security-rules" icon={Shield} />
                     <AdminActionCard title="Image Management" description="Centralized asset control." href="/dashboard/admin/image-management" icon={ImageIcon} />
                 </div>
@@ -250,27 +231,22 @@ export default function AdminDashboardPage() {
         <section className="space-y-10">
             <div className="space-y-4">
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] opacity-40 flex items-center gap-2">
-                    <Globe className="h-3 w-3" /> Production Status
+                    <Rocket className="h-3 w-3" /> Infrastructure
                 </h2>
-                <Card className="rounded-[2.5rem] border-0 shadow-lg bg-white overflow-hidden">
-                    <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
-                        <CardTitle className="text-xs font-black uppercase tracking-tight text-primary flex items-center gap-2">
-                            <Globe className="h-3 w-3" /> Deployment Info
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-4">
-                        <div className="space-y-1">
-                            <p className="text-[8px] font-black uppercase opacity-40">Primary Domain</p>
-                            <p className="text-[10px] font-bold text-primary truncate">adires.vercel.app</p>
+                <div className="grid grid-cols-1 gap-4">
+                    <div className="p-8 rounded-[2.5rem] bg-green-50 border-2 border-green-100 flex flex-col items-center justify-center text-center gap-2 shadow-sm">
+                        <ShieldCheck className="h-10 w-10 text-green-600 opacity-40" />
+                        <p className="font-black uppercase text-xs text-green-900">Infrastructure Stable</p>
+                        <p className="text-[10px] font-bold text-green-800/60 uppercase">All core services operational.</p>
+                    </div>
+                    <Link href="/dashboard/admin/offline-audit">
+                        <div className="p-8 rounded-[2.5rem] bg-indigo-50 border-2 border-indigo-100 flex flex-col items-center justify-center text-center gap-2 hover:bg-indigo-100 transition-colors group shadow-sm">
+                            <WifiOff className="h-10 w-10 text-indigo-600 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            <p className="font-black uppercase text-xs text-indigo-900">Offline Sync Audit</p>
+                            <p className="text-[10px] font-bold text-indigo-800/60 uppercase">Check PWA & Registry Status</p>
                         </div>
-                        <Alert className="bg-amber-50 border-amber-100 p-3 rounded-xl">
-                            <Info className="h-3 w-3 text-amber-600" />
-                            <AlertDescription className="text-[9px] font-bold text-amber-800 leading-tight">
-                                Ensure domain is authorized in Firebase Console.
-                            </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                </Card>
+                    </Link>
+                </div>
             </div>
         </section>
       </div>
