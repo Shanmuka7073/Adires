@@ -62,7 +62,6 @@ function LiveBillSheet({
 }: { 
     isSalon: boolean;
     placedOrders: Order[];
-    historyOrders: Order[];
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
     customerBookings?: Booking[];
@@ -88,7 +87,8 @@ function LiveBillSheet({
                               <Badge className={cn(
                                   "text-[8px] font-black uppercase",
                                   b.status === 'Completed' ? 'bg-green-500' : 
-                                  b.status === 'Booked' ? 'bg-blue-500' : 'bg-gray-400'
+                                  b.status === 'Booked' ? 'bg-blue-500' : 
+                                  b.status === 'In Progress' ? 'bg-amber-500' : 'bg-gray-400'
                               )}>{b.status}</Badge>
                           </Card>
                       ))
@@ -212,8 +212,11 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
-  const { language, deviceId } = useAppStore();
+  const { language, deviceId, isInitialized } = useAppStore();
   const { cartTotal } = useCart();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
@@ -230,18 +233,20 @@ export default function PublicMenuPage() {
     return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
 
-  const ordersQuery = useMemoFirebase(() => (firestore && sessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId]);
+  const ordersQuery = useMemoFirebase(() => (hasMounted && firestore && sessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, hasMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!firestore || !deviceId || !storeId) return null;
-      // Dual-identifier query: check deviceId or userId if logged in
+      if (!hasMounted || !firestore || !storeId || !isInitialized) return null;
       const baseCol = collection(firestore, 'bookings');
+      const identifier = user?.uid || deviceId;
+      if (!identifier) return null;
+
       if (user?.uid) {
           return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
       }
       return query(baseCol, where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [firestore, deviceId, storeId, user?.uid]);
+  }, [hasMounted, firestore, deviceId, storeId, user?.uid, isInitialized]);
 
   const { data: customerBookings } = useCollection<Booking>(bookingsQuery);
 
@@ -269,7 +274,7 @@ export default function PublicMenuPage() {
     });
   };
 
-  if (storeLoading || menuLoading || ordersLoading) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (storeLoading || menuLoading || !hasMounted) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900">Store not found.</div>;
 
   return (
@@ -360,7 +365,7 @@ export default function PublicMenuPage() {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} historyOrders={[]} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []}/>
+                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []}/>
                           </SheetContent>
                       </Sheet>
                   </div>

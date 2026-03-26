@@ -86,17 +86,18 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
 export default function SalonBookingsPage() {
     const { firestore, user } = useFirebase();
     const { userStore, stores, fetchInitialData, isInitialized } = useAppStore();
-    const { toast } = useToast();
-    const [filter, setFilter] = useState<'all' | 'booked' | 'active' | 'completed'>('all');
+    const [hasMounted, setHasMounted] = useState(false);
+
+    useEffect(() => { setHasMounted(true); }, []);
 
     useEffect(() => {
-        if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid);
-    }, [firestore, isInitialized, fetchInitialData, user?.uid]);
+        if (hasMounted && firestore && !isInitialized) fetchInitialData(firestore, user?.uid);
+    }, [firestore, isInitialized, fetchInitialData, user?.uid, hasMounted]);
 
     const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!firestore || !myStore) return null;
+        if (!hasMounted || !firestore || !myStore) return null;
         return query(
             collection(firestore, 'bookings'),
             where('storeId', '==', myStore.id),
@@ -104,7 +105,7 @@ export default function SalonBookingsPage() {
             orderBy('time', 'desc'),
             limit(100)
         );
-    }, [firestore, myStore]);
+    }, [firestore, myStore, hasMounted]);
 
     const { data: bookings, isLoading, refetch } = useCollection<Booking>(bookingsQuery);
 
@@ -112,29 +113,16 @@ export default function SalonBookingsPage() {
         if (!bookings) return { today: 0, revenue: 0, total: 0 };
         const todayBookings = bookings.filter(b => isToday(new Date(b.date)));
         const completedRevenue = bookings.filter(b => b.status === 'Completed').reduce((acc, b) => acc + b.price, 0);
-        return {
-            today: todayBookings.length,
-            revenue: completedRevenue,
-            total: bookings.length
-        };
+        return { today: todayBookings.length, revenue: completedRevenue, total: bookings.length };
     }, [bookings]);
 
-    const filteredBookings = useMemo(() => {
-        if (!bookings) return [];
-        if (filter === 'all') return bookings;
-        if (filter === 'booked') return bookings.filter(b => b.status === 'Booked');
-        if (filter === 'active') return bookings.filter(b => b.status === 'In Progress');
-        if (filter === 'completed') return bookings.filter(b => b.status === 'Completed');
-        return bookings;
-    }, [bookings, filter]);
-
-    if (!myStore) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+    if (!hasMounted || !myStore) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">Salon Pulse</h1>
+                    <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Salon Pulse</h1>
                     <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">{myStore.name} • Appointment Hub</p>
                 </div>
                 <button onClick={() => refetch()} className="h-10 w-10 rounded-full border-2 border-black/5 flex items-center justify-center active:scale-90 transition-all">
@@ -163,54 +151,32 @@ export default function SalonBookingsPage() {
                 </Card>
             </div>
 
-            <section className="space-y-6">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1">
-                    {[
-                        { k: 'all', l: 'All Jobs' },
-                        { k: 'booked', l: 'Upcoming' },
-                        { k: 'active', l: 'In Chair' },
-                        { k: 'completed', l: 'Finished' }
-                    ].map(f => (
-                        <button 
-                            key={f.k}
-                            onClick={() => setFilter(f.k as any)}
-                            className={cn(
-                                "px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all shrink-0",
-                                filter === f.k ? "bg-gray-950 border-gray-950 text-white shadow-lg" : "bg-white border-black/5 text-gray-400"
-                            )}
-                        >
-                            {f.l}
-                        </button>
-                    ))}
-                </div>
-
-                <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
-                    {isLoading ? (
-                        <div className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
-                    ) : filteredBookings.length === 0 ? (
-                        <div className="p-32 text-center opacity-30">
-                            <CalendarCheck className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                            <p className="font-black uppercase tracking-widest text-[10px]">Zero matches in this view</p>
-                        </div>
-                    ) : (
-                        <Table>
-                            <TableHeader className="bg-black/5">
-                                <TableRow>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40 pl-6">Client / Service</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Appointment</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead>
-                                    <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40 pr-6">Ops</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredBookings.map(b => (
-                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch && refetch()} />
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </Card>
-            </section>
+            <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
+                {isLoading ? (
+                    <div className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
+                ) : !bookings || bookings.length === 0 ? (
+                    <div className="p-32 text-center opacity-30">
+                        <CalendarCheck className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                        <p className="font-black uppercase tracking-widest text-[10px]">Zero appointments scheduled</p>
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader className="bg-black/5">
+                            <TableRow>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40 pl-6">Client / Service</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Appointment</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead>
+                                <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40 pr-6">Ops</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {bookings.map(b => (
+                                <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch && refetch()} />
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </Card>
         </div>
     );
 }
