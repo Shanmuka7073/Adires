@@ -342,8 +342,6 @@ function LiveBillSheet({
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
 }) {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
   const { cartItems, removeItem, cartTotal } = useCart();
   
   const placedTotal = useMemo(() => placedOrders.reduce((acc, order) => acc + order.totalAmount, 0), [placedOrders]);
@@ -351,29 +349,6 @@ function LiveBillSheet({
   
   const isBilled = placedOrders.some(o => o.status === 'Billed');
   const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
-
-  const handleRemovePlacedItem = async (order: Order, itemIdx: number) => {
-      if (!firestore) return;
-      const orderRef = doc(firestore, 'orders', order.id);
-      const updatedItems = [...order.items];
-      const removedItem = updatedItems.splice(itemIdx, 1)[0];
-      const newTotal = order.totalAmount - (removedItem.price * removedItem.quantity);
-      
-      try {
-          if (updatedItems.length === 0) {
-              await deleteDoc(orderRef);
-          } else {
-              await updateDoc(orderRef, {
-                  items: updatedItems,
-                  totalAmount: newTotal,
-                  updatedAt: serverTimestamp()
-              });
-          }
-          toast({ title: "Item Removed" });
-      } catch (e) {
-          toast({ variant: 'destructive', title: "Failed to remove item" });
-      }
-  };
 
   if (isLoadingOrders) return <div className="flex justify-center p-12 bg-[#1A1616]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   
@@ -402,22 +377,14 @@ function LiveBillSheet({
                             <OrderStatusTimeline status={order.status} theme={theme} />
 
                             <div className="space-y-2 pt-2">
-                                {order.items.map((it, iIdx) => {
-                                    const canDelete = ['Pending', 'Processing'].includes(order.status);
-                                    return (
-                                        <div key={iIdx} className="flex justify-between items-center text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
-                                            <div className="flex items-center gap-2">
-                                                {canDelete && (
-                                                    <button onClick={() => handleRemovePlacedItem(order, iIdx)} className="text-red-500 hover:text-red-400 p-1">
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </button>
-                                                )}
-                                                <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
-                                            </div>
-                                            <span className="font-black">₹{it.price * it.quantity}</span>
+                                {order.items.map((it, iIdx) => (
+                                    <div key={iIdx} className="flex justify-between items-center text-[11px]" style={{ color: theme?.textColor || '#fff' }}>
+                                        <div className="flex items-center gap-2">
+                                            <span className="opacity-80 font-bold">{it.productName} x{it.quantity}</span>
                                         </div>
-                                    )
-                                })}
+                                        <span className="font-black">₹{it.price * it.quantity}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
