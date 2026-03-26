@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminServices } from "@/firebase/admin-init";
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, WidthType, BorderStyle, ImageRun, ShadingType } from "docx";
@@ -56,7 +55,8 @@ export async function GET(request: NextRequest) {
 
     const buffer = await Packer.toBuffer(doc);
 
-    return new NextResponse(buffer, {
+    // Convert Buffer to Uint8Array to satisfy BodyInit type requirements in Next.js environment
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "Content-Disposition": `attachment; filename=Salary_Slip_${slipId}.docx`,
