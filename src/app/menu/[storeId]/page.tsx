@@ -56,12 +56,9 @@ import {
   AlertTriangle,
   CookingPot,
   LocateFixed,
-  Video,
   X,
   ShoppingBag,
   History,
-  Leaf,
-  Phone,
   Trash2,
   ChevronDown,
   Pizza,
@@ -91,17 +88,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
@@ -109,10 +98,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
@@ -185,112 +173,8 @@ function OrderStatusTimeline({ status, theme }: { status: Order['status'], theme
     );
 }
 
-function ModeSelectionDialog({ isOpen, onOpenChange, onSelectMode, currentMode, theme, isSalon }: any) {
-    const [selected, setSelected] = useState(currentMode);
-    const [tableVal, setTableVal] = useState('');
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                <DialogHeader>
-                    <DialogTitle className="font-black uppercase">Service Mode</DialogTitle>
-                    <DialogDescription>How are you ordering today?</DialogDescription>
-                </DialogHeader>
-                <div className="py-4 space-y-6">
-                    <RadioGroup value={selected} onValueChange={setSelected} className="grid grid-cols-1 gap-3">
-                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border-2 transition-all", selected === 'table' ? "border-primary bg-primary/5" : "border-black/5")}>
-                            <div className="flex items-center gap-3">
-                                <RadioGroupItem value="table" id="mode-table" />
-                                <Label htmlFor="mode-table" className="font-bold uppercase text-xs">{isSalon ? 'At the Chair' : 'Dine-in Table'}</Label>
-                            </div>
-                            <Utensils className="h-4 w-4 opacity-20" />
-                        </div>
-                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border-2 transition-all", selected === 'delivery' ? "border-primary bg-primary/5" : "border-black/5")}>
-                            <div className="flex items-center gap-3">
-                                <RadioGroupItem value="delivery" id="mode-delivery" />
-                                <Label htmlFor="mode-delivery" className="font-bold uppercase text-xs">Delivery / Home</Label>
-                            </div>
-                            <ShoppingBag className="h-4 w-4 opacity-20" />
-                        </div>
-                    </RadioGroup>
-
-                    {selected === 'table' && (
-                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                            <Label className="text-[10px] font-black uppercase opacity-40">{isSalon ? 'Chair' : 'Table'} Number</Label>
-                            <Input 
-                                placeholder="Enter number..." 
-                                value={tableVal} 
-                                onChange={e => setTableVal(e.target.value)}
-                                className="h-12 rounded-xl border-2 font-black"
-                            />
-                        </div>
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button 
-                        onClick={() => onSelectMode(selected, tableVal)} 
-                        disabled={selected === 'table' && !tableVal}
-                        className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg"
-                        style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}
-                    >
-                        Confirm Mode
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function DeliveryDetailsDialog({ isOpen, onOpenChange, onSave, initialData, theme }: any) {
-    const [name, setName] = useState(initialData.name || '');
-    const [phone, setPhone] = useState(initialData.phone || '');
-    const [address, setAddress] = useState(initialData.address || '');
-    const [lat, setLat] = useState<number | null>(null);
-    const [lng, setLng] = useState<number | null>(null);
-    const [isLocating, setIsLocating] = useState(false);
-
-    const handleGetLocation = () => {
-        setIsLocating(true);
-        navigator.geolocation.getCurrentPosition((pos) => {
-            setLat(pos.coords.latitude);
-            setLng(pos.coords.longitude);
-            setAddress(`GPS (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`);
-            setIsLocating(false);
-        }, () => setIsLocating(false));
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl">
-                <DialogHeader>
-                    <DialogTitle>Delivery Info</DialogTitle>
-                    <DialogDescription>Where should we send your order?</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Your Name</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Full Name" className="rounded-xl" /></div>
-                    <div className="space-y-1"><Label className="text-[10px] uppercase font-black opacity-40">Mobile Number</Label><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="10-digit number" className="rounded-xl" /></div>
-                    <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-black opacity-40">Full Address</Label>
-                        <div className="flex gap-2">
-                            <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Street, Building, Area" className="rounded-xl flex-1" />
-                            <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 shrink-0" onClick={handleGetLocation} disabled={isLocating}>
-                                {isLocating ? <Loader2 className="h-4 w-4 animate-spin"/> : <LocateFixed className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button onClick={() => onSave({ name, phone, address, lat, lng })} disabled={!name || !phone || !address} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg" style={{ backgroundColor: theme?.primaryColor || '#FBC02D', color: theme?.backgroundColor || '#1A1616' }}>Confirm Delivery Details</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 function LiveBillSheet({ 
-    sessionId, 
     theme, 
-    store, 
     isSalon,
     placedOrders,
     historyOrders,
@@ -482,8 +366,6 @@ export default function PublicMenuPage() {
   const [searchTerm, setSearchTerm] = useState(''); 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSearchVisible, setSearchVisible] = useState(false);
-  const [isDeliveryDetailsOpen, setIsDeliveryDetailsOpen] = useState(false); 
-  const [isModeDialogOpen, setIsModeDialogOpen] = useState(false); 
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(null); 
   const [deliveryAddress, setDeliveryAddress] = useState(''); 
@@ -558,24 +440,16 @@ export default function PublicMenuPage() {
     const variant: ProductVariant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
     
     if (qty === 0) {
-        // Logic handles removal if necessary, but addItem with qty 0 is usually a decrement
-        // For simplicity, we use the cart's existing update logic if item exists
         const existing = cartItems.find(i => i.product.id === item.id);
-        if (existing) {
-            updateQuantity(existing.variant.sku, 0);
-        }
+        if (existing) updateQuantity(existing.variant.sku, 0);
     } else {
         const existing = cartItems.find(i => i.product.id === item.id);
-        if (existing) {
-            updateQuantity(existing.variant.sku, qty);
-        } else {
-            addItem(product, variant, qty, tableNumber || undefined, sessionId);
-        }
+        if (existing) updateQuantity(existing.variant.sku, qty);
+        else addItem(product, variant, qty, tableNumber || undefined, sessionId);
     }
   };
 
   const handlePlaceOrder = () => {
-    if (!tableNumber && (!deliveryAddress || !customerName || !phone)) { setIsDeliveryDetailsOpen(true); return; }
     if (!firestore) return;
     startAdding(async () => {
         const isCounter = tableNumber === 'Counter';
@@ -597,14 +471,6 @@ export default function PublicMenuPage() {
     placedOrders.forEach(order => { batch.update(doc(firestore, 'orders', order.id), { status: 'Billed', updatedAt: serverTimestamp() }); });
     batch.commit().catch(e => toast({ variant: 'destructive', title: 'Action Failed' }));
     toast({ title: 'Bill Requested' });
-  };
-
-  const handleCallWaiter = (type: string) => { 
-    if (!firestore || !placedOrders?.length) return;
-    const orderRef = doc(firestore, 'orders', placedOrders[0].id);
-    updateDoc(orderRef, { needsService: true, serviceType: type, updatedAt: serverTimestamp() })
-        .then(() => toast({ title: 'Help is on the way!', description: `A staff member has been notified.` }))
-        .catch(e => toast({ variant: 'destructive', title: 'Request Failed' }));
   };
 
   const handleShowIngredients = (item: MenuItem) => {
@@ -640,7 +506,6 @@ export default function PublicMenuPage() {
       )}
       
       <div className="min-h-screen pb-40 bg-[#FDFCF7] font-body">
-          {/* HIGH FIDELITY HEADER */}
           <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-6 pb-4">
               <div className="max-w-2xl mx-auto space-y-6">
                   <div className="flex justify-between items-center">
@@ -688,7 +553,6 @@ export default function PublicMenuPage() {
                       </div>
                   )}
 
-                  {/* PILL CATEGORY SCROLLER */}
                   <div className="flex gap-2.5 overflow-x-auto no-scrollbar py-1">
                       {availableCategories.map(cat => {
                           const isActive = selectedCategory === cat;
@@ -748,7 +612,6 @@ export default function PublicMenuPage() {
               )}
           </div>
 
-          {/* SIGNATURE CART BAR */}
           {(activeItemCount > 0 || cartItems.length > 0) && !isSessionFinalized && (
               <div className="fixed bottom-8 left-0 right-0 z-50 px-5">
                   <div className="max-w-md mx-auto">
@@ -773,7 +636,6 @@ export default function PublicMenuPage() {
                                       sessionId={sessionId} 
                                       theme={theme} 
                                       store={store} 
-                                      onShowUpi={() => {}} 
                                       isSalon={isSalon} 
                                       placedOrders={placedOrders || []} 
                                       historyOrders={historyOrders || []} 
@@ -784,7 +646,6 @@ export default function PublicMenuPage() {
                           </Sheet>
                       </div>
                       
-                      {/* SUB-ACTION BAR (CALL WAITER / SEND ORDER) */}
                       {cartItems.length > 0 && (
                           <div className="mt-3 animate-in slide-in-from-bottom-2">
                               <Button 
