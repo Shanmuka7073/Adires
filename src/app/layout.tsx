@@ -54,13 +54,16 @@ export default function RootLayout({
        <head>
         <meta charSet="utf-8" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        {/* PERFORMANCE: Preconnect to critical domains */}
+        
+        {/* PERFORMANCE: Resource hints for critical Firebase domains */}
         <link rel="preconnect" href="https://www.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://www.google.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://firestore.googleapis.com" />
-        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="preconnect" href="https://studio-9070259337-c267a.firebaseapp.com" crossOrigin="anonymous" />
+        
         <link rel="dns-prefetch" href="https://www.google.com" />
         <link rel="dns-prefetch" href="https://www.gstatic.com" />
+        <link rel="dns-prefetch" href="https://studio-9070259337-c267a.firebaseapp.com" />
         
         <script dangerouslySetInnerHTML={{
             __html: `

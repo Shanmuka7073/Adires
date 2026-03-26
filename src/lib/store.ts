@@ -46,10 +46,8 @@ export interface AppState {
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getAllAliases: (key: string) => Record<string, string[]>;
-  // LEGACY STUBS (Removed for speed)
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
-  canonicalCatalog: Record<string, any>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
 }
@@ -67,7 +65,6 @@ export const useAppStore = create<AppState>()(
       stores: [],
       masterProducts: [],
       productPrices: {},
-      canonicalCatalog: {},
       userStore: null,
       locales: {},
       commands: defaultGeneralCommands,
@@ -98,10 +95,6 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
-      /**
-       * FETCH MARKETPLACE STORES
-       * Used for the home page and store directory.
-       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
         const state = get();
         if (state.loading) return;
@@ -109,7 +102,8 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(100)));
+          // Optimization: Only fetch a limited set of stores for the marketplace initial view
+          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
           if (!state.deviceId && typeof window !== 'undefined') {
@@ -117,6 +111,7 @@ export const useAppStore = create<AppState>()(
           }
 
           let userStore = state.userStore;
+          // If we have a userId but no identified store yet, find it in the list or fetch separately
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
@@ -136,20 +131,11 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      /**
-       * TARGETED IDENTITY FETCH (1 READ)
-       * Fetches ONLY the store belonging to the current user.
-       */
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
         if (state.loading) return;
         
-        // Skip if already loaded and verified
-        if (state.userStore && state.userStore.ownerId === userId) {
-            set({ appReady: true, isInitialized: true });
-            return;
-        }
-
+        // Strategy: 1 Read Identity Verification
         set({ loading: true, error: null });
 
         try {
@@ -186,7 +172,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-lean-v2', 
+      name: 'adires-ops-lean-v4', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -203,17 +189,17 @@ export const useInitializeApp = () => {
     const { fetchUserStore, loading, isInitialized, setAppReady, userStore } = useAppStore();
 
     useEffect(() => {
+        // Hydration check: if we already have a persisted business identity, show UI immediately
         if (isInitialized && userStore) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading) {
             if (user) {
-                // Perform targeted 1-read fetch for the merchant
+                // Perform targeted 1-read fetch for the merchant to verify identity
                 fetchUserStore(firestore, user.uid);
             } else {
-                // Guest mode
-                setAppReady(true);
+                // Guest mode: bypass DB boot and show marketplace
                 setAppReady(true);
             }
         }

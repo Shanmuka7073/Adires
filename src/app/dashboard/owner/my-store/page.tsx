@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import type { Store } from '@/lib/types';
-import { useFirebase, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { useFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -251,6 +251,7 @@ export default function MyStorePage() {
 
     useEffect(() => {
         if (firestore && user && !userStore) {
+            // TARGETED 1-READ FETCH
             fetchUserStore(firestore, user.uid);
         }
     }, [firestore, user, userStore, fetchUserStore]);
