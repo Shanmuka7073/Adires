@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useCallback, useEffect } from 'react';
@@ -20,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { approveRegularization, rejectRegularization } from '@/app/actions';
+import { useAppStore } from '@/lib/store';
 
 // LAZY LOAD HEAVY DATE PICKER
 const Calendar = dynamic(() => import('@/components/ui/calendar').then(mod => mod.Calendar), { 
@@ -107,7 +107,6 @@ export default function SalaryReportsPage() {
     const { toast } = useToast();
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState<any>({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
-    const [isGenerating, startGeneration] = useTransition();
     const { userStore, stores, fetchInitialData } = useAppStore();
 
     const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
