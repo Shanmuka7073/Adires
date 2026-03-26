@@ -48,35 +48,43 @@
       ]
     },
     {
-      "collectionGroup": "orders",
+      "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "status",
+          "fieldPath": "storeId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "orderDate",
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "storeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "time",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "orders",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "updatedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "orders",
+      "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -84,13 +92,13 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "orderDate",
+          "fieldPath": "date",
           "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "orders",
+      "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -98,7 +106,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "orderDate",
+          "fieldPath": "date",
           "order": "DESCENDING"
         }
       ]
