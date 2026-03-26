@@ -2,7 +2,7 @@
 
 import React, { type ReactNode, useEffect, useState } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
-import { getFirebaseApp, getAuthInstance, getFirestoreInstance, getStorageInstance, initializeAppCheckDeferred } from '@/firebase';
+import { getFirebaseApp, getAuthInstance, getFirestoreInstance, getStorageInstance } from '@/firebase';
 import GlobalLoader from '@/components/layout/global-loader';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
@@ -14,11 +14,11 @@ interface FirebaseClientProviderProps {
 }
 
 /**
- * STRATEGIC CLIENT PROVIDER (V3)
+ * STRATEGIC CLIENT PROVIDER (V4 - Optimized)
  * Fully dynamic initialization to solve build-time errors and bundle bloat.
  * 1. Initializes basic App and Auth shell on client mount.
  * 2. Lazily loads Firestore and Storage in the background.
- * 3. Defers App Check to clear the critical rendering path.
+ * 3. App Check and reCAPTCHA have been removed for maximum speed.
  */
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
@@ -46,11 +46,6 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
                 ]);
                 setFirestore(db);
                 setStorage(st);
-                
-                // Final deferral for reCAPTCHA App Check
-                setTimeout(() => {
-                    initializeAppCheckDeferred();
-                }, 4000);
             } catch (e) {
                 console.error("Delayed service load failed:", e);
             }

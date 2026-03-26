@@ -7,12 +7,11 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
 import { useAppStore, useInitializeApp } from '@/lib/store';
 import { InstallProvider } from '@/components/install-provider';
-import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 import GlobalLoader from './global-loader';
 
 /**
  * Optimized App Content.
- * Hardened to prevent hydration mismatches (Error #418, #423).
+ * Removed reCAPTCHA provider to resolve performance bottlenecks.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [hasHydrated, setHasHydrated] = useState(false);
@@ -33,23 +32,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <GoogleReCaptchaProvider 
-            reCaptchaKey="6LdgK5UsAAAAAN0jsIdfk5gPWZpSHKOo5aEGtYsw"
-            scriptProps={{
-                async: true,
-                defer: true,
-                appendTo: 'head',
-            }}
-        >
-            <InstallProvider>
-                <CartProvider>
-                    <MainLayout>
-                        {children}
-                    </MainLayout>
-                    <Toaster />
-                </CartProvider>
-            </InstallProvider>
-        </GoogleReCaptchaProvider>
+        <InstallProvider>
+            <CartProvider>
+                <MainLayout>
+                    {children}
+                </MainLayout>
+                <Toaster />
+            </CartProvider>
+        </InstallProvider>
     );
 }
 

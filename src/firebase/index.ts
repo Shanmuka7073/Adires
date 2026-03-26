@@ -21,11 +21,6 @@ export async function getStorageInstance() {
     return getStorageInstanceInternal();
 }
 
-export async function initializeAppCheckDeferred() {
-    const { initAppCheck } = await import('./appcheck');
-    return initAppCheck();
-}
-
 // Re-export common hooks and utilities
 export * from './provider';
 export * from './client-provider';
