@@ -246,30 +246,24 @@ function PromoteStore() {
 
 export default function MyStorePage() {
     const { user, firestore } = useFirebase();
-    const router = useRouter();
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-    const { stores, userStore, fetchInitialData } = useAppStore();
+    const { userStore, fetchUserStore } = useAppStore();
 
     useEffect(() => {
-        if (firestore && user) {
-            fetchInitialData(firestore, user.uid);
+        if (firestore && user && !userStore) {
+            fetchUserStore(firestore, user.uid);
         }
-    }, [firestore, user, fetchInitialData]);
-
-    const myStore = useMemo(() => {
-        if (userStore && userStore.ownerId === user?.uid) return userStore;
-        return stores.find(s => s.ownerId === user?.uid) || null;
-    }, [userStore, stores, user?.uid]);
+    }, [firestore, user, userStore, fetchUserStore]);
 
     if (isRoleLoading) return <div className="p-12 text-center h-[80vh] flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
 
-    if (!myStore) return <div className="p-12 text-center py-32"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store not found.</p></div>;
+    if (!userStore) return <div className="p-12 text-center py-32"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store not found.</p></div>;
 
     return (
         <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 gap-3">
-                <StoreDetails store={myStore} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
-                <StoreImageUploader store={myStore} />
+                <StoreDetails store={userStore} onUpdate={() => fetchUserStore(firestore!, user!.uid)} />
+                <StoreImageUploader store={userStore} />
                 <PromoteStore />
                 <Button asChild variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[9px] tracking-widest hover:bg-primary/10 shadow-sm transition-all active:scale-95">
                     <Link href="/dashboard/owner/menu-manager">

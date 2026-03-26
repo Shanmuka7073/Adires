@@ -42,6 +42,7 @@ export interface AppState {
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -97,6 +98,10 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
+      /**
+       * FETCH MARKETPLACE STORES
+       * Used for the home page and store directory.
+       */
       fetchInitialData: async (db: Firestore, userId?: string) => {
         const state = get();
         if (state.loading) return;
@@ -104,7 +109,6 @@ export const useAppStore = create<AppState>()(
         set({ loading: true, error: null });
         
         try {
-          // LEAN FETCH: Only fetch stores to identify the merchant
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(100)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
@@ -113,7 +117,7 @@ export const useAppStore = create<AppState>()(
           }
 
           let userStore = state.userStore;
-          if (userId) {
+          if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
@@ -132,8 +136,43 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      /**
+       * TARGETED IDENTITY FETCH (1 READ)
+       * Fetches ONLY the store belonging to the current user.
+       */
+      fetchUserStore: async (db: Firestore, userId: string) => {
+        const state = get();
+        if (state.loading) return;
+        
+        // Skip if already loaded and verified
+        if (state.userStore && state.userStore.ownerId === userId) {
+            set({ appReady: true, isInitialized: true });
+            return;
+        }
+
+        set({ loading: true, error: null });
+
+        try {
+            const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+            const snap = await getDocs(q);
+            const userStore = snap.docs.length > 0 
+                ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
+                : null;
+
+            set({
+                userStore,
+                isInitialized: true,
+                appReady: true,
+                loading: false,
+                readCount: state.readCount + 1
+            });
+        } catch (error) {
+            console.error("fetchUserStore failed:", error);
+            set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+        }
+      },
+
       fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          // Stubbed: No longer performing global pricing sync during boot
           return Promise.resolve();
       },
 
@@ -147,7 +186,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-lean-v1', 
+      name: 'adires-ops-lean-v2', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -161,14 +200,24 @@ export const useAppStore = create<AppState>()(
 
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    const { fetchInitialData, loading, isInitialized, setAppReady, userStore } = useAppStore();
+    const { fetchUserStore, loading, isInitialized, setAppReady, userStore } = useAppStore();
 
     useEffect(() => {
-        if (isInitialized) setAppReady(true);
-        if (firestore && !isUserLoading && !loading && (!isInitialized || (user && !userStore))) {
-            fetchInitialData(firestore, user?.uid);
+        if (isInitialized && userStore) {
+            setAppReady(true);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady, userStore]);
+        
+        if (firestore && !isUserLoading && !loading) {
+            if (user) {
+                // Perform targeted 1-read fetch for the merchant
+                fetchUserStore(firestore, user.uid);
+            } else {
+                // Guest mode
+                setAppReady(true);
+                setAppReady(true);
+            }
+        }
+    }, [firestore, user?.uid, isUserLoading, loading, fetchUserStore, isInitialized, setAppReady, userStore]);
 
     return { isLoading: loading };
 };
