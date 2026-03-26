@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -55,7 +54,9 @@ import {
   CupSoda,
   Star,
   ArrowRight,
-  LayoutGrid
+  LayoutGrid,
+  Package,
+  CookingPot
 } from 'lucide-react';
 
 import {
