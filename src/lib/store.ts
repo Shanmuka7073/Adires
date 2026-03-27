@@ -59,6 +59,19 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
+/**
+ * Sync-Safe Device ID Generator
+ */
+const getOrGenerateDeviceId = () => {
+    if (typeof window === 'undefined') return null;
+    let id = localStorage.getItem('adires-device-id');
+    if (!id) {
+        id = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('adires-device-id', id);
+    }
+    return id;
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -74,7 +87,7 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
-      deviceId: null,
+      deviceId: getOrGenerateDeviceId(),
       isCartOpen: false,
       readCount: 0,
       writeCount: 0,
@@ -105,10 +118,6 @@ export const useAppStore = create<AppState>()(
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          if (!state.deviceId && typeof window !== 'undefined') {
-              set({ deviceId: Math.random().toString(36).substring(2, 15) });
-          }
-
           let userStore = state.userStore;
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
@@ -125,15 +134,12 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // If offline, ensure we still mark as initialized to show cached UI
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
-        
-        // Return immediately if we already have the profile to avoid re-renders
         if (state.loading || (state.userStore && state.userStore.ownerId === userId)) {
             if (!state.appReady) set({ appReady: true });
             return;
@@ -157,7 +163,6 @@ export const useAppStore = create<AppState>()(
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            // On error (likely offline), mark ready anyway to show what we have in cache
             set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -188,28 +193,33 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-/**
- * OFFLINE-FIRST INITIALIZATION HOOK
- */
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
     const userStore = useAppStore(state => state.userStore);
+    const deviceId = useAppStore(state => state.deviceId);
+    const setDeviceId = useAppStore(state => state.setDeviceId);
 
     useEffect(() => {
-        // OPTIMISTIC UNLOCK: If we have ANY cached identity data, show the app immediately.
-        // This makes the app work "Starting to Ending" without internet.
+        // Double-lock the device identity on first load
+        if (typeof window !== 'undefined') {
+            const id = getOrGenerateDeviceId();
+            if (id && id !== deviceId) {
+                setDeviceId(id);
+            }
+        }
+    }, [deviceId, setDeviceId]);
+
+    useEffect(() => {
         if (isInitialized) {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading) {
             if (user) {
-                // Background sync only if missing or mismatched
                 if (!userStore || userStore.ownerId !== user.uid) {
                     fetchUserStore(firestore, user.uid);
                 } else {

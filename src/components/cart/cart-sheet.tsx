@@ -122,7 +122,8 @@ function CartSheetItem({ item, image }: { item: CartItem, image: { imageUrl: str
 }
 
 export function CartSheetContent() {
-  const { cartItems, cartTotal, cartCount, clearCart } = useCart();
+  const { cartItems, cartTotal, cartCount, clearCart, sessionId } = useCart();
+  const { deviceId } = useAppStore();
   const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
   const { user, auth, firestore } = useFirebase();
   const { toast } = useToast();
@@ -185,7 +186,7 @@ export function CartSheetContent() {
             
             const idToken = await currentUser.getIdToken();
 
-            const result = await placeRestaurantOrder(cartItems, cartTotal, finalGuestInfo, idToken);
+            const result = await placeRestaurantOrder(cartItems, cartTotal, finalGuestInfo, idToken, sessionId || undefined, deviceId || undefined);
 
             if (result.success && result.orderId) {
                 toast({

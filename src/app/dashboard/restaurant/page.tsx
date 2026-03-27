@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card } from '@/components/ui/card';
@@ -28,15 +29,6 @@ import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useInstall } from '@/components/install-provider';
 
-const serviceLinks = [
-    { title: 'MY STORE', description: 'Manage products & orders', href: '/dashboard/owner/my-store', icon: Store },
-    { title: 'STORE ORDERS', description: 'Manage live orders', href: '/dashboard/owner/orders', icon: ShoppingBag },
-    { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3, highlight: true },
-    { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff },
-    { title: 'EMPLOYEES', description: 'Manage staff', href: '/dashboard/owner/employees', icon: Users },
-    { title: 'SALARY', description: 'Salary reports', href: '/dashboard/owner/salary', icon: FileText }
-];
-
 export default function ServiceDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
@@ -62,10 +54,20 @@ export default function ServiceDashboardPage() {
         }
     }, [isLoading, user, isRestaurantOwner, isAdmin, router]);
 
-    const { dashboardTitle, DashboardIcon } = useMemo(() => {
-        if (!store) return { dashboardTitle: 'Business Hub', DashboardIcon: Store };
-        if (store.businessType === 'salon') return { dashboardTitle: 'Salon Hub', DashboardIcon: Scissors };
-        return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils };
+    const { dashboardTitle, DashboardIcon, serviceLinks } = useMemo(() => {
+        const isSalon = store?.businessType === 'salon';
+        
+        const links = [
+            { title: 'MY STORE', description: 'Manage products & orders', href: '/dashboard/owner/my-store', icon: Store },
+            { title: isSalon ? 'BOOKINGS' : 'STORE ORDERS', description: isSalon ? 'Live appointments' : 'Live table orders', href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', icon: ShoppingBag },
+            { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3, highlight: true },
+            { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff },
+            { title: 'EMPLOYEES', description: 'Manage staff', href: '/dashboard/owner/employees', icon: Users },
+            { title: 'SALARY', description: 'Salary reports', href: '/dashboard/owner/salary', icon: FileText }
+        ];
+
+        if (isSalon) return { dashboardTitle: 'Salon Hub', DashboardIcon: Scissors, serviceLinks: links };
+        return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils, serviceLinks: links };
     }, [store]);
 
     if (isLoading) {

@@ -27,7 +27,7 @@ export type Product = {
 
 // Central Product Registry for Admin Management
 export type CanonicalProduct = {
-    id: string; // The de-duplicated name slug
+    id: string;
     name: string;
     imageUrl?: string;
     category?: string;
@@ -64,6 +64,7 @@ export type MenuItem = {
     dietary?: 'veg' | 'non-veg' | '';
     imageUrl?: string;
     isAvailable?: boolean;
+    duration?: number; // In minutes, for salon services
     customizations?: CustomizationGroup[];
 };
 
@@ -91,6 +92,10 @@ export type Store = {
   liveVideoUrl?: string;
   upiId?: string;
   businessType?: 'restaurant' | 'salon' | 'grocery';
+  workingHours?: {
+      start: string; // e.g. "10:00"
+      end: string;   // e.g. "20:00"
+  };
 };
 
 export type User = {
@@ -121,6 +126,25 @@ export type UnidentifiedCartItem = {
     id: string;
     term: string;
     status: 'pending' | 'failed' | 'identified';
+};
+
+export type Booking = {
+    id: string;
+    storeId: string;
+    userId: string;
+    deviceId?: string;
+    serviceId: string;
+    serviceName: string;
+    price: number;
+    duration: number;
+    customerName: string;
+    phone: string;
+    notes?: string;
+    date: string; // YYYY-MM-DD
+    time: string; // HH:mm
+    status: 'Booked' | 'In Progress' | 'Completed' | 'Cancelled';
+    createdAt: any;
+    updatedAt: any;
 };
 
 export type Ingredient = {
@@ -162,7 +186,7 @@ export type Order = {
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
   orderType: 'dine-in' | 'takeaway' | 'delivery' | 'counter';
-  orderDate: any; // Allow FieldValue for serverTimestamp
+  orderDate: any;
   phone: string;
   email: string;
   translatedList?: string;
@@ -296,9 +320,9 @@ export type ReportData = {
   topProducts: { name: string; count: number }[];
   ingredientCost?: number;
   orders: Order[];
-  avgBillingSpeed?: number; // in minutes
-  fastestBill?: number; // in minutes
-  slowestBill?: number; // in minutes
+  avgBillingSpeed?: number;
+  fastestBill?: number;
+  slowestBill?: number;
 };
 
 export type NluExtractedSentence = {
@@ -374,5 +398,5 @@ export type CachedRecipe = {
     calories: number;
     protein: number;
   };
-  createdAt: any; // Firestore timestamp
+  createdAt: any;
 };
