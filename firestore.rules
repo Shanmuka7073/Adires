@@ -102,6 +102,12 @@ service cloud.firestore {
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
     }
 
+    match /bookings/{bookingId} {
+        allow get, list: if true;
+        allow create: if true; // Validation handled by atomic transaction logic
+        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
+    }
+
     match /voiceAliasGroups/{key} {
       allow read: if true;
     }
