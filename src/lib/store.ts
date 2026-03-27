@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -123,11 +122,15 @@ export const useAppStore = create<AppState>()(
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
+          // HARDENED: Always ensure deviceId is refreshed during boot
+          const id = getOrGenerateDeviceId();
+
           set({
             stores,
             isInitialized: true,
             loading: false,
             userStore,
+            deviceId: id,
             readCount: state.readCount + storesSnap.docs.length
           });
           

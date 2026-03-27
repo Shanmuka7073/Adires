@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
@@ -120,7 +119,8 @@ export default function CheckoutPage() {
     
     const finalDeviceId = deviceId || localStorage.getItem('adires-device-id') || 'unknown';
     const dateStr = format(new Date(), 'yyyy-MM-dd');
-    const stableSessionId = `home-${finalDeviceId}-${dateStr}`;
+    // HARDENED: stableSessionId includes storeId to sync correctly with Menu Content listeners
+    const stableSessionId = `home-${finalDeviceId}-${dateStr}-${activeStoreId}`;
 
     const orderId = doc(collection(firestore, 'orders')).id;
     const orderDocRef = doc(firestore, 'orders', orderId);

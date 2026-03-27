@@ -1,9 +1,9 @@
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
+  register: false, // Force disabled to use manual registration in ServiceWorkerRegister.tsx
   skipWaiting: true,
-  disable: false, // Force enabled for all environments to ensure offline health
+  disable: false, 
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
   runtimeCaching: [
     {
@@ -23,9 +23,7 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // DYNAMIC BUSINESS ROUTES (RESILIENCE FIX)
-      // We use NetworkFirst instead of StaleWhileRevalidate for navigation routes
-      // to prevent "NetworkOnly" failures in workstation proxies.
+      // DYNAMIC BUSINESS ROUTES
       urlPattern: /\/dashboard|\/menu/i,
       handler: 'NetworkFirst',
       options: {
@@ -34,11 +32,11 @@ const withPWA = require('next-pwa')({
           maxEntries: 64,
           maxAgeSeconds: 24 * 60 * 60,
         },
-        networkTimeoutSeconds: 10, // Fallback to cache if network is slow/failing
+        networkTimeoutSeconds: 10,
       },
     },
     {
-      urlPattern: /^https:\/\/(?:images\.unsplash\.com|picsum\.photos|i\.ibb\.co)\/.*/i,
+      urlPattern: /^https:\/\/(?:images\.unsplash\.com|picsum\.photos|i\.ibb\.co|storage\.googleapis\.com)\/.*/i,
       handler: 'CacheFirst',
       options: {
         cacheName: 'external-images',

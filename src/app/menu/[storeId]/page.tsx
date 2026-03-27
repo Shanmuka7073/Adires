@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -231,11 +230,11 @@ function MenuContent() {
       if (table) setTableNumber(table);
   }, [searchParams]);
 
-  // STABLE SESSION ID LOGIC
+  // STABLE SESSION ID LOGIC: Fully synchronized with Checkout
   const stableSessionId = useMemo(() => {
     if (!deviceId || deviceId === 'server') return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
-    return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
+    return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}-${storeId}`;
   }, [tableNumber, storeId, deviceId]);
 
   useEffect(() => {
@@ -372,11 +371,11 @@ function MenuContent() {
               <div className="max-w-md mx-auto">
                   <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white ring-1 ring-black/5 animate-in slide-in-from-bottom-10 duration-500">
                       <div className="flex items-center gap-3">
-                          <p className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter">
+                          <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter">
                               {isSalon ? (
-                                  bookingsLoading ? <div className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div> : `${customerBookings?.length || 0} Sessions Active`
+                                  bookingsLoading ? <span className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></span> : `${customerBookings?.length || 0} Sessions Active`
                               ) : `₹${cartTotal.toFixed(0)} Manifested`}
-                          </p>
+                          </div>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                           <SheetTrigger asChild>
