@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -88,11 +87,13 @@ export function MainLayout({
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
-          snapshot.docs.forEach(async (d) => {
+          snapshot.docs.forEach((d) => {
               const chat = d.data() as Chat;
               if (chat.activeCallId) {
-                  const callSnap = await doc(firestore, 'calls', chat.activeCallId);
-                  onSnapshot(callSnap, (snap) => {
+                  // FIX: Removed invalid 'await' from synchronous doc() call
+                  const callRef = doc(firestore, 'calls', chat.activeCallId);
+                  
+                  onSnapshot(callRef, (snap) => {
                       const call = snap.data() as CallSession;
                       if (call && call.status !== 'ended' && call.callerId !== user.uid) {
                           setActiveCall({ call, chatId: d.id });

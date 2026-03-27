@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -34,22 +33,19 @@ service cloud.firestore {
 
     /* ======================
        ADMIN OVERRIDE (GLOBAL)
-       ====================== */
+       ===================== */
     match /{document=**} {
       allow read, write: if isAdmin();
     }
 
     /* ======================
-       CALLS & signaling
+       CALLS & SIGNALING (RECURSIVE)
        ====================== */
     
     match /calls/{callId} {
-      allow read, create, update: if isSignedIn();
+      allow read, write: if isSignedIn();
       
-      match /callerCandidates/{id} {
-        allow read, write: if isSignedIn();
-      }
-      match /receiverCandidates/{id} {
+      match /{allPaths=**} {
         allow read, write: if isSignedIn();
       }
     }
@@ -59,10 +55,9 @@ service cloud.firestore {
        ====================== */
     
     match /chats/{chatId} {
-      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
-      allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants);
 
       match /messages/{messageId} {
         allow read, write: if isSignedIn() &&
