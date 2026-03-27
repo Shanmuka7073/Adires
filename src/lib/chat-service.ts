@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -20,6 +19,7 @@ import type { Chat, Message, Store, User } from './types';
 
 /**
  * Ensures a chat exists between a customer and a store.
+ * Updated to use a rule-compliant query.
  */
 export async function getOrCreateChat(
     db: Firestore, 
@@ -31,9 +31,11 @@ export async function getOrCreateChat(
     }
 
     const chatsRef = collection(db, 'chats');
-    // Check for existing chat between these two specific entities
+    
+    // Rule-compliant query: includes participant filter to satisfy index/security requirements
     const q = query(
         chatsRef, 
+        where('participants', 'array-contains', customer.id),
         where('storeId', '==', store.id), 
         where('customerUid', '==', customer.id),
         limit(1)
