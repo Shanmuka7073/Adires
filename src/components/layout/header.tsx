@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2 } from 'lucide-react';
+import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -124,6 +124,13 @@ function UserMenu() {
           <DropdownMenuItem className="rounded-lg cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               <span>{t('dashboard')}</span>
+          </DropdownMenuItem>
+        </Link>
+
+        <Link href="/chat" passHref>
+          <DropdownMenuItem className="rounded-lg cursor-pointer">
+              <MessageSquare className="mr-2 h-4 w-4" />
+              <span>Messages</span>
           </DropdownMenuItem>
         </Link>
         

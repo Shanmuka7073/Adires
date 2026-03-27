@@ -1,8 +1,9 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Package, Store, Truck, UserCheck, FileText, LayoutGrid, ShoppingBag } from 'lucide-react';
+import { Home, User, Package, Store, Truck, UserCheck, FileText, LayoutGrid, ShoppingBag, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
@@ -11,6 +12,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 const customerNavItems = [
   { href: '/', label: 'home', icon: Home, color: 'text-primary' },
   { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store, color: 'text-orange-500' },
+  { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-blue-500' },
   { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: Package, color: 'text-purple-500' },
   { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
 ];
@@ -18,12 +20,14 @@ const customerNavItems = [
 const merchantNavItems = [
   { href: '/dashboard/restaurant', label: 'Dashboard', icon: LayoutGrid, color: 'text-primary' },
   { href: '/dashboard/owner/orders', label: 'Live Orders', icon: ShoppingBag, color: 'text-blue-600' },
+  { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-indigo-500' },
   { href: '/dashboard/owner/my-store', label: 'Business', icon: Store, color: 'text-orange-500' },
   { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
 ];
 
 const employeeNavItems = [
     { href: '/dashboard/employee/attendance', label: 'Attendance', icon: UserCheck, color: 'text-green-600' },
+    { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-indigo-500' },
     { href: '/dashboard/employee/salary-slips', label: 'Salaries', icon: FileText, color: 'text-blue-600' },
     { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
 ];

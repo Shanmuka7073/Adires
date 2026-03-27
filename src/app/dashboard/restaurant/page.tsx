@@ -20,7 +20,8 @@ import {
     MapPin,
     LocateFixed,
     Save,
-    ShoppingBasket
+    ShoppingBasket,
+    MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -253,6 +254,7 @@ export default function ServiceDashboardPage() {
         const links = [
             { title: 'MY STORE', description: 'Manage products & orders', href: '/dashboard/owner/my-store', icon: Store },
             { title: isSalon ? 'BOOKINGS' : 'STORE ORDERS', description: isSalon ? 'Live appointments' : 'Live table orders', href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', icon: ShoppingBag },
+            { title: 'MESSAGES', description: 'Customer support chat', href: '/chat', icon: MessageSquare },
             { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3, highlight: true },
             { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff },
             { title: 'EMPLOYEES', description: 'Manage staff', href: '/dashboard/owner/employees', icon: Users },

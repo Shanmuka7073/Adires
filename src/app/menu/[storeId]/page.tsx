@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -19,7 +20,7 @@ import type {
   Booking
 } from '@/lib/types';
 
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition, Suspense } from 'react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -33,7 +34,8 @@ import {
   Sparkles,
   CalendarCheck,
   RefreshCw,
-  LogIn
+  LogIn,
+  MessageCircle
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -49,6 +51,7 @@ import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { BookingSheet } from '@/components/features/booking-sheet';
 import Link from 'next/link';
+import { getOrCreateChat } from '@/lib/chat-service';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -223,6 +226,7 @@ function ServiceCard({ item, onBook, onShowDetails }: { item: MenuItem, onBook: 
 function MenuContent() {
   const { storeId } = useParams<{ storeId: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { firestore, user } = useFirebase(); 
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(''); 
@@ -232,6 +236,7 @@ function MenuContent() {
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
+  const [isStartingChat, startChat] = useTransition();
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
   const { language, deviceId } = useAppStore();
@@ -302,6 +307,19 @@ function MenuContent() {
     });
   };
 
+  const handleStartChat = () => {
+      if (!user || !firestore || !store) {
+          router.push(`/login?redirectTo=/menu/${storeId}`);
+          return;
+      }
+      startChat(async () => {
+          const uRef = doc(firestore, 'users', user.uid);
+          const uSnap = await { data: () => ({ id: user.uid, firstName: user.displayName?.split(' ')[0] || 'User', lastName: '' }) };
+          const chatId = await getOrCreateChat(firestore, store, uSnap.data() as any);
+          router.push(`/chat/${chatId}`);
+      });
+  };
+
   const handleAddToCart = (item: MenuItem, customs: any) => {
       const product = { 
           id: item.id, 
@@ -347,7 +365,12 @@ function MenuContent() {
                           </div>
                           <div className="min-w-0">
                               <div className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none max-w-[150px]">{store.name}</div>
-                              <div className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-1">{isSalon ? 'Verified Salon' : 'Verified Hub'}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60">{isSalon ? 'Verified Salon' : 'Verified Hub'}</div>
+                                <button onClick={handleStartChat} disabled={isStartingChat} className="text-primary hover:text-primary/80 transition-colors">
+                                    {isStartingChat ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
+                                </button>
+                              </div>
                           </div>
                       </div>
                       {canInstall && (
