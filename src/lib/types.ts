@@ -25,18 +25,6 @@ export type Product = {
   price?: number;
 };
 
-// Central Product Registry for Admin Management
-export type CanonicalProduct = {
-    id: string;
-    name: string;
-    imageUrl?: string;
-    category?: string;
-    businessType?: 'restaurant' | 'salon' | 'grocery';
-    discoveredInStoreId?: string;
-    discoveredAt?: any;
-    updatedAt?: any;
-};
-
 export type MenuTheme = {
     backgroundColor: string;
     primaryColor: string;
@@ -64,7 +52,7 @@ export type MenuItem = {
     dietary?: 'veg' | 'non-veg' | '';
     imageUrl?: string;
     isAvailable?: boolean;
-    duration?: number; // In minutes, for salon services
+    duration?: number;
     customizations?: CustomizationGroup[];
 };
 
@@ -93,8 +81,8 @@ export type Store = {
   upiId?: string;
   businessType?: 'restaurant' | 'salon' | 'grocery';
   workingHours?: {
-      start: string; // e.g. "10:00"
-      end: string;   // e.g. "20:00"
+      start: string;
+      end: string;
   };
 };
 
@@ -140,25 +128,40 @@ export type Booking = {
     customerName: string;
     phone: string;
     notes?: string;
-    date: string; // YYYY-MM-DD
-    time: string; // HH:mm
+    date: string;
+    time: string;
     status: 'Booked' | 'In Progress' | 'Completed' | 'Cancelled';
     createdAt: any;
     updatedAt: any;
 };
 
-export type Ingredient = {
-  name: string;
-  baseQuantity?: number;
-  quantity: string;
-  unit?: string;
-  cost?: number;
+/* ---------------- CHAT TYPES ---------------- */
+
+export type Chat = {
+    id: string;
+    participants: string[]; // [customerUid, ownerUid]
+    lastMessage: string;
+    lastSenderId: string;
+    updatedAt: any;
+    storeId: string;
+    storeName: string;
+    customerName: string;
+    customerImageUrl?: string;
+    unreadCount: Record<string, number>;
 };
 
-export type InstructionStep = {
-    title: string;
-    actions: string[];
-}
+export type Message = {
+    id: string;
+    chatId: string;
+    senderId: string;
+    text: string;
+    type: 'text' | 'voice' | 'system';
+    audioUrl?: string;
+    duration?: number;
+    createdAt: any;
+};
+
+/* ---------------- REST OF TYPES ---------------- */
 
 export type OrderItem = {
   id: string;
@@ -170,8 +173,6 @@ export type OrderItem = {
   variantWeight: string;
   quantity: number;
   price: number;
-  recipeSnapshot?: { name: string; qty: number; unit: string; cost?: number; }[];
-  selectedCustomizations?: Record<string, CustomizationOption[]>;
 }
 
 export type Order = {
@@ -189,27 +190,15 @@ export type Order = {
   orderDate: any;
   phone: string;
   email: string;
-  translatedList?: string;
   store?: Store; 
   deliveryPartnerId?: string | null;
   tableNumber?: string | null;
   sessionId?: string;
-  paidAt?: Timestamp;
-  paymentMode?: string;
   updatedAt?: any;
-  zoneId?: string;
   isActive?: boolean;
-  appointmentTime?: string;
   needsService?: boolean;
   serviceType?: string;
   deviceId?: string;
-};
-
-export type ReasonEntry = {
-    text: string;
-    timestamp: Date | Timestamp | string;
-    status: 'submitted' | 'approved' | 'rejected';
-    rejectionReason?: string;
 };
 
 export type EmployeeProfile = {
@@ -239,14 +228,13 @@ export type AttendanceRecord = {
     id: string;
     employeeId: string;
     storeId: string;
-    workDate: Timestamp | Date | string;
+    workDate: any;
     workDateStr: string;
-    punchInTime: Timestamp | Date | string | null;
-    punchOutTime: Timestamp | Date | string | null;
+    punchInTime: any;
+    punchOutTime: any;
     status: 'present' | 'partially_present' | 'approved' | 'pending_approval' | 'rejected';
     workHours: number;
     rejectionCount?: number;
-    reasonHistory?: ReasonEntry[];
 };
 
 export type SalarySlip = {
@@ -261,13 +249,11 @@ export type SalarySlip = {
     deductions: number;
     netPay: number;
     generatedAt: any;
-    attendance?: any;
 };
 
 export type DeliveryPartner = {
   userId: string; 
   totalEarnings: number;
-  lastPayoutDate?: Timestamp;
   payoutsEnabled: boolean;
   payoutMethod?: 'bank' | 'upi';
   upiId?: string;
@@ -283,8 +269,7 @@ export type Payout = {
   id: string;
   partnerId: string;
   amount: number;
-  requestDate: Timestamp | Date | string;
-  completionDate?: Timestamp;
+  requestDate: any;
   status: 'pending' | 'completed' | 'failed';
   payoutMethod: 'bank' | 'upi';
   payoutDetails: any;
@@ -305,8 +290,8 @@ export interface GetIngredientsOutput {
     isSuccess: boolean;
     itemType: 'food' | 'service' | 'product';
     title: string;
-    components: Ingredient[];
-    steps: InstructionStep[];
+    components: any[];
+    steps: any[];
     nutrition?: {
         calories: number;
         protein: number;
@@ -315,29 +300,9 @@ export interface GetIngredientsOutput {
 
 export type ReportData = {
   totalSales: number;
-  totalItems: number;
   totalOrders: number;
   topProducts: { name: string; count: number }[];
   ingredientCost?: number;
-  orders: Order[];
-  avgBillingSpeed?: number;
-  fastestBill?: number;
-  slowestBill?: number;
-};
-
-export type NluExtractedSentence = {
-    id: string;
-    rawText: string;
-    extractedNumbers: any[]; 
-    confidence: number;
-    status: 'pending' | 'approved' | 'rejected';
-    createdAt: any;
-};
-
-export type DayPlan = {
-  day: number;
-  mainItem: string;
-  sideItem: string;
 };
 
 export type MonthlyPackage = {
@@ -350,31 +315,13 @@ export type MonthlyPackage = {
         name: string;
         quantity: string;
     }[];
-    schedule?: DayPlan[];
 };
 
 export type SiteConfig = {
     liveVideoUrl?: string;
     isPackGeneratorEnabled?: boolean;
-    isRecipeApiEnabled?: boolean;
-    isGeneralQuestionApiEnabled?: boolean;
-    isAliasSuggesterEnabled?: boolean;
     isMaintenance?: boolean;
 };
-
-export type CommandGroup = {
-  display: string;
-  reply: {
-    en: string;
-    te?: string;
-    hi?: string;
-    en_audio?: string;
-    te_audio?: string;
-    hi_audio?: string;
-  };
-};
-
-export type Locales = Record<string, VoiceAliasGroup>;
 
 declare global {
   interface Window {
@@ -383,20 +330,3 @@ declare global {
       deferredInstallPrompt: any;
   }
 }
-export type FailedVoiceCommand = {
-  text: string;
-  reason?: string;
-  timestamp?: number;
-};
-export type CachedRecipe = {
-  id: string;
-  name: string;
-  itemType: "food" | "product" | "service";
-  components: any[];
-  steps: any[];
-  nutrition?: {
-    calories: number;
-    protein: number;
-  };
-  createdAt: any;
-};

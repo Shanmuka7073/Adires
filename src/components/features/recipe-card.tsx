@@ -6,14 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Sparkles, Volume2, Copy, StopCircle, Salad, Search } from 'lucide-react';
+import { ChefHat, Loader2, Sparkles, Volume2, Copy, StopCircle, Salad, Search, MessageCircle } from 'lucide-react';
 import { getIngredientsForDish } from '@/app/actions';
-import type { GetIngredientsOutput, InstructionStep } from '@/lib/types';
+import type { GetIngredientsOutput, InstructionStep, Store } from '@/lib/types';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { t as translate } from '@/lib/locales';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertTitle } from '../ui/alert';
+import { getOrCreateChat } from '@/lib/chat-service';
+import { useRouter } from 'next/navigation';
+import { useFirebase } from '@/firebase';
+import { useAppStore } from '@/lib/store';
 
 function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
@@ -80,7 +83,11 @@ function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients,
 
 export function RecipeCard() {
     const { toast } = useToast();
+    const router = useRouter();
+    const { firestore, user } = useFirebase();
+    const { stores } = useAppStore();
     const [isGenerating, startGeneration] = useTransition();
+    const [isStartingChat, startChatTransition] = useTransition();
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [dishName, setDishName] = useState('');
     const [recipeData, setRecipeData] = useState<Record<string, GetIngredientsOutput>>({});
@@ -100,7 +107,7 @@ export function RecipeCard() {
         startGeneration(async () => {
             try {
                 const response = await getIngredientsForDish({ dishName, language: lang });
-                if (response && response.isSuccess) if (response && response.isSuccess) {
+                if (response && response.isSuccess) {
                     const normalized: GetIngredientsOutput = {
                       ...response,
                       itemType: response.itemType as "food" | "product" | "service"
@@ -115,6 +122,23 @@ export function RecipeCard() {
             } catch (error) {
                 toast({ variant: 'destructive', title: 'An Error Occurred' });
             }
+        });
+    };
+
+    const handleChatWithLocalBasket = () => {
+        if (!user || !firestore) {
+            router.push('/login');
+            return;
+        }
+
+        const localBasket = stores.find(s => s.name === 'LocalBasket');
+        if (!localBasket) return;
+
+        startChatTransition(async () => {
+            // We need customer details for the chat
+            const { data: customer } = { data: { id: user.uid, firstName: user.displayName?.split(' ')[0] || 'User', lastName: '', imageUrl: user.photoURL || '' } };
+            const chatId = await getOrCreateChat(firestore, localBasket, customer as any);
+            router.push(`/chat/${chatId}`);
         });
     };
     
@@ -153,12 +177,18 @@ export function RecipeCard() {
 
     return (
         <Card className="bg-gradient-to-br from-green-50 to-blue-50">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline">
-                    <ChefHat className="h-6 w-6 text-green-600" />
-                    AI Item Specialist
-                </CardTitle>
-                <CardDescription>Enter any product or service name to see how it's made or done.</CardDescription>
+            <CardHeader className="flex flex-row justify-between items-start">
+                <div>
+                    <CardTitle className="flex items-center gap-2 font-headline">
+                        <ChefHat className="h-6 w-6 text-green-600" />
+                        AI Item Specialist
+                    </CardTitle>
+                    <CardDescription>Enter any product or service name.</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleChatWithLocalBasket} disabled={isStartingChat} className="rounded-full bg-white font-black uppercase text-[8px] tracking-widest h-8 px-3">
+                    {isStartingChat ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <MessageCircle className="h-3 w-3 mr-1 text-primary" />}
+                    Message Support
+                </Button>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex gap-2">
