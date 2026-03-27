@@ -51,6 +51,26 @@ export interface AppState {
   getProductName: (product: Product) => string;
 }
 
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));
+
 const getInitialLanguage = (): string => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('app-language') || 'en';
@@ -218,23 +238,3 @@ export const useInitializeApp = () => {
 
     return { isLoading: loading };
 };
-
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));

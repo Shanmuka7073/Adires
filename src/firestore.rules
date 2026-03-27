@@ -103,7 +103,7 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-        // ALLOW PUBLIC READ (Needed for Guest Session Counts)
+        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
         allow get, list: if true;
         // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
         allow create: if true; 

@@ -1,6 +1,6 @@
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: false, // Force disabled to use manual registration in ServiceWorkerRegister.tsx
+  register: false, // Handled manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
   disable: false, 
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],

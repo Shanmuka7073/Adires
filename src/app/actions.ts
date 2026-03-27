@@ -73,7 +73,13 @@ export async function getSystemStatus() {
 export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
     try {
         const { db } = await getAdminServices();
-        const bookingId = `${data.storeId}_${data.date}_${data.time.replace(':', '')}`;
+        
+        // Safety checks for ID generation
+        const dateStr = String(data.date || format(new Date(), 'yyyy-MM-dd'));
+        const timeStr = String(data.time || '10:00');
+        const cleanTime = timeStr.replace(':', '');
+        
+        const bookingId = `${data.storeId}_${dateStr}_${cleanTime}_${Math.random().toString(36).substring(7)}`;
         const bookingRef = db.collection('bookings').doc(bookingId);
 
         const result = await db.runTransaction(async (transaction) => {
@@ -95,8 +101,8 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
                 customerName: data.customerName,
                 phone: data.phone,
                 notes: data.notes || '',
-                date: data.date,
-                time: data.time,
+                date: dateStr,
+                time: timeStr,
                 status: 'Booked',
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
