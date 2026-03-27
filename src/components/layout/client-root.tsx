@@ -11,8 +11,9 @@ import { InstallProvider } from '@/components/install-provider';
 import GlobalLoader from './global-loader';
 
 /**
- * RESILIENT OFFLINE ROOT
- * Prioritizes showing the cached UI over waiting for cloud authentication.
+ * RESILIENT HYDRATION ROOT
+ * Ensures browser APIs (localStorage, window) are only accessed after hydration.
+ * Release the UI shell quickly to avoid "hanging" loading screens.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [hasHydrated, setHasHydrated] = useState(false);
@@ -25,10 +26,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
         setHasHydrated(true);
     }, []);
     
-    // OFFLINE LOGIC: 
-    // We show the loader ONLY on the very first visit (where isInitialized is false).
-    // On subsequent visits, we show the cached UI immediately (hasHydrated is enough).
-    if (!hasHydrated || (!isInitialized && !appReady)) {
+    // 1. Wait for hydration to avoid server/client HTML mismatch
+    if (!hasHydrated) {
+        return null; // Return empty shell for SSR
+    }
+
+    // 2. Show loader ONLY on very first boot or critical sync
+    // Release the UI as soon as possible to allow PWA caching to work
+    if (!isInitialized && !appReady) {
         return <GlobalLoader />;
     }
 

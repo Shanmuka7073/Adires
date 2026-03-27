@@ -93,11 +93,11 @@ function LiveBillSheet({
   if (isSalon) {
       return (
           <div className="flex flex-col h-full bg-[#FDFCF7]">
-              <SheetHeader className='p-5 border-b bg-white'>
-                  <SheetTitle className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
+              <div className='p-5 border-b bg-white'>
+                  <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
                       <CalendarCheck className="h-5 w-5 text-primary" /> My Beauty Sessions
-                  </SheetTitle>
-              </SheetHeader>
+                  </h2>
+              </div>
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {customerBookings && customerBookings.length > 0 ? (
                       customerBookings.map(b => (
@@ -133,11 +133,11 @@ function LiveBillSheet({
   
   return (
     <div className="flex flex-col h-full bg-[#FDFCF7]">
-        <SheetHeader className='p-5 border-b shrink-0 bg-white shadow-sm'>
-            <SheetTitle className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
+        <div className='p-5 border-b shrink-0 bg-white shadow-sm'>
+            <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
                 <Receipt className="h-5 w-5 text-primary" /> Live Order Progress
-            </SheetTitle>
-        </SheetHeader>
+            </h2>
+        </div>
         
         <div className="flex-1 overflow-y-auto p-5 space-y-10 min-h-0">
              {placedOrders.length > 0 && (
@@ -409,7 +409,7 @@ function MenuContent() {
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
                                   bookingsLoading ? (
-                                      <div className="flex items-center gap-2"><span>Syncing</span> <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div>
+                                      <div className="flex items-center gap-2"><span>Syncing</span> <div className="h-3.5 w-3.5"><RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div></div>
                                   ) : (
                                       <span>{customerBookings?.length || 0} Sessions Active</span>
                                   )

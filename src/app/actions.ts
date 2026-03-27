@@ -188,7 +188,7 @@ export async function updateBookingStatus(bookingId: string, status: Booking['st
 
 export async function getPlatformAnalytics() {
     try {
-        const { db } = await getAdminServices();
+        const { db, app } = await getAdminServices();
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfTodayTs = Timestamp.fromDate(startOfToday);
@@ -217,6 +217,7 @@ export async function getPlatformAnalytics() {
             totalUsers: usersCount.data().count,
             totalStores: storesCount.data().count,
             activeSessions: ordersCountSnap.data().count,
+            projectId: app.options.projectId,
             periods: {
                 today: {
                     revenue: todayRevenue,

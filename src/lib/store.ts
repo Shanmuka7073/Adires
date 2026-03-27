@@ -198,7 +198,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v11', 
+      name: 'adires-ops-v12', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -223,11 +223,13 @@ export const useInitializeApp = () => {
         if (!firestore || isUserLoading || loading) return;
 
         const bootstrap = async () => {
+            // SEQUENTIAL BOOTSTRAP TO PREVENT HYDRATION CRASH
             if (!isInitialized) {
                 await fetchInitialData(firestore, user?.uid);
             } else if (user?.uid && !userStore) {
                 await fetchUserStore(firestore, user.uid);
             }
+            // CRITICAL: Always mark app as ready to release the GlobalLoader
             setAppReady(true);
         };
 
