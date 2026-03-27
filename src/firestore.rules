@@ -43,9 +43,11 @@ service cloud.firestore {
        ====================== */
     
     match /calls/{callId} {
+      // Broadened for signaling handshake between authenticated peers
       allow read, write: if isSignedIn();
       
       match /{allPaths=**} {
+        // Ensure subcollections (ICE candidates) are accessible
         allow read, write: if isSignedIn();
       }
     }

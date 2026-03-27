@@ -10,7 +10,7 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { FirestoreCounter } from './firestore-counter';
 import { OfflineStatus } from './offline-status';
-import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Cog, Zap, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -70,7 +70,7 @@ export function MainLayout({
   const { isInitialized } = useAppStore();
   const [activeCall, setActiveCall] = useState<{ call: CallSession, chatId: string } | null>(null);
   const rtcManagerRef = useRef<WebRTCManager | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const callUnsubRef = useRef<Unsubscribe | null>(null);
 
   // Maintenance Listener
   const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
@@ -89,15 +89,24 @@ export function MainLayout({
       const unsubscribe = onSnapshot(q, (snapshot) => {
           snapshot.docs.forEach((d) => {
               const chat = d.data() as Chat;
-              if (chat.activeCallId) {
-                  // FIX: Removed invalid 'await' from synchronous doc() call
+              
+              // If we find a chat with an active call and we are NOT the one who initiated it
+              if (chat.activeCallId && chat.lastSenderId !== user.uid) {
+                  // If we are already listening to this call, skip
+                  if (activeCall?.call.id === chat.activeCallId) return;
+
+                  // Cleanup old call listener if switching calls
+                  if (callUnsubRef.current) {
+                      callUnsubRef.current();
+                      callUnsubRef.current = null;
+                  }
+
                   const callRef = doc(firestore, 'calls', chat.activeCallId);
-                  
-                  onSnapshot(callRef, (snap) => {
+                  callUnsubRef.current = onSnapshot(callRef, (snap) => {
                       const call = snap.data() as CallSession;
-                      if (call && call.status !== 'ended' && call.callerId !== user.uid) {
+                      if (call && call.status !== 'ended') {
                           setActiveCall({ call, chatId: d.id });
-                      } else if (activeCall?.call.id === chat.activeCallId) {
+                      } else {
                           setActiveCall(null);
                           if (rtcManagerRef.current) {
                               rtcManagerRef.current.hangup();
@@ -105,12 +114,22 @@ export function MainLayout({
                           }
                       }
                   });
+              } else if (!chat.activeCallId && activeCall?.chatId === d.id) {
+                  // Call ended externally
+                  setActiveCall(null);
+                  if (callUnsubRef.current) {
+                      callUnsubRef.current();
+                      callUnsubRef.current = null;
+                  }
               }
           });
       });
 
-      return () => unsubscribe();
-  }, [firestore, user, activeCall?.chatId]);
+      return () => {
+          unsubscribe();
+          if (callUnsubRef.current) callUnsubRef.current();
+      };
+  }, [firestore, user, activeCall?.call.id, activeCall?.chatId]);
 
   const handleDeclineCall = async () => {
       if (firestore && activeCall) {
@@ -124,17 +143,17 @@ export function MainLayout({
   };
 
   const handleAcceptCall = () => {
-      // Audio stream is handled inside CallOverlay
+      // Audio stream is handled inside CallOverlay via answerCall
   };
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
-      <audio ref={remoteAudioRef} autoPlay className="hidden" />
       {isMaintenanceActive && <MaintenanceOverlay />}
       
       <AnimatePresence>
           {activeCall && (
               <CallOverlay 
+                key={activeCall.call.id}
                 call={activeCall.call}
                 onAccept={handleAcceptCall}
                 onDecline={handleDeclineCall}
