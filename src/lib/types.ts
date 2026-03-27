@@ -184,6 +184,18 @@ export type Message = {
     createdAt: any;
 };
 
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
+};
+
 /* ---------------- REST OF TYPES ---------------- */
 
 export type OrderItem = {
