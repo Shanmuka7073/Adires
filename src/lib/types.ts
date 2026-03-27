@@ -116,6 +116,26 @@ export type UnidentifiedCartItem = {
     status: 'pending' | 'failed' | 'identified';
 };
 
+export type Booking = {
+    id: string;
+    storeId: string;
+    userId: string;
+    deviceId: string;
+    serviceId: string;
+    serviceName: string;
+    price: number;
+    duration: number;
+    customerName: string;
+    phone: string;
+    notes?: string;
+    date: string;
+    time: string;
+    status: 'Booked' | 'In Progress' | 'Completed' | 'Cancelled';
+    createdAt: any;
+    updatedAt: any;
+    store?: Store;
+};
+
 /* ---------------- CHAT & CALL TYPES ---------------- */
 
 export type CallSession = {
@@ -218,6 +238,13 @@ export type EmployeeProfile = {
     reportingTo?: string;
 };
 
+export type ReasonEntry = {
+    text: string;
+    timestamp: any;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
 export type AttendanceRecord = {
     id: string;
     employeeId: string;
@@ -229,6 +256,7 @@ export type AttendanceRecord = {
     status: 'present' | 'partially_present' | 'approved' | 'pending_approval' | 'rejected';
     workHours: number;
     rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
 };
 
 export type SalarySlip = {
@@ -243,6 +271,7 @@ export type SalarySlip = {
     deductions: number;
     netPay: number;
     generatedAt: any;
+    attendance?: any;
 };
 
 export type DeliveryPartner = {
@@ -280,17 +309,35 @@ export type VoiceAliasGroup = {
     [key: string]: any; 
 };
 
+export type InstructionStep = {
+    title: string;
+    actions: string[];
+};
+
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     itemType: 'food' | 'service' | 'product';
     title: string;
     components: any[];
-    steps: any[];
+    steps: InstructionStep[];
     nutrition?: {
         calories: number;
         protein: number;
     };
 }
+
+export type CachedRecipe = {
+    id: string;
+    name: string;
+    itemType: 'food' | 'service' | 'product';
+    components: any[];
+    steps: InstructionStep[];
+    nutrition?: {
+        calories: number;
+        protein: number;
+    };
+    createdAt: any;
+};
 
 export type ReportData = {
   totalSales: number;
@@ -308,6 +355,11 @@ export type MonthlyPackage = {
     items: {
         name: string;
         quantity: string;
+    }[];
+    schedule?: {
+        day: number;
+        mainItem: string;
+        sideItem: string;
     }[];
 };
 
