@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -316,7 +317,8 @@ function MenuContent() {
           imageId: 'cat-restaurant', 
           isMenuItem: true,
           imageUrl: item.imageUrl,
-          price: item.price
+          price: item.price,
+          description: item.description || ''
       };
       
       const variant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
@@ -406,7 +408,7 @@ function MenuContent() {
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
                                   bookingsLoading ? (
-                                      <div className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div>
+                                      <div className="flex items-center gap-2"><span>Syncing</span> <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div>
                                   ) : (
                                       <div>{customerBookings?.length || 0} Sessions Active</div>
                                   )

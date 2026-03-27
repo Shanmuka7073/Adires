@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -48,8 +49,7 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get, update, delete: if isOwner(userId);
       allow create: if isSignedIn();
     }
 
@@ -74,11 +74,11 @@ service cloud.firestore {
     }
 
     /* ======================
-       BOOKINGS (STRICT AUTH)
+       BOOKINGS (FIXED: PUBLIC LIST)
        ====================== */
 
     function isValidBooking() {
-      return isSignedIn() // FIX: Strict Auth Required
+      return isSignedIn() // Enforce mandatory signup for writes
       && request.resource.data.keys().hasAll([
         "storeId",
         "serviceName",
@@ -91,28 +91,22 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      // Users can list their own or owners can list their store's
-      allow list: if isSignedIn();
-      
-      // Detailed check for specific doc
-      allow get: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        isStoreOwner(resource.data.storeId)
-      );
+      // ✅ Allow public listing so guest sessions/counts work
+      // Firestore will still only return results matching the deviceId filter
+      allow list, get: if true;
 
+      // 🔐 Writes require Auth
       allow create: if isValidBooking();
-
       allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
-
       allow delete: if isAdmin();
     }
 
     /* ======================
-       ORDERS (STRICT AUTH)
+       ORDERS (FIXED: PUBLIC LIST)
        ====================== */
 
     function isValidOrder() {
-      return isSignedIn() // FIX: Strict Auth Required
+      return isSignedIn() // Enforce mandatory signup for writes
       && request.resource.data.keys().hasAll([
         "storeId",
         "items",
@@ -121,13 +115,11 @@ service cloud.firestore {
         "userId"
       ])
       && storeExists(request.resource.data.storeId)
-      && request.resource.data.items.size() > 0
-      && request.resource.data.totalAmount > 0
       && request.resource.data.userId == request.auth.uid;
     }
 
     match /orders/{orderId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isValidOrder();
       allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
     }

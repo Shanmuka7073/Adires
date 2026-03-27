@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -8,7 +9,6 @@ import { useEffect, useCallback, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
-import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -195,7 +195,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v8', 
+      name: 'adires-ops-v9', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -208,7 +208,6 @@ export const useAppStore = create<AppState>()(
 );
 
 export const useInitializeApp = () => {
-    const { firestore, user, isUserLoading } = useFirebase();
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const loading = useAppStore(state => state.loading);
@@ -225,16 +224,6 @@ export const useInitializeApp = () => {
             }
         }
     }, [deviceId, setDeviceId]);
-
-    useEffect(() => {
-        if (isInitialized && deviceId && deviceId !== 'server') {
-            setAppReady(true);
-        }
-        
-        if (firestore && !isUserLoading && !loading && !isInitialized) {
-            fetchInitialData(firestore, user?.uid);
-        }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady, deviceId]);
 
     return { isLoading: loading };
 };
