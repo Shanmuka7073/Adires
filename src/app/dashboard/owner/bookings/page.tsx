@@ -23,15 +23,119 @@ import {
     AlertCircle,
     XCircle,
     PlayCircle,
-    RefreshCw
+    RefreshCw,
+    ClipboardList,
+    MapPin,
+    MessageSquare
 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { updateBookingStatus } from '@/app/actions';
 import Link from 'next/link';
 
-function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: () => void }) {
+function BookingDetailsDialog({ booking, isOpen, onOpenChange }: { booking: Booking | null, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
+    if (!booking) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-white">
+                <DialogHeader className="p-6 bg-primary/5 border-b border-black/5">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Session Intelligence</DialogTitle>
+                    <DialogDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">
+                        Appointment ID: #{booking.id.slice(-8).toUpperCase()}
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="p-6 space-y-6">
+                    {/* CLIENT IDENTITY */}
+                    <section className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Client Identity</h4>
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-black/5">
+                            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                <User className="h-6 w-6" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="font-black text-sm uppercase text-gray-950 truncate leading-none">{booking.customerName}</p>
+                                <a href={`tel:${booking.phone}`} className="text-xs font-bold text-primary flex items-center gap-1.5 mt-2 hover:underline">
+                                    <Phone className="h-3 w-3" /> {booking.phone}
+                                </a>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* APPOINTMENT LOGISTICS */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Service Particulars</h4>
+                            <div className="p-4 rounded-2xl border-2 border-black/5 bg-white space-y-1">
+                                <p className="font-black text-[11px] uppercase text-gray-950 truncate leading-none">{booking.serviceName}</p>
+                                <p className="text-[9px] font-bold text-primary uppercase tracking-tighter">
+                                    ₹{booking.price.toFixed(0)} • {booking.duration}m Duration
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Timing Window</h4>
+                            <div className="p-4 rounded-2xl border-2 border-black/5 bg-white space-y-1">
+                                <p className="font-black text-[11px] uppercase text-gray-950 leading-none">{format(new Date(booking.date), 'dd MMM yyyy')}</p>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{booking.time}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CLIENT BRIEF / NOTES */}
+                    {booking.notes && (
+                        <section className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1 flex items-center gap-1.5">
+                                <MessageSquare className="h-3 w-3" /> Client Brief
+                            </h4>
+                            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-100 text-xs font-bold text-amber-900 leading-relaxed italic">
+                                "{booking.notes}"
+                            </div>
+                        </section>
+                    )}
+
+                    {/* STATUS BANNER */}
+                    <div className="pt-4 border-t border-dashed flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase opacity-40 tracking-widest">Pipeline Status</span>
+                        <Badge className={cn(
+                            "rounded-md font-black uppercase text-[9px] tracking-widest px-3 py-1 shadow-sm border-0",
+                            booking.status === 'Completed' ? 'bg-green-500 text-white' : 
+                            booking.status === 'In Progress' ? 'bg-amber-500 text-white animate-pulse' : 
+                            booking.status === 'Booked' ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'
+                        )}>
+                            {booking.status}
+                        </Badge>
+                    </div>
+                </div>
+
+                <div className="p-6 bg-gray-50 border-t border-black/5 flex gap-2 pb-10">
+                    <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2" onClick={() => onOpenChange(false)}>
+                        Dismiss Details
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BookingActionRow({ 
+    booking, 
+    onUpdate, 
+    onShowDetails 
+}: { 
+    booking: Booking, 
+    onUpdate: () => void,
+    onShowDetails: (b: Booking) => void
+}) {
     const [isUpdating, startUpdate] = useTransition();
 
     const handleAction = (status: Booking['status']) => {
@@ -45,8 +149,8 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
 
     return (
         <TableRow className={cn("hover:bg-muted/30 transition-colors", booking.status === 'Completed' && "opacity-50")}>
-            <TableCell className="py-6">
-                <p className="font-black text-xs uppercase text-gray-950">{booking.customerName}</p>
+            <TableCell className="py-6 cursor-pointer group" onClick={() => onShowDetails(booking)}>
+                <p className="font-black text-xs uppercase text-gray-950 group-hover:text-primary transition-colors">{booking.customerName}</p>
                 <p className="text-[10px] font-bold opacity-40 uppercase tracking-tighter">{booking.serviceName}</p>
             </TableCell>
             <TableCell>
@@ -88,6 +192,7 @@ export default function SalonBookingsPage() {
     const { firestore, user } = useFirebase();
     const { userStore, stores, fetchInitialData, isInitialized } = useAppStore();
     const [hasMounted, setHasMounted] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
     useEffect(() => { setHasMounted(true); }, []);
 
@@ -103,7 +208,7 @@ export default function SalonBookingsPage() {
     }, [userStore, stores, user?.uid]);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!hasMounted || !firestore || !myStore || !user) return null; // ✅ ADD THIS
+        if (!hasMounted || !firestore || !myStore || !user) return null;
     
         return query(
             collection(firestore, 'bookings'),
@@ -137,6 +242,12 @@ export default function SalonBookingsPage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
+            <BookingDetailsDialog 
+                booking={selectedBooking}
+                isOpen={!!selectedBooking}
+                onOpenChange={(open) => !open && setSelectedBooking(null)}
+            />
+
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Salon Pulse</h1>
@@ -192,7 +303,12 @@ export default function SalonBookingsPage() {
                             </TableHeader>
                             <TableBody>
                                 {bookings.map(b => (
-                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch && refetch()} />
+                                    <BookingActionRow 
+                                        key={b.id} 
+                                        booking={b} 
+                                        onUpdate={() => refetch && refetch()} 
+                                        onShowDetails={setSelectedBooking}
+                                    />
                                 ))}
                             </TableBody>
                         </Table>
