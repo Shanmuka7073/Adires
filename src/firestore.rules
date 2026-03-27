@@ -3,16 +3,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ======================
-       COMMON HELPER FUNCTIONS
+       COMMON FUNCTIONS
        ====================== */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * GLOBAL ADMINISTRATOR CHECK
-     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -23,32 +20,100 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
+
     function storeExists(storeId) {
       return exists(/databases/$(database)/documents/stores/$(storeId));
     }
 
     function getStoreOwnerId(storeId) {
-        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+      return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
     }
 
     function isStoreOwner(storeId) {
-      return isSignedIn() && (
-        (storeExists(storeId) && getStoreOwnerId(storeId) == request.auth.uid) ||
-        (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
-        (resource != null && resource.data.ownerId == request.auth.uid)
-      );
+      return isSignedIn() &&
+        storeExists(storeId) &&
+        getStoreOwnerId(storeId) == request.auth.uid;
     }
 
     /* ======================
-       ADMIN OVERRIDE (GLOBAL)
+       ADMIN OVERRIDE
        ====================== */
+
     match /{document=**} {
       allow read, write: if isAdmin();
     }
 
     /* ======================
-       ORDER VALIDATION (SAFE GUEST SUPPORT)
+       USERS
+       ====================== */
+
+    match /users/{userId} {
+      allow get, update, delete: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn();
+    }
+
+    /* ======================
+       STORES
+       ====================== */
+
+    match /stores/{storeId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isStoreOwner(storeId);
+    }
+
+    match /stores/{storeId}/products/{productId} {
+      allow get, list: if true;
+      allow write: if isStoreOwner(storeId);
+    }
+
+    match /stores/{storeId}/menus/{menuId} {
+      allow read: if true;
+      allow write: if isStoreOwner(storeId);
+    }
+
+    /* ======================
+       BOOKINGS (FINAL FIX)
+       ====================== */
+
+    function isValidBooking() {
+      return request.resource.data.keys().hasAll([
+        "storeId",
+        "service",
+        "date",
+        "time",
+        "sessionId",
+        "userId"
+      ])
+      && storeExists(request.resource.data.storeId)
+      && (
+        request.resource.data.userId == "guest" ||
+        (isSignedIn() && request.resource.data.userId == request.auth.uid)
+      );
+    }
+
+    match /bookings/{bookingId} {
+      // Allow listing for signed in users (filtered by UI) and store owners
+      allow list: if isSignedIn();
+      
+      // Owners can read their store's bookings
+      allow get: if isStoreOwner(resource.data.storeId);
+      
+      // Users can read their own bookings
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.deviceId == request.auth.uid);
+
+      // Create allowed for guests or signed in users
+      allow create: if isValidBooking();
+
+      // Updates restricted to creators or store owners
+      allow update: if isStoreOwner(resource.data.storeId) || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow delete: if isAdmin();
+    }
+
+    /* ======================
+       ORDERS
        ====================== */
 
     function isValidOrder() {
@@ -70,80 +135,46 @@ service cloud.firestore {
       );
     }
 
-    /* ======================
-       COLLECTIONS
-       ====================== */
-
-    match /users/{userId} {
-      allow get, update, delete: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isSignedIn();
-    }
-
-    match /stores/{storeId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isStoreOwner(storeId) || isAdmin();
-    }
-
-    match /stores/{storeId}/products/{productId} {
-      allow get, list: if true;
-      allow write: if isStoreOwner(storeId) || isAdmin();
-    }
-    
-    match /stores/{storeId}/menus/{menuId} {
-      allow read: if true;
-      allow write: if isStoreOwner(storeId);
-    }
-
     match /orders/{orderId} {
       allow get, list: if true;
       allow create: if isValidOrder();
-      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
+      allow update: if isStoreOwner(resource.data.storeId)
+        || (isSignedIn() && resource.data.userId == request.auth.uid)
+        || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
     }
 
-    match /bookings/{bookingId} {
-        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
-        allow get, list: if true;
-        // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
-        allow create: if true; 
-        // RESTRICT UPDATES TO OWNER OR CREATOR
-        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
-    }
-
-    match /voiceAliasGroups/{key} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /voiceCommands/{commandKey} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /siteConfig/{configId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    /* ======================
+       OTHER COLLECTIONS
+       ====================== */
 
     match /employeeProfiles/{employeeId} {
       allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
-      allow create, delete, list: if isAdmin();
     }
 
     match /deliveryPartners/{partnerId} {
       allow get, update: if isOwner(partnerId);
-      allow list: if isAdmin();
       allow create: if isOwner(partnerId);
+    }
+
+    match /siteConfig/{configId} {
+      allow read: if true;
     }
 
     match /canonicalCatalog/{productId} {
       allow read: if true;
-      allow write: if isSignedIn(); 
+      allow write: if isSignedIn();
     }
-    
+
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+    }
+
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
     }
   }
 }

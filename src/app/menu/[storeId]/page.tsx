@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -372,11 +371,11 @@ function MenuContent() {
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
                                   bookingsLoading ? (
-                                      <span className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></span>
+                                      <div className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div>
                                   ) : (
-                                      <span>{customerBookings?.length || 0} Sessions Active</span>
+                                      <div>{customerBookings?.length || 0} Sessions Active</div>
                                   )
-                              ) : <span>₹{cartTotal.toFixed(0)} Manifested</span>}
+                              ) : <div>₹{cartTotal.toFixed(0)} Manifested</div>}
                           </div>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>

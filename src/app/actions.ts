@@ -74,7 +74,6 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
     try {
         const { db } = await getAdminServices();
         
-        // Safety checks for ID generation
         const dateStr = String(data.date || format(new Date(), 'yyyy-MM-dd'));
         const timeStr = String(data.time || '10:00');
         const cleanTime = timeStr.replace(':', '');
@@ -88,14 +87,15 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
                 throw new Error('This slot has just been taken. Please choose another time.');
             }
 
-            // SCHEMA ENFORCEMENT: Explicitly set searchable fields
             const bookingData = {
                 id: bookingId,
                 storeId: data.storeId,
                 userId: data.userId || 'guest',
                 deviceId: data.deviceId || 'unknown',
+                sessionId: data.deviceId || 'unknown', // Map deviceId to sessionId for rules
                 serviceId: data.serviceId,
                 serviceName: data.serviceName,
+                service: data.serviceName, // Map serviceName to service for rules
                 price: data.price,
                 duration: data.duration,
                 customerName: data.customerName,
