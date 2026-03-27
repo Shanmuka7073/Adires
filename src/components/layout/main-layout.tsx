@@ -11,12 +11,15 @@ import { BottomNavBar } from './bottom-nav-bar';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { FirestoreCounter } from './firestore-counter';
 import { OfflineStatus } from './offline-status';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { Cog, Zap, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { CallOverlay } from '@/components/features/call-overlay';
+import { endCall } from '@/lib/chat-service';
+import type { Chat } from '@/lib/types';
 
 function MaintenanceOverlay() {
     return (
@@ -61,17 +64,68 @@ export function MainLayout({
 }: { 
   children: React.ReactNode;
 }) {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { isInitialized } = useAppStore();
+  const [activeCall, setActiveCall] = useState<{ call: any, chatId: string } | null>(null);
 
+  // Maintenance Listener
   const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
   const { data: appStatus } = useDoc<any>(statusRef);
   const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
 
+  // Real-time Incoming Call Listener
+  useEffect(() => {
+      if (!firestore || !user) return;
+
+      const q = query(
+          collection(firestore, 'chats'),
+          where('participants', 'array-contains', user.uid)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+          snapshot.docs.forEach(doc => {
+              const chat = doc.data() as Chat;
+              // Check if someone else is calling us
+              if (chat.activeCall && chat.activeCall.callerId !== user.uid && chat.activeCall.status === 'ringing') {
+                  setActiveCall({ call: chat.activeCall, chatId: doc.id });
+              } else if (activeCall?.chatId === doc.id && (!chat.activeCall || chat.activeCall.status !== 'ringing')) {
+                  // Call ended remotely
+                  setActiveCall(null);
+              }
+          });
+      });
+
+      return () => unsubscribe();
+  }, [firestore, user, activeCall?.chatId]);
+
+  const handleDeclineCall = async () => {
+      if (firestore && activeCall) {
+          await endCall(firestore, activeCall.chatId);
+          setActiveCall(null);
+      }
+  };
+
+  const handleAcceptCall = () => {
+      // In a real app, this would route to a /call/[callId] page
+      // For this step, we just acknowledge and dismiss the overlay
+      handleDeclineCall();
+  };
+
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
       {isMaintenanceActive && <MaintenanceOverlay />}
+      
+      <AnimatePresence>
+          {activeCall && (
+              <CallOverlay 
+                call={activeCall.call}
+                onAccept={handleAcceptCall}
+                onDecline={handleDeclineCall}
+              />
+          )}
+      </AnimatePresence>
+
       <OfflineStatus />
       <Header />
       <ProfileCompletionChecker />

@@ -14,9 +14,10 @@ import {
     updateDoc,
     increment,
     limit,
-    getDoc
+    getDoc,
+    deleteField
 } from 'firebase/firestore';
-import type { Chat, Message, Store, User } from './types';
+import type { Chat, Message, Store, User, CallSession } from './types';
 import { sendChatNotification } from '@/app/actions';
 
 /**
@@ -161,5 +162,43 @@ export async function markChatAsRead(db: Firestore, chatId: string, userId: stri
     const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
         [`unreadCount.${userId}`]: 0
+    });
+}
+
+/**
+ * Initiates an in-app "Call" signal.
+ */
+export async function initiateInAppCall(
+    db: Firestore,
+    chatId: string,
+    callerId: string,
+    callerName: string,
+    callerImageUrl?: string
+) {
+    const chatRef = doc(db, 'chats', chatId);
+    const callData: CallSession = {
+        id: `call_${Date.now()}`,
+        callerId,
+        callerName,
+        callerImageUrl,
+        type: 'audio',
+        status: 'ringing',
+        startedAt: serverTimestamp()
+    };
+
+    await updateDoc(chatRef, {
+        activeCall: callData,
+        updatedAt: serverTimestamp()
+    });
+}
+
+/**
+ * Ends/Cancels an active call signal.
+ */
+export async function endCall(db: Firestore, chatId: string) {
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+        activeCall: null,
+        updatedAt: serverTimestamp()
     });
 }

@@ -135,7 +135,17 @@ export type Booking = {
     updatedAt: any;
 };
 
-/* ---------------- CHAT TYPES ---------------- */
+/* ---------------- CHAT & CALL TYPES ---------------- */
+
+export type CallSession = {
+    id: string;
+    callerId: string;
+    callerName: string;
+    callerImageUrl?: string;
+    type: 'audio' | 'video';
+    status: 'ringing' | 'accepted' | 'ended';
+    startedAt: any;
+};
 
 export type Chat = {
     id: string;
@@ -148,6 +158,7 @@ export type Chat = {
     customerName: string;
     customerImageUrl?: string;
     unreadCount: Record<string, number>;
+    activeCall?: CallSession | null;
 };
 
 export type Message = {
