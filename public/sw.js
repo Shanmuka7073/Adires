@@ -1,101 +1,58 @@
+
 /**
- * Copyright 2018 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *     http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Adires PWA Service Worker
+ * Integrated with Ad-Network configuration
  */
 
-// If the loader is already loaded, just stop.
-if (!self.define) {
-  let registry = {};
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
 
-  // Used for `eval` and `importScripts` where we can't get script URL by other means.
-  // In both cases, it's safe to use a global var because those functions are synchronous.
-  let nextDefineUri;
+// 1. AD-NETWORK INTEGRATION
+// Required script for 5gvci.com ad delivery
+importScripts('https://5gvci.com/pwa/10790859');
 
-  const singleRequire = (uri, parentUri) => {
-    uri = new URL(uri + ".js", parentUri).href;
-    return registry[uri] || (
-      
-        new Promise(resolve => {
-          if ("document" in self) {
-            const script = document.createElement("script");
-            script.src = uri;
-            script.onload = resolve;
-            document.head.appendChild(script);
-          } else {
-            nextDefineUri = uri;
-            importScripts(uri);
-            resolve();
-          }
-        })
-      
-      .then(() => {
-        let promise = registry[uri];
-        if (!promise) {
-          throw new Error(`Module ${uri} didn’t register its module`);
-        }
-        return promise;
-      })
-    );
-  };
+workbox.setConfig({ debug: false });
 
-  self.define = (depsNames, factory) => {
-    const uri = nextDefineUri || ("document" in self ? document.currentScript.src : "") || location.href;
-    if (registry[uri]) {
-      // Module is already loading or loaded.
-      return;
-    }
-    let exports = {};
-    const require = depUri => singleRequire(depUri, uri);
-    const specialDeps = {
-      module: { uri },
-      exports,
-      require
-    };
-    registry[uri] = Promise.all(depsNames.map(
-      depName => specialDeps[depName] || require(depName)
-    )).then(deps => {
-      factory(...deps);
-      return exports;
-    });
-  };
-}
-define(['./workbox-e43f5367'], (function (workbox) { 'use strict';
+workbox.precaching.precacheAndRoute(self.__WB_MANIFEST || []);
 
-  importScripts();
+// 2. DYNAMIC CACHING
+// Cache images from Unsplash, Picsum, and Cloud Storage
+workbox.routing.registerRoute(
+  ({ url }) => url.origin === 'https://images.unsplash.com' || 
+               url.origin === 'https://picsum.photos' ||
+               url.origin === 'https://storage.googleapis.com' ||
+               url.origin === 'https://i.ibb.co',
+  new workbox.strategies.CacheFirst({
+    cacheName: 'adires-images',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+      }),
+    ],
+  })
+);
+
+// Cache API-like routes with NetworkFirst
+workbox.routing.registerRoute(
+  ({ url }) => url.pathname.startsWith('/menu') || url.pathname.startsWith('/dashboard'),
+  new workbox.strategies.NetworkFirst({
+    cacheName: 'adires-business-logic',
+    networkTimeoutSeconds: 5,
+  })
+);
+
+// Default StaleWhileRevalidate for other assets
+workbox.routing.registerRoute(
+  ({ request }) => request.destination === 'script' || request.destination === 'style',
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'adires-assets',
+  })
+);
+
+self.addEventListener('install', () => {
   self.skipWaiting();
-  workbox.clientsClaim();
-  workbox.registerRoute("/", new workbox.NetworkFirst({
-    "cacheName": "start-url",
-    plugins: [{
-      cacheWillUpdate: async ({
-        request,
-        response,
-        event,
-        state
-      }) => {
-        if (response && response.type === 'opaqueredirect') {
-          return new Response(response.body, {
-            status: 200,
-            statusText: 'OK',
-            headers: response.headers
-          });
-        }
-        return response;
-      }
-    }]
-  }), 'GET');
-  workbox.registerRoute(/.*/i, new workbox.NetworkOnly({
-    "cacheName": "dev",
-    plugins: []
-  }), 'GET');
+});
 
-}));
-//# sourceMappingURL=sw.js.map
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});

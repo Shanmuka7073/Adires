@@ -1,10 +1,12 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, RefObject } from 'react';
+import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
@@ -57,10 +59,6 @@ const getInitialLanguage = (): string => {
   return 'en';
 };
 
-/**
- * HARDENED IDENTITY GENERATOR
- * Ensures a stable, non-null ID is available immediately on the client.
- */
 const getOrGenerateDeviceId = () => {
     if (typeof window === 'undefined') return 'server';
     let id = localStorage.getItem('adires-device-id');
@@ -122,7 +120,6 @@ export const useAppStore = create<AppState>()(
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
-          // HARDENED: Always ensure deviceId is refreshed during boot
           const id = getOrGenerateDeviceId();
 
           set({
@@ -222,3 +219,23 @@ export const useInitializeApp = () => {
 
     return { isLoading: loading };
 };
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));

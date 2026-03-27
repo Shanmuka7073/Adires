@@ -31,8 +31,8 @@ const withPWA = require('next-pwa')({
         expiration: {
           maxEntries: 64,
           maxAgeSeconds: 24 * 60 * 60,
+          networkTimeoutSeconds: 10,
         },
-        networkTimeoutSeconds: 10,
       },
     },
     {
@@ -78,6 +78,18 @@ const nextConfig = {
         child_process: false,
       };
     }
+    
+    // FIX: Mark Genkit and Telemetry as externals to prevent "require-in-the-middle" build crash
+    if (isServer) {
+      config.externals.push(
+        '@genkit-ai/google-genai',
+        'genkit',
+        '@opentelemetry/api',
+        '@opentelemetry/sdk-node',
+        '@opentelemetry/instrumentation'
+      );
+    }
+
     config.module.rules.push({
       test: /\.rules$/,
       type: 'asset/source',
