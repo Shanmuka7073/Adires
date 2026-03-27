@@ -31,11 +31,9 @@ import {
   Loader2,
   Clock,
   Download,
-  ShoppingBag,
   Trash2,
   Sparkles,
   CalendarCheck,
-  X,
   RefreshCw
 } from 'lucide-react';
 

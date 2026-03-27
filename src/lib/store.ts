@@ -59,8 +59,8 @@ const getInitialLanguage = (): string => {
 };
 
 /**
- * Sync-Safe Device ID Generator
- * Guaranteed to return a stable ID on the client.
+ * HARDENED IDENTITY GENERATOR
+ * Ensures a stable, non-null ID is available immediately on the client.
  */
 const getOrGenerateDeviceId = () => {
     if (typeof window === 'undefined') return 'server';
@@ -87,7 +87,7 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
-      deviceId: null, // Start null to force client-side generation
+      deviceId: null, 
       isCartOpen: false,
       readCount: 0,
       writeCount: 0,
@@ -176,12 +176,13 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-lean-v6', 
+      name: 'adires-ops-v7', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
           isInitialized: state.isInitialized,
+          deviceId: state.deviceId
       }),
     }
   )
