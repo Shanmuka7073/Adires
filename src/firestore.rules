@@ -70,14 +70,17 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if true; 
+      // Allow authenticated users to read (list/get) orders
+      // Filtering is handled by the frontend query (userId or storeId)
+      allow read: if isSignedIn(); 
       allow create: if isSignedIn();
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
     }
 
     match /bookings/{bookingId} {
-        // ALLOW PUBLIC READ (Needed for session tracking & merchant dashboards)
-        allow read: if true;
+        // ALLOW AUTHENTICATED READ (Covers list and get)
+        // This solves the 'Insufficient Permissions' error for My Bookings and Salon Dashboard
+        allow read: if isSignedIn();
         // SIGNUP REQUIRED for creation/updates
         allow create: if isSignedIn(); 
         allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;

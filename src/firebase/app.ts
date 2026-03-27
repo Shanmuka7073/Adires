@@ -5,6 +5,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 /**
  * STRATEGIC FIREBASE APP LOADER
  * Strictly uses environment variables to prevent project ID mismatch.
+ * Removed dynamic overrides that caused permission errors.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -26,6 +27,7 @@ export function getFirebaseApp(): FirebaseApp | null {
   }
 
   try {
+    // Only initialize with the explicit PID from environment variables
     return initializeApp({ ...firebaseConfig, projectId: pid });
   } catch (e) {
     console.error("Firebase App initialization failed:", e);

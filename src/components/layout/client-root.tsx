@@ -11,7 +11,7 @@ import GlobalLoader from './global-loader';
 
 /**
  * RESILIENT HYDRATION ROOT
- * Ensures initial render matches server (null) to eliminate hydration failures.
+ * Hardened to ensure initial render matches server (null) 100% of the time.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
@@ -20,15 +20,16 @@ function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
 
     useEffect(() => {
+        // This only runs on the client after the first render
         setIsMounted(true);
     }, []);
     
-    // 1. Render null until mounted to match server output
+    // 1. Render null until mounted to match server output exactly
     if (!isMounted) {
         return null;
     }
 
-    // 2. Show loader only if we are absolutely not ready
+    // 2. Show loader only after hydration, while initializing app state
     if (!isInitialized && !appReady) {
         return <GlobalLoader />;
     }

@@ -265,25 +265,20 @@ function MenuContent() {
       }
   }, [stableSessionId, setSessionId, isMounted]);
 
+  // Query only if signed in to prevent rules crash during hydration
   const ordersQuery = useMemoFirebase(() => 
-    (isMounted && firestore && stableSessionId !== 'loading' 
+    (isMounted && firestore && user && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
         : null
-    ), [firestore, stableSessionId, isMounted]);
+    ), [firestore, stableSessionId, isMounted, user]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!isMounted || !firestore || !storeId) return null;
-      const id = user?.uid || deviceId;
-      if (!id) return null;
-      return query(collection(firestore, 'bookings'), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [isMounted, firestore, storeId, user?.uid, deviceId]);
+      if (!isMounted || !firestore || !storeId || !user) return null;
+      return query(collection(firestore, 'bookings'), where('storeId', '==', storeId), where('userId', '==', user.uid), orderBy('date', 'desc'), limit(10));
+  }, [isMounted, firestore, storeId, user]);
 
-  const { data: allBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
-  const customerBookings = useMemo(() => {
-      const id = user?.uid || deviceId;
-      return (allBookings || []).filter(b => b.userId === id || b.deviceId === id);
-  }, [allBookings, user?.uid, deviceId]);
+  const { data: customerBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
   const availableCategories = useMemo(() => {
@@ -409,7 +404,7 @@ function MenuContent() {
                               {isSalon ? (
                                   <div className="flex items-center gap-2">
                                       {bookingsLoading ? (
-                                          <div className="flex items-center gap-2"><span>Syncing</span> <div className="h-3.5 w-3.5"><RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div></div>
+                                          <div className="flex items-center gap-2"><span>Syncing</span> <span className="h-3.5 w-3.5 flex items-center justify-center"><RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></span></div>
                                       ) : (
                                           <span>{customerBookings?.length || 0} Sessions Active</span>
                                       )}
