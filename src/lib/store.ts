@@ -9,6 +9,7 @@ import { useEffect, useCallback, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
+import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -147,12 +148,13 @@ export const useAppStore = create<AppState>()(
             loading: false,
             userStore,
             deviceId: id,
+            appReady: true,
             readCount: state.readCount + storesSnap.docs.length
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, loading: false, isInitialized: true });
+          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
@@ -173,11 +175,12 @@ export const useAppStore = create<AppState>()(
                 userStore,
                 isInitialized: true,
                 loading: false,
+                appReady: true,
                 readCount: state.readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, loading: false, isInitialized: true });
+            set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
@@ -195,7 +198,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v9', 
+      name: 'adires-ops-v10', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -208,6 +211,7 @@ export const useAppStore = create<AppState>()(
 );
 
 export const useInitializeApp = () => {
+    const { firestore, user, isUserLoading } = useFirebase();
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const loading = useAppStore(state => state.loading);
@@ -224,6 +228,16 @@ export const useInitializeApp = () => {
             }
         }
     }, [deviceId, setDeviceId]);
+
+    useEffect(() => {
+        if (firestore && !isUserLoading && !isInitialized && !loading) {
+            fetchInitialData(firestore, user?.uid).then(() => {
+                setAppReady(true);
+            });
+        } else if (isInitialized) {
+            setAppReady(true);
+        }
+    }, [firestore, isUserLoading, isInitialized, loading, fetchInitialData, user?.uid, setAppReady]);
 
     return { isLoading: loading };
 };
