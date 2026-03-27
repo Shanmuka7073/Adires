@@ -71,30 +71,30 @@ function LiveBillSheet({
       return (
           <div className="flex flex-col h-full bg-[#FDFCF7]">
               <SheetHeader className='p-5 border-b bg-white'>
-                  <SheetTitle className="flex items-center gap-2 text-lg font-black uppercase tracking-tight">
+                  <SheetTitle className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
                       <CalendarCheck className="h-5 w-5 text-primary" /> My Beauty Sessions
                   </SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {customerBookings && customerBookings.length > 0 ? (
                       customerBookings.map(b => (
-                          <Card key={b.id} className="p-4 rounded-2xl border-2 bg-white shadow-sm flex justify-between items-center">
-                              <div>
-                                  <p className="text-[10px] font-black uppercase text-primary">{b.serviceName}</p>
-                                  <p className="text-xs font-bold">{format(new Date(b.date), 'dd MMM')} • {b.time}</p>
+                          <Card key={b.id} className="p-4 rounded-[2rem] border-2 bg-white shadow-md flex justify-between items-center group active:scale-95 transition-all">
+                              <div className="min-w-0">
+                                  <p className="text-[10px] font-black uppercase text-primary tracking-widest truncate">{b.serviceName}</p>
+                                  <p className="text-xs font-bold text-gray-900 mt-0.5">{format(new Date(b.date), 'dd MMM')} • {b.time}</p>
                               </div>
                               <Badge className={cn(
-                                  "text-[8px] font-black uppercase",
-                                  b.status === 'Completed' ? 'bg-green-500' : 
-                                  b.status === 'Booked' ? 'bg-blue-500' : 
-                                  b.status === 'In Progress' ? 'bg-amber-500' : 'bg-gray-400'
+                                  "rounded-md font-black uppercase text-[8px] tracking-widest px-2 py-0.5 border-0 shadow-sm",
+                                  b.status === 'Completed' ? 'bg-green-500 text-white' : 
+                                  b.status === 'Booked' ? 'bg-blue-500 text-white' : 
+                                  b.status === 'In Progress' ? 'bg-amber-500 text-white animate-pulse' : 'bg-gray-400 text-white'
                               )}>{b.status}</Badge>
                           </Card>
                       ))
                   ) : (
-                      <div className="py-20 text-center opacity-20">
-                          <Clock className="h-12 w-12 mx-auto mb-4" />
-                          <p className="font-black uppercase text-xs">No active bookings</p>
+                      <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                          <Clock className="h-12 w-12 mb-4 opacity-20" />
+                          <p className="font-black uppercase text-[10px] tracking-[0.2em]">No active bookings</p>
                       </div>
                   )}
               </div>
@@ -106,11 +106,11 @@ function LiveBillSheet({
   const sessionTotal = placedTotal + cartTotal;
   const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
 
-  if (isLoadingOrders) return <div className="flex justify-center p-12 bg-white"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
+  if (isLoadingOrders) return <div className="flex justify-center p-12 bg-white h-full"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
   
   return (
     <div className="flex flex-col h-full bg-[#FDFCF7]">
-        <SheetHeader className='p-5 border-b shrink-0 bg-white'>
+        <SheetHeader className='p-5 border-b shrink-0 bg-white shadow-sm'>
             <SheetTitle className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
                 <Receipt className="h-5 w-5 text-primary" /> Live Order Progress
             </SheetTitle>
@@ -122,33 +122,35 @@ function LiveBillSheet({
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-1">
                         <Sparkles className="h-3 w-3" /> Current Session
                     </h4>
-                    {placedOrders.map((order, idx) => (
-                        <div key={order.id} className="space-y-3 p-5 rounded-[2.5rem] border-2 bg-white shadow-md">
-                            <div className="flex justify-between items-center">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Batch #{idx + 1}</h4>
-                                <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 text-primary">{order.status}</Badge>
+                    <div className="space-y-4">
+                        {placedOrders.map((order, idx) => (
+                            <div key={order.id} className="space-y-3 p-5 rounded-[2.5rem] border-2 bg-white shadow-md">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Batch #{idx + 1}</h4>
+                                    <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 text-primary">{order.status}</Badge>
+                                </div>
+                                <div className="space-y-2 pt-2 border-t border-dashed">
+                                    {order.items.map((it, iIdx) => (
+                                        <div key={iIdx} className="flex justify-between items-center text-[11px] font-bold text-gray-700">
+                                            <span>{it.productName} <span className="opacity-40">x{it.quantity}</span></span>
+                                            <span className="font-black text-gray-900">₹{it.price * it.quantity}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="space-y-2 pt-2 border-t border-dashed">
-                                {order.items.map((it, iIdx) => (
-                                    <div key={iIdx} className="flex justify-between items-center text-[11px] font-bold text-gray-700">
-                                        <span>{it.productName} x{it.quantity}</span>
-                                        <span className="font-black">₹{it.price * it.quantity}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                  </div>
              )}
 
              {cartItems.length > 0 && (
                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Selection</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Current Selection</h4>
                     <div className="p-5 rounded-[2.5rem] border-2 border-dashed bg-white space-y-3 shadow-inner">
                         {cartItems.map((it, idx) => (
                             <div key={idx} className="flex justify-between items-center text-xs font-bold text-gray-800">
                                 <div className="flex items-center gap-3">
-                                    <button onClick={() => removeItem(it.variant.sku)} className="text-red-500 p-1.5 bg-red-50 rounded-lg"><Trash2 className="h-3.5 w-3.5" /></button>
+                                    <button onClick={() => removeItem(it.variant.sku)} className="text-red-500 p-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                                     <span className="opacity-80 uppercase tracking-tight">{it.product.name} x{it.quantity}</span>
                                 </div>
                                 <span className="font-black text-primary">₹{(it.variant.price * it.quantity).toFixed(0)}</span>
@@ -159,13 +161,13 @@ function LiveBillSheet({
              )}
         </div>
 
-        <div className="p-6 border-t space-y-4 bg-white shrink-0 pb-10">
+        <div className="p-6 border-t space-y-4 bg-white shrink-0 pb-10 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-baseline mb-2 px-1">
-                <span className="text-xs font-black uppercase tracking-widest opacity-40">Total</span>
-                <span className="text-3xl font-black text-gray-950 tracking-tighter">₹{sessionTotal.toFixed(2)}</span>
+                <span className="text-xs font-black uppercase tracking-widest opacity-40">Grand Total</span>
+                <span className="text-3xl font-black text-gray-950 tracking-tighter">₹{sessionTotal.toFixed(0)}</span>
             </div>
             {placedOrders.length > 0 && !isFinalized && (
-                <Button className="w-full h-14 rounded-2xl" variant="destructive" onClick={onFinalizeBill}>Finalize Bill</Button>
+                <Button className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20" variant="destructive" onClick={onFinalizeBill}>Finalize & Bill</Button>
             )}
         </div>
     </div>
@@ -175,22 +177,22 @@ function LiveBillSheet({
 function ServiceCard({ item, onBook, onShowDetails }: { item: MenuItem, onBook: (item: MenuItem) => void, onShowDetails: (item: MenuItem) => void }) {
     const isOutOfStock = item.isAvailable === false;
     return (
-        <Card className={cn("rounded-3xl border-0 shadow-lg overflow-hidden bg-white hover:shadow-2xl transition-all", isOutOfStock && "opacity-50 grayscale")}>
+        <Card className={cn("rounded-[2rem] border-0 shadow-lg overflow-hidden bg-white hover:shadow-2xl transition-all", isOutOfStock && "opacity-50 grayscale")}>
             <div className="p-3 flex items-center gap-3">
-                <div className="relative h-20 w-20 rounded-[1.5rem] overflow-hidden border-4 border-black/5 bg-muted shrink-0 shadow-inner cursor-pointer" onClick={() => onShowDetails(item)}>
+                <div className="relative h-20 w-20 rounded-[1.5rem] overflow-hidden border-4 border-black/5 bg-muted shrink-0 shadow-inner cursor-pointer active:scale-95 transition-transform" onClick={() => onShowDetails(item)}>
                     <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-[11px] uppercase tracking-tight text-gray-950 leading-tight mb-0.5">{item.name}</h3>
+                    <h3 className="font-black text-[11px] uppercase tracking-tight text-gray-950 leading-tight mb-0.5 truncate">{item.name}</h3>
                     <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1.5">{item.duration || 30} minutes</p>
                     <p className="text-lg font-black text-gray-900 tracking-tighter italic leading-none">₹{item.price.toFixed(0)}</p>
                 </div>
                 <Button 
                     onClick={() => onBook(item)} 
                     disabled={isOutOfStock}
-                    className="h-10 rounded-xl px-4 font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95"
+                    className="h-10 rounded-xl px-4 font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all bg-primary text-white border-0"
                 >
-                    Book Now
+                    Book
                 </Button>
             </div>
         </Card>
@@ -229,6 +231,7 @@ function MenuContent() {
       if (table) setTableNumber(table);
   }, [searchParams]);
 
+  // STABLE SESSION ID LOGIC
   const stableSessionId = useMemo(() => {
     if (!deviceId || deviceId === 'server') return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
@@ -241,16 +244,22 @@ function MenuContent() {
       }
   }, [stableSessionId, setSessionId, hasMounted]);
 
-  const ordersQuery = useMemoFirebase(() => (hasMounted && firestore && stableSessionId !== 'loading' ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) : null), [firestore, stableSessionId, hasMounted]);
+  // QUERY: Live Orders for the session
+  const ordersQuery = useMemoFirebase(() => 
+    (hasMounted && firestore && stableSessionId !== 'loading' 
+        ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
+        : null
+    ), [firestore, stableSessionId, hasMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
+  // QUERY: Bookings for the user/device
   const bookingsQuery = useMemoFirebase(() => {
       if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server') return null;
       const baseCol = collection(firestore, 'bookings');
-      
       const identifier = user?.uid || deviceId;
       if (!identifier) return null;
 
+      // Filter by identifier AND storeId to ensure visibility in the bottom bar
       if (user?.uid) {
           return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
       }
@@ -283,8 +292,8 @@ function MenuContent() {
     });
   };
 
-  if (storeLoading || menuLoading || !hasMounted) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-  if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900">Store not found.</div>;
+  if (storeLoading || menuLoading || !hasMounted) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
+  if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900 font-black uppercase tracking-widest text-xs">Store Profile Not Found</div>;
 
   return (
     <>
@@ -303,27 +312,27 @@ function MenuContent() {
       )}
       
       <div className="min-h-screen pb-40 bg-[#FDFCF7]">
-          <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-4 pb-2 border-b">
+          <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-4 pb-2 border-b border-black/5">
               <div className="max-w-2xl mx-auto space-y-4">
                   <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                          <div className="relative h-8 w-8 rounded-full overflow-hidden border-2 border-primary">
+                      <div className="flex items-center gap-3">
+                          <div className="relative h-9 w-9 rounded-full overflow-hidden border-2 border-primary shadow-sm bg-white">
                               <Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" />
                           </div>
                           <div>
-                              <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none">{store.name}</h1>
-                              <p className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-0.5">{isSalon ? 'Salon & Spa' : 'Restaurant Hub'}</p>
+                              <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none max-w-[150px]">{store.name}</h1>
+                              <p className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-1">{isSalon ? 'Verified Salon' : 'Verified Hub'}</p>
                           </div>
                       </div>
                       {canInstall && (
-                        <button onClick={triggerInstall} className="h-8 px-3 rounded-full bg-white shadow-sm border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest flex items-center gap-1.5">
+                        <button onClick={triggerInstall} className="h-8 px-3 rounded-full bg-white shadow-sm border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest flex items-center gap-1.5 text-gray-950">
                             <Download className="h-3 w-3 text-primary" /> Install
                         </button>
                       )}
                   </div>
                   <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
                       {availableCategories.map(cat => (
-                          <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 h-9 rounded-full font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border", selectedCategory === cat ? "bg-primary border-primary text-white scale-105 shadow-md" : "bg-white border-black/5 text-gray-500")}>
+                          <button key={cat} onClick={() => setSelectedCategory(cat)} className={cn("px-4 h-9 rounded-full font-black text-[9px] uppercase tracking-widest transition-all shrink-0 border-2", selectedCategory === cat ? "bg-primary border-primary text-white scale-105 shadow-lg" : "bg-white border-black/5 text-gray-500")}>
                               {cat}
                           </button>
                       ))}
@@ -331,7 +340,7 @@ function MenuContent() {
               </div>
           </header>
 
-          <div className="container mx-auto px-5 max-w-2xl mt-6 space-y-8">
+          <div className="container mx-auto px-5 max-w-2xl mt-6 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
                 {Object.entries(groupedMenu).map(([category, items]) => (
                     <section key={category} className="space-y-3">
                         <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
@@ -340,17 +349,17 @@ function MenuContent() {
                                 isSalon ? (
                                     <ServiceCard key={item.id} item={item} onBook={setBookingService} onShowDetails={handleShowIngredients} />
                                 ) : (
-                                    <Card key={item.id} className="p-4 rounded-3xl border-0 shadow-lg bg-white flex justify-between items-center">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 bg-muted">
+                                    <Card key={item.id} className="p-4 rounded-[2rem] border-0 shadow-lg bg-white flex justify-between items-center group active:scale-[0.98] transition-all">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 bg-muted shrink-0 shadow-inner">
                                                 <Image src={item.imageUrl || ADIRES_LOGO} alt={item.name} fill className="object-cover" />
                                             </div>
-                                            <div>
-                                                <p className="font-black text-[11px] uppercase tracking-tight">{item.name}</p>
-                                                <p className="font-black text-primary text-sm">₹{item.price}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-[11px] uppercase tracking-tight text-gray-950 truncate leading-tight">{item.name}</p>
+                                                <p className="font-black text-primary text-sm mt-0.5 italic">₹{item.price.toFixed(0)}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[10px] uppercase h-9" onClick={() => handleShowIngredients(item)}>View</Button>
+                                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[9px] uppercase h-9 px-4 border-2 shrink-0 bg-white" onClick={() => handleShowIngredients(item)}>View</Button>
                                     </Card>
                                 )
                             ))}
@@ -361,21 +370,21 @@ function MenuContent() {
 
           <div className="fixed bottom-6 left-0 right-0 z-50 px-5">
               <div className="max-w-md mx-auto">
-                  <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white">
+                  <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white ring-1 ring-black/5 animate-in slide-in-from-bottom-10 duration-500">
                       <div className="flex items-center gap-3">
-                          <p className="text-base font-black text-gray-950 leading-none">
+                          <p className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter">
                               {isSalon ? (
-                                  bookingsLoading ? <RefreshCw className="h-4 w-4 animate-spin opacity-40" /> : `${customerBookings?.length || 0} Sessions`
-                              ) : `₹${cartTotal.toFixed(0)} Selected`}
+                                  bookingsLoading ? <div className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div> : `${customerBookings?.length || 0} Sessions Active`
+                              ) : `₹${cartTotal.toFixed(0)} Manifested`}
                           </p>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                           <SheetTrigger asChild>
-                              <Button className="h-10 rounded-full bg-gray-950 text-white font-black uppercase text-[9px] tracking-widest px-5 shadow-lg">
-                                  {isSalon ? 'My Bookings' : 'View Bill'}
+                              <Button className="h-10 rounded-full bg-gray-950 text-white font-black uppercase text-[9px] tracking-widest px-6 shadow-xl hover:bg-gray-900 transition-colors">
+                                  {isSalon ? 'My Sessions' : 'Finalize'}
                               </Button>
                           </SheetTrigger>
-                          <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
+                          <SheetContent side="bottom" className="h-[85vh] rounded-t-[3.5rem] p-0 border-0 overflow-hidden shadow-2xl ring-1 ring-black/5">
                               <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []}/>
                           </SheetContent>
                       </Sheet>
@@ -389,7 +398,7 @@ function MenuContent() {
 
 export default function PublicMenuPage() {
     return (
-        <Suspense fallback={<div className="p-12 flex items-center justify-center min-h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /></div>}>
+        <Suspense fallback={<div className="p-12 flex items-center justify-center min-h-screen bg-[#FDFCF7]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /></div>}>
             <MenuContent />
         </Suspense>
     );

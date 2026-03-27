@@ -9,7 +9,6 @@ import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes, i
 
 /**
  * DEEP SERIALIZATION UTILITY
- * Ensures Firestore Timestamps and Dates are converted to ISO strings for the client.
  */
 function sanitizeForClient(data: any): any {
     if (data === null || data === undefined) return data;
@@ -42,6 +41,114 @@ export async function getFirebaseConfig() {
       vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
     };
   } catch (e) { return null; }
+}
+
+/* ---------------- BOOKING ACTIONS ---------------- */
+
+export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
+    try {
+        const { db } = await getAdminServices();
+        const bookingId = `${data.storeId}_${data.date}_${data.time.replace(':', '')}`;
+        const bookingRef = db.collection('bookings').doc(bookingId);
+
+        const result = await db.runTransaction(async (transaction) => {
+            const snap = await transaction.get(bookingRef);
+            if (snap.exists && snap.data()?.status !== 'Cancelled') {
+                throw new Error('This slot has just been taken. Please choose another time.');
+            }
+
+            // SCHEMA ENFORCEMENT: Explicitly set every field to ensure searchability
+            const bookingData = {
+                id: bookingId,
+                storeId: data.storeId,
+                userId: data.userId || 'guest',
+                deviceId: data.deviceId || 'unknown',
+                serviceId: data.serviceId,
+                serviceName: data.serviceName,
+                price: data.price,
+                duration: data.duration,
+                customerName: data.customerName,
+                phone: data.phone,
+                notes: data.notes || '',
+                date: data.date,
+                time: data.time,
+                status: 'Booked',
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+            };
+
+            transaction.set(bookingRef, bookingData);
+            return bookingId;
+        });
+
+        return { success: true, bookingId: result };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getAvailableSlots(storeId: string, date: string, duration: number) {
+    try {
+        const { db } = await getAdminServices();
+        const storeSnap = await db.collection('stores').doc(storeId).get();
+        const storeData = storeSnap.data();
+        
+        const startHourStr = storeData?.workingHours?.start || '10:00';
+        const endHourStr = storeData?.workingHours?.end || '20:00';
+        
+        const startHour = parseInt(startHourStr.split(':')[0]) || 10;
+        const startMin = parseInt(startHourStr.split(':')[1] || '0') || 0;
+        const endHour = parseInt(endHourStr.split(':')[0]) || 20;
+        const endMin = parseInt(endHourStr.split(':')[1] || '0') || 0;
+
+        const bookingsSnap = await db.collection('bookings')
+            .where('storeId', '==', storeId)
+            .where('date', '==', date)
+            .where('status', '!=', 'Cancelled')
+            .get();
+        
+        const bookedTimes = new Set(bookingsSnap.docs.map(doc => doc.data().time));
+
+        const slots = [];
+        const baseDate = parse(date, 'yyyy-MM-dd', new Date());
+        const startTime = setHours(setMinutes(startOfDay(baseDate), startMin), startHour);
+        const endTime = setHours(setMinutes(startOfDay(baseDate), endMin), endHour);
+        
+        let current = startTime;
+        const now = new Date();
+        const interval = Math.max(15, duration || 30);
+
+        while (current < endTime) {
+            const timeStr = format(current, 'HH:mm');
+            const isBooked = bookedTimes.has(timeStr);
+            const isPast = isAfter(now, current);
+
+            slots.push({
+                time: timeStr,
+                label: format(current, 'hh:mm a'),
+                available: !isBooked && !isPast
+            });
+
+            current = addMinutes(current, interval);
+        }
+
+        return { success: true, slots };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateBookingStatus(bookingId: string, status: Booking['status']) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('bookings').doc(bookingId).update({
+            status,
+            updatedAt: FieldValue.serverTimestamp()
+        });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
 
 export async function getPlatformAnalytics() {
@@ -293,108 +400,6 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
                 ingredientCost: totalSales * 0.45, 
             }
         };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-/* ---------------- BOOKING ACTIONS ---------------- */
-
-export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
-    try {
-        const { db } = await getAdminServices();
-        const bookingId = `${data.storeId}_${data.date}_${data.time.replace(':', '')}`;
-        const bookingRef = db.collection('bookings').doc(bookingId);
-
-        const result = await db.runTransaction(async (transaction) => {
-            const snap = await transaction.get(bookingRef);
-            if (snap.exists && snap.data()?.status !== 'Cancelled') {
-                throw new Error('This slot has just been taken. Please choose another time.');
-            }
-
-            const bookingData = {
-                ...data,
-                id: bookingId,
-                status: 'Booked',
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
-            };
-
-            transaction.set(bookingRef, bookingData);
-            return bookingId;
-        });
-
-        return { success: true, bookingId: result };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-export async function getAvailableSlots(storeId: string, date: string, duration: number) {
-    try {
-        const { db } = await getAdminServices();
-        const storeSnap = await db.collection('stores').doc(storeId).get();
-        const storeData = storeSnap.data();
-        
-        // Use Defaults if not provided
-        const startHourStr = storeData?.workingHours?.start || '10:00';
-        const endHourStr = storeData?.workingHours?.end || '20:00';
-        
-        const startHour = parseInt(startHourStr.split(':')[0]) || 10;
-        const startMin = parseInt(startHourStr.split(':')[1] || '0') || 0;
-        const endHour = parseInt(endHourStr.split(':')[0]) || 20;
-        const endMin = parseInt(endHourStr.split(':')[1] || '0') || 0;
-
-        const bookingsSnap = await db.collection('bookings')
-            .where('storeId', '==', storeId)
-            .where('date', '==', date)
-            .where('status', '!=', 'Cancelled')
-            .get();
-        
-        const bookedTimes = new Set(bookingsSnap.docs.map(doc => doc.data().time));
-
-        const slots = [];
-        const baseDate = parse(date, 'yyyy-MM-dd', new Date());
-        
-        // Start and end points for the day
-        const startTime = setHours(setMinutes(startOfDay(baseDate), startMin), startHour);
-        const endTime = setHours(setMinutes(startOfDay(baseDate), endMin), endHour);
-        
-        let current = startTime;
-        const now = new Date();
-        const interval = Math.max(15, duration || 30);
-
-        // Generate full grid of slots regardless of "past" status
-        // This ensures the grid is always shown to the user
-        while (current < endTime) {
-            const timeStr = format(current, 'HH:mm');
-            const isBooked = bookedTimes.has(timeStr);
-            const isPast = isAfter(now, current);
-
-            slots.push({
-                time: timeStr,
-                label: format(current, 'hh:mm a'),
-                available: !isBooked && !isPast
-            });
-
-            current = addMinutes(current, interval);
-        }
-
-        return { success: true, slots };
-    } catch (error: any) {
-        console.error("Slot generation error:", error);
-        return { success: false, error: error.message };
-    }
-}
-
-export async function updateBookingStatus(bookingId: string, status: Booking['status']) {
-    try {
-        const { db } = await getAdminServices();
-        await db.collection('bookings').doc(bookingId).update({
-            status,
-            updatedAt: FieldValue.serverTimestamp()
-        });
-        return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
