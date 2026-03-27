@@ -5,7 +5,7 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: false, 
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
-  importScripts: ['https://5gvci.com/pwa/10790859'],
+  
   runtimeCaching: [
     {
       // AD-NETWORK EXCLUSION

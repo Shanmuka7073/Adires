@@ -8,7 +8,7 @@ const withPWA = require('next-pwa')({
     /app-build-manifest\.json$/,
     /precache-manifest\..*\.js$/,
   ],
-  importScripts: ['https://5gvci.com/pwa/10790859'],
+  
   runtimeCaching: [
     {
       urlPattern: /\.(?:js|css|json|html)$/i,
