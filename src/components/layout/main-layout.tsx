@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CallOverlay } from '@/components/features/call-overlay';
 import { endCall } from '@/lib/chat-service';
 import type { Chat } from '@/lib/types';
+import { AnimatePresence } from 'framer-motion';
 
 function MaintenanceOverlay() {
     return (
