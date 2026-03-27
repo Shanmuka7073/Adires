@@ -25,6 +25,14 @@ export type Product = {
   price?: number;
 };
 
+export type CanonicalProduct = {
+  id: string;
+  name: string;
+  category: string;
+  imageUrl?: string;
+  description?: string;
+};
+
 export type MenuTheme = {
     backgroundColor: string;
     primaryColor: string;
