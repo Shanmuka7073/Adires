@@ -5,9 +5,8 @@ import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
-import { useAppStore, useInitializeApp } from '@/lib/store';
+import { useInitializeApp } from '@/lib/store';
 import { InstallProvider } from '@/components/install-provider';
-import GlobalLoader from './global-loader';
 
 /**
  * RESILIENT HYDRATION ROOT
@@ -16,7 +15,6 @@ import GlobalLoader from './global-loader';
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
-    const { appReady, isInitialized } = useAppStore();
     
     useInitializeApp();
 
@@ -24,14 +22,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
         setIsMounted(true);
     }, []);
     
-    // 1. Return null on server AND client first render to avoid hydration mismatch
+    // Return null on both server and client first render to ensure hydration match
     if (!isMounted) {
         return null;
-    }
-
-    // 2. Show loader only AFTER hydration, while initializing app state
-    if (!isInitialized && !appReady) {
-        return <GlobalLoader />;
     }
 
     return (
