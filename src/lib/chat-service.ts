@@ -16,6 +16,7 @@ import {
     updateDoc,
     increment
 } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Chat, Message, Store, User } from './types';
 
 /**
@@ -86,6 +87,48 @@ export async function sendTextMessage(
         addDoc(messagesRef, messageData),
         updateDoc(chatRef, {
             lastMessage: text,
+            lastSenderId: senderId,
+            updatedAt: serverTimestamp(),
+            [`unreadCount.${otherParticipantId}`]: increment(1)
+        })
+    ]);
+}
+
+/**
+ * Sends a voice message.
+ */
+export async function sendVoiceMessage(
+    db: Firestore,
+    chatId: string,
+    senderId: string,
+    audioBlob: Blob,
+    otherParticipantId: string
+) {
+    const storage = getStorage();
+    const fileName = `chats/${chatId}/voice_${Date.now()}.webm`;
+    const storageRef = ref(storage, fileName);
+
+    // 1. Upload to Storage
+    const uploadResult = await uploadBytes(storageRef, audioBlob);
+    const downloadUrl = await getDownloadURL(uploadResult.ref);
+
+    // 2. Save to Firestore
+    const messagesRef = collection(db, `chats/${chatId}/messages`);
+    const chatRef = doc(db, 'chats', chatId);
+
+    const messageData: Omit<Message, 'id'> = {
+        chatId,
+        senderId,
+        text: '🎤 Voice message',
+        type: 'voice',
+        audioUrl: downloadUrl,
+        createdAt: serverTimestamp()
+    };
+
+    await Promise.all([
+        addDoc(messagesRef, messageData),
+        updateDoc(chatRef, {
+            lastMessage: '🎤 Voice message',
             lastSenderId: senderId,
             updatedAt: serverTimestamp(),
             [`unreadCount.${otherParticipantId}`]: increment(1)
