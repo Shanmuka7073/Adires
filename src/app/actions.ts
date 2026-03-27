@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -83,7 +82,7 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
                 throw new Error('This slot has just been taken. Please choose another time.');
             }
 
-            // SCHEMA ENFORCEMENT: Explicitly set every field to ensure searchability
+            // SCHEMA ENFORCEMENT: Explicitly set searchable fields
             const bookingData = {
                 id: bookingId,
                 storeId: data.storeId,

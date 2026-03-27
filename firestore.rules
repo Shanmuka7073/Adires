@@ -10,10 +10,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /**
-     * GLOBAL ADMINISTRATOR CHECK
-     * Grants full read/write access across all collections.
-     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -72,7 +68,7 @@ service cloud.firestore {
     }
 
     /* ======================
-       COLLECTIONS (Standard Access)
+       COLLECTIONS
        ====================== */
 
     match /users/{userId} {
@@ -104,7 +100,7 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
         allow get, list: if true;
-        allow create: if true; // Validation handled by atomic transaction logic
+        allow create: if true; 
         allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
     }
 

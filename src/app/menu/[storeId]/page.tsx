@@ -230,7 +230,6 @@ function MenuContent() {
       if (table) setTableNumber(table);
   }, [searchParams]);
 
-  // STABLE SESSION ID LOGIC: Fully synchronized with Checkout
   const stableSessionId = useMemo(() => {
     if (!deviceId || deviceId === 'server' || !hasMounted) return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
@@ -243,7 +242,6 @@ function MenuContent() {
       }
   }, [stableSessionId, setSessionId, hasMounted]);
 
-  // QUERY: Live Orders for the session
   const ordersQuery = useMemoFirebase(() => 
     (hasMounted && firestore && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
@@ -251,14 +249,12 @@ function MenuContent() {
     ), [firestore, stableSessionId, hasMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  // QUERY: Bookings for the user/device
   const bookingsQuery = useMemoFirebase(() => {
       if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server') return null;
       const baseCol = collection(firestore, 'bookings');
       const identifier = user?.uid || deviceId;
       if (!identifier) return null;
 
-      // Filter by identifier AND storeId to ensure visibility in the bottom bar
       if (user?.uid) {
           return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
       }
@@ -318,7 +314,7 @@ function MenuContent() {
                           <div className="relative h-9 w-9 rounded-full overflow-hidden border-2 border-primary shadow-sm bg-white">
                               <Image src={store.imageUrl || ADIRES_LOGO} alt={store.name} fill className="object-cover" />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                               <h1 className="font-black text-xs uppercase tracking-tight text-gray-950 truncate leading-none max-w-[150px]">{store.name}</h1>
                               <p className="text-[7px] font-black uppercase tracking-widest text-primary opacity-60 mt-1">{isSalon ? 'Verified Salon' : 'Verified Hub'}</p>
                           </div>
@@ -373,8 +369,12 @@ function MenuContent() {
                       <div className="flex items-center gap-3">
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
-                                  bookingsLoading ? <div className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div> : <div className="flex items-center">{customerBookings?.length || 0} Sessions Active</div>
-                              ) : <div className="flex items-center">₹{cartTotal.toFixed(0)} Manifested</div>}
+                                  bookingsLoading ? (
+                                      <span className="flex items-center gap-2">Syncing <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></span>
+                                  ) : (
+                                      <span>{customerBookings?.length || 0} Sessions Active</span>
+                                  )
+                              ) : <span>₹{cartTotal.toFixed(0)} Manifested</span>}
                           </div>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
@@ -397,7 +397,7 @@ function MenuContent() {
 
 export default function PublicMenuPage() {
     return (
-        <Suspense fallback={<div className="p-12 flex items-center justify-center min-h-screen bg-[#FDFCF7]"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /></div>}>
+        <Suspense fallback={<div className="p-12 flex items-center justify-center min-h-screen bg-[#FDFCF7]"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>}>
             <MenuContent />
         </Suspense>
     );

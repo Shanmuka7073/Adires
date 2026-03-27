@@ -10,6 +10,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /**
+     * GLOBAL ADMINISTRATOR CHECK
+     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -35,6 +38,13 @@ service cloud.firestore {
         (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
         (resource != null && resource.data.ownerId == request.auth.uid)
       );
+    }
+
+    /* ======================
+       ADMIN OVERRIDE (GLOBAL)
+       ====================== */
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
     /* ======================
@@ -81,11 +91,6 @@ service cloud.firestore {
       allow write: if isStoreOwner(storeId) || isAdmin();
     }
     
-    // Admin Global Product Audit (Collection Group)
-    match /{path=**}/products/{productId} {
-      allow read, list: if isAdmin();
-    }
-
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
       allow write: if isStoreOwner(storeId);
@@ -99,7 +104,7 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
         allow get, list: if true;
-        allow create: if true; // Validation handled by atomic transaction logic
+        allow create: if true; 
         allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
     }
 
