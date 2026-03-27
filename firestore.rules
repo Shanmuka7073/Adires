@@ -99,8 +99,11 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
+        // ALLOW PUBLIC READ (Needed for Guest Session Counts)
         allow get, list: if true;
+        // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
         allow create: if true; 
+        // RESTRICT UPDATES TO OWNER OR CREATOR
         allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
     }
 

@@ -160,7 +160,7 @@ function LiveBillSheet({
              )}
         </div>
 
-        <div className="p-6 border-t space-y-4 bg-white shrink-0 pb-10 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+        <div className="p-6 border-t space-y-4 bg-white shrink-0 pb-10 shadow-[0_-10px_40_-15px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-baseline mb-2 px-1">
                 <span className="text-xs font-black uppercase tracking-widest opacity-40">Grand Total</span>
                 <span className="text-3xl font-black text-gray-950 tracking-tighter">₹{sessionTotal.toFixed(0)}</span>
@@ -250,7 +250,9 @@ function MenuContent() {
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server') return null;
+      // SAFE GUARD: Don't trigger query before identity is established to prevent Permission Denied (auth: null)
+      if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server' || deviceId === 'loading') return null;
+      
       const baseCol = collection(firestore, 'bookings');
       const identifier = user?.uid || deviceId;
       if (!identifier) return null;
@@ -367,6 +369,7 @@ function MenuContent() {
               <div className="max-w-md mx-auto">
                   <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white ring-1 ring-black/5 animate-in slide-in-from-bottom-10 duration-500">
                       <div className="flex items-center gap-3">
+                          {/* FIX: Hydration Mismatch solved by using a span for text nodes inside layout blocks */}
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
                                   bookingsLoading ? (
