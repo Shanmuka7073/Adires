@@ -116,25 +116,6 @@ export type UnidentifiedCartItem = {
     status: 'pending' | 'failed' | 'identified';
 };
 
-export type Booking = {
-    id: string;
-    storeId: string;
-    userId: string;
-    deviceId?: string;
-    serviceId: string;
-    serviceName: string;
-    price: number;
-    duration: number;
-    customerName: string;
-    phone: string;
-    notes?: string;
-    date: string;
-    time: string;
-    status: 'Booked' | 'In Progress' | 'Completed' | 'Cancelled';
-    createdAt: any;
-    updatedAt: any;
-};
-
 /* ---------------- CHAT & CALL TYPES ---------------- */
 
 export type CallSession = {
@@ -143,13 +124,15 @@ export type CallSession = {
     callerName: string;
     callerImageUrl?: string;
     type: 'audio' | 'video';
-    status: 'ringing' | 'accepted' | 'ended';
+    status: 'ringing' | 'accepted' | 'active' | 'ended';
+    offer?: any;
+    answer?: any;
     startedAt: any;
 };
 
 export type Chat = {
     id: string;
-    participants: string[]; // [customerUid, ownerUid]
+    participants: string[]; 
     lastMessage: string;
     lastSenderId: string;
     updatedAt: any;
@@ -158,7 +141,7 @@ export type Chat = {
     customerName: string;
     customerImageUrl?: string;
     unreadCount: Record<string, number>;
-    activeCall?: CallSession | null;
+    activeCallId?: string | null;
 };
 
 export type Message = {

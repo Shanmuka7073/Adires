@@ -175,9 +175,11 @@ export async function initiateInAppCall(
     callerName: string,
     callerImageUrl?: string
 ) {
-    const chatRef = doc(db, 'chats', chatId);
+    const callId = `call_${Date.now()}`;
+    const callRef = doc(db, 'calls', callId);
+    
     const callData: CallSession = {
-        id: `call_${Date.now()}`,
+        id: callId,
         callerId,
         callerName,
         callerImageUrl,
@@ -186,19 +188,33 @@ export async function initiateInAppCall(
         startedAt: serverTimestamp()
     };
 
+    // 1. Create call document
+    await setDoc(callRef, callData);
+
+    // 2. Link call to chat for signaling
+    const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
-        activeCall: callData,
+        activeCallId: callId,
         updatedAt: serverTimestamp()
     });
+
+    return callId;
 }
 
 /**
  * Ends/Cancels an active call signal.
  */
-export async function endCall(db: Firestore, chatId: string) {
+export async function endCall(db: Firestore, chatId: string, callId?: string) {
     const chatRef = doc(db, 'chats', chatId);
-    await updateDoc(chatRef, {
-        activeCall: null,
+    const updates: any = {
+        activeCallId: null,
         updatedAt: serverTimestamp()
-    });
+    };
+
+    await updateDoc(chatRef, updates);
+
+    if (callId) {
+        const callRef = doc(db, 'calls', callId);
+        await updateDoc(callRef, { status: 'ended' });
+    }
 }

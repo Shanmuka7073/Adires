@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, MoreVertical, Phone, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { initiateInAppCall } from '@/lib/chat-service';
-import { useTransition } from 'react';
+import { useTransition, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { WebRTCManager } from '@/lib/webrtc-service';
 
 export default function ChatDetailPage() {
     const params = useParams();
@@ -20,6 +21,7 @@ export default function ChatDetailPage() {
     const chatId = Array.isArray(params.chatId) ? params.chatId[0] : params.chatId;
     const { firestore, user } = useFirebase();
     const [isCalling, startCall] = useTransition();
+    const rtcManagerRef = useRef<WebRTCManager | null>(null);
 
     const chatRef = useMemoFirebase(() => 
         firestore && chatId ? doc(firestore, 'chats', chatId) : null, 
@@ -42,16 +44,27 @@ export default function ChatDetailPage() {
 
         startCall(async () => {
             try {
-                await initiateInAppCall(
+                // 1. Create call document and signal ringing
+                const callId = await initiateInAppCall(
                     firestore, 
                     chatId, 
                     user.uid, 
                     `${userData.firstName} ${userData.lastName}`,
                     userData.imageUrl
                 );
+
+                // 2. Initialize WebRTC locally
+                const manager = new WebRTCManager(firestore);
+                rtcManagerRef.current = manager;
+                await manager.initLocalStream();
+                
+                // 3. Send offer to recipient
+                await manager.createCall(callId);
+
                 toast({ title: "Calling...", description: `Attempting to reach ${displayName}` });
             } catch (e) {
-                toast({ variant: 'destructive', title: "Signal Failed" });
+                console.error(e);
+                toast({ variant: 'destructive', title: "Call Failed", description: "Could not initialize audio session." });
             }
         });
     };

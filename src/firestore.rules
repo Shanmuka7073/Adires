@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -39,35 +40,35 @@ service cloud.firestore {
     }
 
     /* ======================
+       CALLS & signaling
+       ====================== */
+    
+    match /calls/{callId} {
+      allow read, create, update: if isSignedIn();
+      
+      match /callerCandidates/{id} {
+        allow read, write: if isSignedIn();
+      }
+      match /receiverCandidates/{id} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    /* ======================
        CHATS & MESSAGES
        ====================== */
     
     match /chats/{chatId} {
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
 
-  // 🔥 LIST (query)
-  allow list: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // 🔥 GET (single doc)
-  allow get: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // CREATE
-  allow create: if isSignedIn();
-
-  // UPDATE
-  allow update: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // DELETE (optional)
-  allow delete: if false;
-
-  // 🔥 MESSAGES SUBCOLLECTION
-  match /messages/{messageId} {
-    allow read, write: if isSignedIn() &&
-      request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-  }
-}
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
 
     /* ======================
        COLLECTIONS

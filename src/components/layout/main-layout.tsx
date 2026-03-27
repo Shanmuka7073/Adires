@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
@@ -19,8 +19,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { CallOverlay } from '@/components/features/call-overlay';
 import { endCall } from '@/lib/chat-service';
-import type { Chat } from '@/lib/types';
+import type { Chat, CallSession } from '@/lib/types';
 import { AnimatePresence } from 'framer-motion';
+import { WebRTCManager } from '@/lib/webrtc-service';
 
 function MaintenanceOverlay() {
     return (
@@ -68,7 +69,9 @@ export function MainLayout({
   const { firestore, user } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { isInitialized } = useAppStore();
-  const [activeCall, setActiveCall] = useState<{ call: any, chatId: string } | null>(null);
+  const [activeCall, setActiveCall] = useState<{ call: CallSession, chatId: string } | null>(null);
+  const rtcManagerRef = useRef<WebRTCManager | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Maintenance Listener
   const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
@@ -85,14 +88,22 @@ export function MainLayout({
       );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
-          snapshot.docs.forEach(doc => {
-              const chat = doc.data() as Chat;
-              // Check if someone else is calling us
-              if (chat.activeCall && chat.activeCall.callerId !== user.uid && chat.activeCall.status === 'ringing') {
-                  setActiveCall({ call: chat.activeCall, chatId: doc.id });
-              } else if (activeCall?.chatId === doc.id && (!chat.activeCall || chat.activeCall.status !== 'ringing')) {
-                  // Call ended remotely
-                  setActiveCall(null);
+          snapshot.docs.forEach(async (d) => {
+              const chat = d.data() as Chat;
+              if (chat.activeCallId) {
+                  const callSnap = await doc(firestore, 'calls', chat.activeCallId);
+                  onSnapshot(callSnap, (snap) => {
+                      const call = snap.data() as CallSession;
+                      if (call && call.status !== 'ended' && call.callerId !== user.uid) {
+                          setActiveCall({ call, chatId: d.id });
+                      } else if (activeCall?.call.id === chat.activeCallId) {
+                          setActiveCall(null);
+                          if (rtcManagerRef.current) {
+                              rtcManagerRef.current.hangup();
+                              rtcManagerRef.current = null;
+                          }
+                      }
+                  });
               }
           });
       });
@@ -102,19 +113,22 @@ export function MainLayout({
 
   const handleDeclineCall = async () => {
       if (firestore && activeCall) {
-          await endCall(firestore, activeCall.chatId);
+          await endCall(firestore, activeCall.chatId, activeCall.call.id);
           setActiveCall(null);
+          if (rtcManagerRef.current) {
+              rtcManagerRef.current.hangup();
+              rtcManagerRef.current = null;
+          }
       }
   };
 
   const handleAcceptCall = () => {
-      // In a real app, this would route to a /call/[callId] page
-      // For this step, we just acknowledge and dismiss the overlay
-      handleDeclineCall();
+      // Audio stream is handled inside CallOverlay
   };
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background">
+      <audio ref={remoteAudioRef} autoPlay className="hidden" />
       {isMaintenanceActive && <MaintenanceOverlay />}
       
       <AnimatePresence>
