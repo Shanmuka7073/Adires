@@ -80,7 +80,6 @@ function StoreImageUploader({ store }: { store: Store }) {
             const storeRef = doc(firestore, 'stores', store.id);
             const updateData = { imageUrl: imageUrl };
 
-            // OPTIMISTIC NON-BLOCKING WRITE
             updateDoc(storeRef, updateData)
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -154,8 +153,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         if (!firestore) return;
         startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
-            
-            // OPTIMISTIC NON-BLOCKING WRITE
             updateDoc(storeRef, data)
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -229,22 +226,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     );
 }
 
-function PromoteStore() {
-    return (
-        <Card className="rounded-[1.5rem] border-0 shadow-lg overflow-hidden bg-white">
-            <CardContent className="p-3 flex justify-between items-center">
-                <div className="flex flex-col">
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest">Promote Business</CardTitle>
-                    <p className="text-[8px] font-bold text-gray-400 uppercase leading-none mt-1">Growth Engine Enabled</p>
-                </div>
-                <Button className="h-9 rounded-xl font-black uppercase text-[8px] tracking-widest shadow-lg shadow-primary/20 gap-2 px-4">
-                    <Share2 className="h-3.5 w-3.5" /> Share Contacts
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
 export default function MyStorePage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
@@ -265,10 +246,9 @@ export default function MyStorePage() {
             <div className="grid grid-cols-1 gap-3">
                 <StoreDetails store={userStore} onUpdate={() => fetchUserStore(firestore!, user!.uid)} />
                 <StoreImageUploader store={userStore} />
-                <PromoteStore />
                 <Button asChild variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[9px] tracking-widest hover:bg-primary/10 shadow-sm transition-all active:scale-95">
                     <Link href="/dashboard/owner/menu-manager">
-                        <ImageIcon className="mr-2 h-4 w-4" /> Edit Digital Catalog
+                        <ImageIcon className="mr-2 h-4 w-4" /> Go to Digital Menu
                     </Link>
                 </Button>
             </div>
