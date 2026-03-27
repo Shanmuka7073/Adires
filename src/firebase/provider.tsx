@@ -6,6 +6,7 @@ import { type FirebaseApp } from 'firebase/app';
 import { type Firestore } from 'firebase/firestore';
 import { type Auth, type User, onAuthStateChanged } from 'firebase/auth';
 import { type FirebaseStorage } from 'firebase/storage';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface UserAuthState {
   user: User | null;
@@ -51,7 +52,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     if (!auth) { 
-      // Auth might be null during build or initial lazy-load
       setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
       return;
     }
@@ -83,6 +83,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   return (
     <FirebaseContext.Provider value={contextValue}>
+      <FirebaseErrorListener />
       {children}
     </FirebaseContext.Provider>
   );

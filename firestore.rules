@@ -10,10 +10,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /**
-     * GLOBAL ADMINISTRATOR CHECK
-     * Grants full read/write access across all collections.
-     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -72,7 +68,7 @@ service cloud.firestore {
     }
 
     /* ======================
-       COLLECTIONS (Standard Access)
+       COLLECTIONS
        ====================== */
 
     match /users/{userId} {
@@ -100,6 +96,15 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isValidOrder();
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
+    }
+
+    match /bookings/{bookingId} {
+        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
+        allow get, list: if true;
+        // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
+        allow create: if true; 
+        // RESTRICT UPDATES TO OWNER OR CREATOR
+        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
     }
 
     match /voiceAliasGroups/{key} {

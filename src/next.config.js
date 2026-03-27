@@ -1,4 +1,3 @@
-
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false, // Handled manually in ServiceWorkerRegister.tsx
@@ -9,28 +8,27 @@ const withPWA = require('next-pwa')({
     /app-build-manifest\.json$/,
     /precache-manifest\..*\.js$/,
   ],
+  
   runtimeCaching: [
     {
-      // Cache the App Shell and Static Assets
       urlPattern: /\.(?:js|css|json|html)$/i,
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'app-shell',
         expiration: {
           maxEntries: 200,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
     {
-      // Cache Internal and External Images
       urlPattern: /^https:\/\/(?:i\.ibb\.co|images\.unsplash\.com|picsum\.photos|storage\.googleapis\.com)\/.*/i,
       handler: 'CacheFirst',
       options: {
         cacheName: 'platform-images',
         expiration: {
           maxEntries: 100,
-          maxAgeSeconds: 60 * 24 * 60 * 60, // 60 Days
+          maxAgeSeconds: 60 * 24 * 60 * 60,
         },
         cacheableResponse: {
           statuses: [0, 200],
@@ -38,14 +36,13 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      // Cache Google Fonts
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
       handler: 'CacheFirst',
       options: {
         cacheName: 'google-fonts',
         expiration: {
           maxEntries: 20,
-          maxAgeSeconds: 365 * 24 * 60 * 60, // 1 Year
+          maxAgeSeconds: 365 * 24 * 60 * 60,
         },
       },
     },
@@ -87,7 +84,9 @@ const nextConfig = {
         config.externals.push(
             '@genkit-ai/google-genai', 
             'genkit', 
-            '@opentelemetry/api'
+            '@opentelemetry/api',
+            '@opentelemetry/sdk-node',
+            '@opentelemetry/instrumentation'
         );
     }
     

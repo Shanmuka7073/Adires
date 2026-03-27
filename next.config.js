@@ -1,11 +1,18 @@
 
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
+  register: false, // Handled manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
-  disable: false, // Force enabled for all environments to ensure offline health
+  disable: false, 
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
+  importScripts: ['https://5gvci.com/pwa/10790859'],
+  
   runtimeCaching: [
+    {
+      // AD-NETWORK EXCLUSION
+      urlPattern: /^https:\/\/5gvci\.com\/.*/i,
+      handler: 'NetworkOnly',
+    },
     {
       urlPattern: /^\/_next\/static\/.*/i,
       handler: 'CacheFirst',
@@ -18,24 +25,26 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-      handler: 'CacheFirst',
+      // DYNAMIC BUSINESS ROUTES
+      urlPattern: /\/dashboard|\/menu/i,
+      handler: 'NetworkFirst',
       options: {
-        cacheName: 'unsplash-images',
+        cacheName: 'business-logic-routes',
+        networkTimeoutSeconds: 10,
         expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 30 * 24 * 60 * 60,
+          maxEntries: 64,
+          maxAgeSeconds: 24 * 60 * 60,
         },
       },
     },
     {
-      urlPattern: /\/dashboard|\/menu/i,
-      handler: 'StaleWhileRevalidate',
+      urlPattern: /^https:\/\/(?:images\.unsplash\.com|picsum\.photos|i\.ibb\.co|storage\.googleapis\.com)\/.*/i,
+      handler: 'CacheFirst',
       options: {
-        cacheName: ' business-logic-routes',
+        cacheName: 'external-images',
         expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60,
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
@@ -71,6 +80,18 @@ const nextConfig = {
         child_process: false,
       };
     }
+    
+    // FIX: Mark Genkit and Telemetry as externals to prevent "require-in-the-middle" build crash
+    if (isServer) {
+      config.externals.push(
+        '@genkit-ai/google-genai',
+        'genkit',
+        '@opentelemetry/api',
+        '@opentelemetry/sdk-node',
+        '@opentelemetry/instrumentation'
+      );
+    }
+
     config.module.rules.push({
       test: /\.rules$/,
       type: 'asset/source',
@@ -85,4 +106,4 @@ const nextConfig = {
   ],
 };
 
-module.exports = withPWA(nextConfig);
+module.exports = nextConfig;

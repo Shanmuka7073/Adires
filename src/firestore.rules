@@ -11,9 +11,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /**
-     * GLOBAL ADMINISTRATOR CHECK
-     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -56,7 +53,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
-      allow list: if isAdmin();
       allow create: if isSignedIn();
     }
 
@@ -82,11 +78,13 @@ service cloud.firestore {
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
     }
 
-    // ✅ FINAL PRODUCTION RULE: Allow read for session tracking, strict update/create
     match /bookings/{bookingId} {
-        allow read: if true; 
-        allow create: if isSignedIn();
-        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
+        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
+        allow get, list: if true;
+        // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
+        allow create: if true; 
+        // RESTRICT UPDATES TO OWNER OR CREATOR
+        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
     }
 
     match /voiceAliasGroups/{key} {

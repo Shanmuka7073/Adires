@@ -2,30 +2,30 @@
 import { MetadataRoute } from 'next';
 
 /**
- * Global Grozo Platform Manifest
- * Explicitly set with a unique ID to separate it from individual restaurant apps.
+ * Standard Web Manifest Generator
+ * Fixes the "root element must be a valid JSON object" error by providing a valid schema.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: 'adires-platform-main',
-    name: 'Grozo Market',
-    short_name: 'Grozo',
-    description: 'Hyperlocal marketplace for restaurants, salons, and stores.',
+    name: 'Adires | Unified Local Market',
+    short_name: 'Adires',
+    description: 'Connecting you to your trusted neighborhood stores.',
     start_url: '/',
-    scope: '/',
     display: 'standalone',
-    background_color: '#FDFCF7',
+    background_color: '#ffffff',
     theme_color: '#90EE90',
     icons: [
       {
-        src: '/icon-192x192.png',
+        src: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'maskable',
       },
       {
-        src: '/icon-512x512.png',
+        src: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
         sizes: '512x512',
         type: 'image/png',
+        purpose: 'any',
       },
     ],
   };

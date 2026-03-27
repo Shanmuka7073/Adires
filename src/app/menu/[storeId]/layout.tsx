@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 /**
  * Dynamic Metadata for Restaurant Menus
  * Uses REST API for high reliability in production environments.
+ * Points to a dynamic .webmanifest route to resolve 404 issues.
  */
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   const { storeId } = params;
@@ -23,18 +24,18 @@ export async function generateMetadata({ params }: { params: { storeId: string }
       return {
         title: `${storeName} | Adires`,
         description: description,
-        manifest: `/manifest/${storeId}`
+        manifest: `/manifest/${storeId}.webmanifest`
       };
     }
 
     return {
       title: `${storeId.toUpperCase()} | Adires`,
-      manifest: `/manifest/${storeId}`
+      manifest: `/manifest/${storeId}.webmanifest`
     };
   } catch (e) {
     return {
       title: 'Digital Menu | Adires',
-      manifest: `/manifest/${storeId}`
+      manifest: `/manifest/${storeId}.webmanifest`
     };
   }
 }

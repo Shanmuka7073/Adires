@@ -12,23 +12,26 @@ import { CalendarCheck, Clock, MapPin, Loader2, Sparkles, History, ArrowRight } 
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
 
 export default function MyBookingsPage() {
     const { firestore, user } = useFirebase();
-    const { deviceId, stores, fetchInitialData } = useAppStore();
+    const { deviceId, stores, isInitialized } = useAppStore();
+    const [hasMounted, setHasMounted] = useState(false);
+
+    useEffect(() => { setHasMounted(true); }, []);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!hasMounted || !firestore || !isInitialized) return null;
         const identifier = user?.uid || deviceId;
         if (!identifier) return null;
 
-        return query(
-            collection(firestore, 'bookings'),
-            where(user?.uid ? 'userId' : 'deviceId', '==', identifier),
-            orderBy('date', 'desc'),
-            limit(50)
-        );
-    }, [firestore, user?.uid, deviceId]);
+        const baseCol = collection(firestore, 'bookings');
+        if (user?.uid) {
+            return query(baseCol, where('userId', '==', user.uid), orderBy('date', 'desc'), limit(50));
+        }
+        return query(baseCol, where('deviceId', '==', deviceId), orderBy('date', 'desc'), limit(50));
+    }, [hasMounted, firestore, user?.uid, deviceId, isInitialized]);
 
     const { data: bookings, isLoading } = useCollection<Booking>(bookingsQuery);
 
@@ -37,7 +40,7 @@ export default function MyBookingsPage() {
         return { ...b, store };
     });
 
-    if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+    if (!hasMounted || isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-2xl space-y-10 pb-32">
@@ -69,7 +72,8 @@ export default function MyBookingsPage() {
                                     <Badge className={cn(
                                         "rounded-md font-black uppercase text-[9px] tracking-widest",
                                         booking.status === 'Completed' ? 'bg-green-500' : 
-                                        booking.status === 'Booked' ? 'bg-blue-500' : 'bg-amber-500'
+                                        booking.status === 'Booked' ? 'bg-blue-500' : 
+                                        booking.status === 'In Progress' ? 'bg-amber-500' : 'bg-gray-400'
                                     )}>
                                         {booking.status}
                                     </Badge>

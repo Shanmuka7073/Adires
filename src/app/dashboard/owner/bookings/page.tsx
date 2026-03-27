@@ -3,11 +3,11 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
 import type { Booking, Store } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isToday } from 'date-fns';
 import { 
@@ -26,18 +26,20 @@ import {
     RefreshCw
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { updateBookingStatus } from '@/app/actions';
+import Link from 'next/link';
 
-function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (id: string, s: Booking['status']) => void }) {
+function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: () => void }) {
     const [isUpdating, startUpdate] = useTransition();
 
     const handleAction = (status: Booking['status']) => {
         startUpdate(async () => {
             const res = await updateBookingStatus(booking.id, status);
-            if (res.success) onUpdate(booking.id, status);
+            if (res.success) {
+                onUpdate();
+            }
         });
     };
 
@@ -53,10 +55,10 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
             </TableCell>
             <TableCell>
                 <Badge className={cn(
-                    "text-[8px] font-black uppercase h-5",
-                    booking.status === 'Completed' ? 'bg-green-500' : 
-                    booking.status === 'In Progress' ? 'bg-amber-500 animate-pulse' : 
-                    booking.status === 'Booked' ? 'bg-blue-500' : 'bg-gray-400'
+                    "text-[8px] font-black uppercase h-5 border-0 shadow-sm",
+                    booking.status === 'Completed' ? 'bg-green-500 text-white' : 
+                    booking.status === 'In Progress' ? 'bg-amber-500 text-white animate-pulse' : 
+                    booking.status === 'Booked' ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'
                 )}>{booking.status}</Badge>
             </TableCell>
             <TableCell className="text-right pr-6">
@@ -84,14 +86,24 @@ function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: (
 
 export default function SalonBookingsPage() {
     const { firestore, user } = useFirebase();
-    const { userStore, stores } = useAppStore();
-    const { toast } = useToast();
-    const [filter, setFilter] = useState<'all' | 'booked' | 'active' | 'completed'>('all');
+    const { userStore, stores, fetchInitialData, isInitialized } = useAppStore();
+    const [hasMounted, setHasMounted] = useState(false);
 
-    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid) || null, [userStore, stores, user?.uid]);
+    useEffect(() => { setHasMounted(true); }, []);
+
+    useEffect(() => {
+        if (hasMounted && firestore && !isInitialized) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, isInitialized, fetchInitialData, user?.uid, hasMounted]);
+
+    const myStore = useMemo(() => {
+        if (userStore) return userStore;
+        return stores.find(s => s.ownerId === user?.uid) || null;
+    }, [userStore, stores, user?.uid]);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!firestore || !myStore) return null;
+        if (!hasMounted || !firestore || !myStore) return null;
         return query(
             collection(firestore, 'bookings'),
             where('storeId', '==', myStore.id),
@@ -99,7 +111,7 @@ export default function SalonBookingsPage() {
             orderBy('time', 'desc'),
             limit(100)
         );
-    }, [firestore, myStore]);
+    }, [firestore, myStore, hasMounted]);
 
     const { data: bookings, isLoading, refetch } = useCollection<Booking>(bookingsQuery);
 
@@ -107,33 +119,30 @@ export default function SalonBookingsPage() {
         if (!bookings) return { today: 0, revenue: 0, total: 0 };
         const todayBookings = bookings.filter(b => isToday(new Date(b.date)));
         const completedRevenue = bookings.filter(b => b.status === 'Completed').reduce((acc, b) => acc + b.price, 0);
-        return {
-            today: todayBookings.length,
-            revenue: completedRevenue,
-            total: bookings.length
-        };
+        return { today: todayBookings.length, revenue: completedRevenue, total: bookings.length };
     }, [bookings]);
 
-    const filteredBookings = useMemo(() => {
-        if (!bookings) return [];
-        if (filter === 'all') return bookings;
-        if (filter === 'booked') return bookings.filter(b => b.status === 'Booked');
-        if (filter === 'active') return bookings.filter(b => b.status === 'In Progress');
-        if (filter === 'completed') return bookings.filter(b => b.status === 'Completed');
-        return bookings;
-    }, [bookings, filter]);
+    if (!hasMounted) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
-    if (!myStore) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+    if (isInitialized && !myStore) {
+        return (
+            <div className="container mx-auto py-32 px-4 text-center space-y-4">
+                <AlertCircle className="h-12 w-12 mx-auto text-amber-500 opacity-20" />
+                <p className="font-black uppercase tracking-widest text-xs opacity-40">Store Identity Not Found</p>
+                <Button asChild variant="outline" className="rounded-xl"><Link href="/dashboard/restaurant">Setup My Business</Link></Button>
+            </div>
+        )
+    }
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none">Salon Pulse</h1>
-                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">{myStore.name} • Appointment Hub</p>
+                    <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Salon Pulse</h1>
+                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">{myStore?.name || 'Loading Hub'} • Appointment Hub</p>
                 </div>
-                <button onClick={() => refetch()} className="h-10 w-10 rounded-full border-2 border-black/5 flex items-center justify-center active:scale-90 transition-all">
-                    <RefreshCw className="h-4 w-4 opacity-40" />
+                <button onClick={() => refetch && refetch()} className="h-10 w-10 rounded-full border-2 border-black/5 flex items-center justify-center active:scale-90 transition-all hover:bg-white shadow-sm">
+                    <RefreshCw className={cn("h-4 w-4 opacity-40", isLoading && "animate-spin")} />
                 </button>
             </div>
 
@@ -158,36 +167,19 @@ export default function SalonBookingsPage() {
                 </Card>
             </div>
 
-            <section className="space-y-6">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1">
-                    {[
-                        { k: 'all', l: 'All Jobs' },
-                        { k: 'booked', l: 'Upcoming' },
-                        { k: 'active', l: 'In Chair' },
-                        { k: 'completed', l: 'Finished' }
-                    ].map(f => (
-                        <button 
-                            key={f.k}
-                            onClick={() => setFilter(f.k as any)}
-                            className={cn(
-                                "px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all shrink-0",
-                                filter === f.k ? "bg-gray-950 border-gray-950 text-white shadow-lg" : "bg-white border-black/5 text-gray-400"
-                            )}
-                        >
-                            {f.l}
-                        </button>
-                    ))}
-                </div>
-
-                <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
-                    {isLoading ? (
-                        <div className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
-                    ) : filteredBookings.length === 0 ? (
-                        <div className="p-32 text-center opacity-30">
-                            <CalendarCheck className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                            <p className="font-black uppercase tracking-widest text-[10px]">Zero matches in this view</p>
+            <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
+                {isLoading ? (
+                    <div className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
+                ) : !bookings || bookings.length === 0 ? (
+                    <div className="p-32 text-center opacity-30 flex flex-col items-center gap-4">
+                        <CalendarCheck className="h-16 w-16 mx-auto opacity-20" />
+                        <div className="space-y-1">
+                            <p className="font-black uppercase tracking-widest text-[10px]">Zero appointments scheduled</p>
+                            <p className="text-[8px] font-bold opacity-60 uppercase">Share your QR code to start receiving bookings</p>
                         </div>
-                    ) : (
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
                         <Table>
                             <TableHeader className="bg-black/5">
                                 <TableRow>
@@ -198,14 +190,14 @@ export default function SalonBookingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredBookings.map(b => (
-                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch()} />
+                                {bookings.map(b => (
+                                    <BookingActionRow key={b.id} booking={b} onUpdate={() => refetch && refetch()} />
                                 ))}
                             </TableBody>
                         </Table>
-                    )}
-                </Card>
-            </section>
+                    </div>
+                )}
+            </Card>
         </div>
     );
 }
