@@ -77,21 +77,19 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
 
-  // 🔥 Read only if owner OR store owner
-  allow read: if isSignedIn() &&
+  allow list: if isSignedIn();
+
+  allow get: if isSignedIn() &&
     (
       resource.data.userId == request.auth.uid ||
       isStoreOwner(resource.data.storeId)
     );
 
-  // ✅ Create
   allow create: if isSignedIn();
 
-  // ✅ Update
   allow update: if isStoreOwner(resource.data.storeId) ||
                 resource.data.userId == request.auth.uid;
 
-  // ✅ Delete (optional)
   allow delete: if isAdmin();
 }
 

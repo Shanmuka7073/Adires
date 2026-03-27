@@ -22,16 +22,15 @@ export default function MyBookingsPage() {
     useEffect(() => { setHasMounted(true); }, []);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!hasMounted || !firestore || !isInitialized) return null;
-        const identifier = user?.uid || deviceId;
-        if (!identifier) return null;
-
-        const baseCol = collection(firestore, 'bookings');
-        if (user?.uid) {
-            return query(baseCol, where('userId', '==', user.uid), orderBy('date', 'desc'), limit(50));
-        }
-        return query(baseCol, where('deviceId', '==', deviceId), orderBy('date', 'desc'), limit(50));
-    }, [hasMounted, firestore, user?.uid, deviceId, isInitialized]);
+        if (!hasMounted || !firestore || !isInitialized || !user) return null;
+    
+        return query(
+            collection(firestore, 'bookings'),
+            where('userId', '==', user.uid),
+            orderBy('date', 'desc'),
+            limit(50)
+        );
+    }, [hasMounted, firestore, user?.uid, isInitialized]);
 
     const { data: bookings, isLoading } = useCollection<Booking>(bookingsQuery);
 
@@ -41,7 +40,9 @@ export default function MyBookingsPage() {
     });
 
     if (!hasMounted || isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
-
+    if (!user) {
+        return <div className="p-12 text-center">Please login to view bookings</div>;
+    }
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 max-w-2xl space-y-10 pb-32">
             <div className="border-b pb-10 border-black/5">

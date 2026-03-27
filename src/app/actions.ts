@@ -4,6 +4,7 @@ import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
 import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
+import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -67,6 +68,12 @@ export async function getSystemStatus() {
   }
 }
 
+/* ---------------- AI ACTIONS ---------------- */
+
+export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
+    return getIngredientsForDishFlow(input);
+}
+
 /* ---------------- BOOKING ACTIONS ---------------- */
 
 export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
@@ -95,13 +102,8 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
                 storeId: data.storeId,
                 userId: data.userId,
                 deviceId: data.deviceId || 'unknown',
-                sessionId: data.deviceId || 'unknown', 
                 serviceId: data.serviceId,
                 serviceName: data.serviceName,
-                service: { // Denormalized for security rule keys() validation
-                    id: data.serviceId,
-                    name: data.serviceName
-                },
                 price: data.price,
                 duration: data.duration,
                 customerName: data.customerName,

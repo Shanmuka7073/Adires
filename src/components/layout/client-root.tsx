@@ -24,12 +24,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
         setIsMounted(true);
     }, []);
     
-    // 1. Render null until mounted to match server output exactly
+    // 1. Return null on server AND client first render to avoid hydration mismatch
     if (!isMounted) {
         return null;
     }
 
-    // 2. Show loader only after hydration, while initializing app state
+    // 2. Show loader only AFTER hydration, while initializing app state
     if (!isInitialized && !appReady) {
         return <GlobalLoader />;
     }

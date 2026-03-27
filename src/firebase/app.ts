@@ -27,6 +27,7 @@ export function getFirebaseApp(): FirebaseApp | null {
   }
 
   try {
+    // FIXED: Strictly use environment variable for Project ID
     return initializeApp({ ...firebaseConfig, projectId: pid });
   } catch (e) {
     console.error("Firebase App initialization failed:", e);

@@ -52,7 +52,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     initCoreServices();
   }, []);
 
-  // 1. Return null on server and initial client pass to avoid hydration mismatch
+  // 1. Return null on server AND initial client pass to avoid hydration mismatch
   if (!isMounted) {
     return null;
   }
