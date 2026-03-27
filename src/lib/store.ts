@@ -216,27 +216,23 @@ export const useInitializeApp = () => {
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
-    const deviceId = useAppStore(state => state.deviceId);
-    const setDeviceId = useAppStore(state => state.setDeviceId);
+    const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const id = getOrGenerateDeviceId();
-            if (id && id !== deviceId) {
-                setDeviceId(id);
+        if (!firestore || isUserLoading || loading) return;
+
+        const bootstrap = async () => {
+            if (!isInitialized) {
+                await fetchInitialData(firestore, user?.uid);
+            } else if (user?.uid && !userStore) {
+                // If initialized but missing business identity after login
+                await fetchUserStore(firestore, user.uid);
             }
-        }
-    }, [deviceId, setDeviceId]);
-
-    useEffect(() => {
-        if (firestore && !isUserLoading && !isInitialized && !loading) {
-            fetchInitialData(firestore, user?.uid).then(() => {
-                setAppReady(true);
-            });
-        } else if (isInitialized) {
             setAppReady(true);
-        }
-    }, [firestore, isUserLoading, isInitialized, loading, fetchInitialData, user?.uid, setAppReady]);
+        };
+
+        bootstrap();
+    }, [firestore, isUserLoading, isInitialized, loading, fetchInitialData, fetchUserStore, user?.uid, userStore, setAppReady]);
 
     return { isLoading: loading };
 };
