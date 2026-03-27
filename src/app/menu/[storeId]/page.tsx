@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -118,14 +119,14 @@ function LiveBillSheet({
         <div className="flex-1 overflow-y-auto p-5 space-y-10 min-h-0">
              {placedOrders.length > 0 && (
                  <div className="space-y-6">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-1">
-                        <Sparkles className="h-3 w-3" /> Current Session
-                    </h4>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 px-1">
+                        <Sparkles className="h-3 w-3" /> <span>Current Session</span>
+                    </div>
                     <div className="space-y-4">
                         {placedOrders.map((order, idx) => (
                             <div key={order.id} className="space-y-3 p-5 rounded-[2.5rem] border-2 bg-white shadow-md">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Batch #{idx + 1}</h4>
+                                    <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Batch #{idx + 1}</div>
                                     <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 text-primary">{order.status}</Badge>
                                 </div>
                                 <div className="space-y-2 pt-2 border-t border-dashed">
@@ -144,7 +145,7 @@ function LiveBillSheet({
 
              {cartItems.length > 0 && (
                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Current Selection</h4>
+                    <div className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Current Selection</div>
                     <div className="p-5 rounded-[2.5rem] border-2 border-dashed bg-white space-y-3 shadow-inner">
                         {cartItems.map((it, idx) => (
                             <div key={idx} className="flex justify-between items-center text-xs font-bold text-gray-800">
@@ -183,7 +184,7 @@ function ServiceCard({ item, onBook, onShowDetails }: { item: MenuItem, onBook: 
                 </div>
                 <div className="flex-1 min-w-0">
                     <h3 className="font-black text-[11px] uppercase tracking-tight text-gray-950 leading-tight mb-0.5 truncate">{item.name}</h3>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1.5">{item.duration || 30} minutes</p>
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-1.5">{item.duration || 30} minutes</div>
                     <p className="text-lg font-black text-gray-900 tracking-tighter italic leading-none">₹{item.price.toFixed(0)}</p>
                 </div>
                 <Button 
@@ -250,7 +251,6 @@ function MenuContent() {
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      // SAFE GUARD: Don't trigger query before identity is established to prevent Permission Denied (auth: null)
       if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server' || deviceId === 'loading') return null;
       
       const baseCol = collection(firestore, 'bookings');
@@ -369,7 +369,6 @@ function MenuContent() {
               <div className="max-w-md mx-auto">
                   <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white ring-1 ring-black/5 animate-in slide-in-from-bottom-10 duration-500">
                       <div className="flex items-center gap-3">
-                          {/* FIX: Hydration Mismatch solved by using a span for text nodes inside layout blocks */}
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
                                   bookingsLoading ? (

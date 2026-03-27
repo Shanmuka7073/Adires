@@ -5,6 +5,7 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: false, 
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
+  importScripts: ['https://5gvci.com/pwa/10790859'],
   runtimeCaching: [
     {
       // AD-NETWORK EXCLUSION
@@ -28,10 +29,10 @@ const withPWA = require('next-pwa')({
       handler: 'NetworkFirst',
       options: {
         cacheName: 'business-logic-routes',
+        networkTimeoutSeconds: 10,
         expiration: {
           maxEntries: 64,
           maxAgeSeconds: 24 * 60 * 60,
-          networkTimeoutSeconds: 10,
         },
       },
     },
