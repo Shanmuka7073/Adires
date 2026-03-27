@@ -1,8 +1,9 @@
+
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
+import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem, User } from '@/lib/types';
 import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
@@ -72,6 +73,72 @@ export async function getSystemStatus() {
 
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
     return getIngredientsForDishFlow(input);
+}
+
+/* ---------------- NOTIFICATION ACTIONS ---------------- */
+
+export async function sendChatNotification(recipientId: string, senderName: string, message: string) {
+    try {
+        const { db, messaging } = await getAdminServices();
+        const userDoc = await db.collection('users').doc(recipientId).get();
+        const fcmToken = userDoc.data()?.fcmToken;
+
+        if (!fcmToken) return { success: false, error: 'No FCM token for user' };
+
+        await messaging.send({
+            token: fcmToken,
+            notification: {
+                title: senderName,
+                body: message,
+            },
+            data: {
+                click_action: '/chat',
+                type: 'chat_message'
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    sound: 'default',
+                    channelId: 'chat_messages'
+                }
+            }
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("FCM Send Error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function sendBroadcastNotification(title: string, body: string) {
+    try {
+        const { db, messaging } = await getAdminServices();
+        
+        const usersSnap = await db.collection('users').where('fcmToken', '!=', '').get();
+        const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
+
+        if (tokens.length === 0) {
+            return { success: true, results: { totalTokens: 0, successCount: 0, failureCount: 0 } };
+        }
+
+        const message = {
+            notification: { title, body },
+            tokens: tokens,
+        };
+
+        const response = await messaging.sendEachForMulticast(message);
+        return {
+            success: true,
+            results: {
+                totalTokens: tokens.length,
+                successCount: response.successCount,
+                failureCount: response.failureCount,
+            }
+        };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }
 
 /* ---------------- BOOKING ACTIONS ---------------- */
@@ -250,38 +317,6 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
         const { db } = await getAdminServices();
         await db.collection('siteConfig').doc(configId).set(data, { merge: true });
         return { success: true };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
-/* ---------------- BROADCAST ACTIONS ---------------- */
-
-export async function sendBroadcastNotification(title: string, body: string) {
-    try {
-        const { db, messaging } = await getAdminServices();
-        
-        const usersSnap = await db.collection('users').where('fcmToken', '!=', '').get();
-        const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
-
-        if (tokens.length === 0) {
-            return { success: true, results: { totalTokens: 0, successCount: 0, failureCount: 0 } };
-        }
-
-        const message = {
-            notification: { title, body },
-            tokens: tokens,
-        };
-
-        const response = await (messaging as any).sendMulticast(message);
-        return {
-            success: true,
-            results: {
-                totalTokens: tokens.length,
-                successCount: response.successCount,
-                failureCount: response.failureCount,
-            }
-        };
     } catch (error: any) {
         return { success: false, error: error.message };
     }

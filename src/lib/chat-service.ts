@@ -13,14 +13,15 @@ import {
     Firestore,
     updateDoc,
     increment,
-    limit
+    limit,
+    getDoc
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Chat, Message, Store, User } from './types';
+import { sendChatNotification } from '@/app/actions';
 
 /**
  * Ensures a chat exists between a customer and a store.
- * Constructs a rich identity string containing the name and phone number.
  */
 export async function getOrCreateChat(
     db: Firestore, 
@@ -33,7 +34,6 @@ export async function getOrCreateChat(
 
     const chatsRef = collection(db, 'chats');
     
-    // ENRICH IDENTITY: construct display name early for both query and creation
     const firstName = customer.firstName || 'User';
     const lastName = customer.lastName || '';
     const fullName = `${firstName} ${lastName}`.trim();
@@ -41,7 +41,6 @@ export async function getOrCreateChat(
         ? `${fullName} (${customer.phoneNumber})` 
         : fullName;
 
-    // Rule-compliant query: includes participants array-contains to satisfy index/security requirements
     const q = query(
         chatsRef, 
         where('participants', 'array-contains', customer.id),
@@ -52,7 +51,6 @@ export async function getOrCreateChat(
 
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-        // Update existing chat with latest contact info if it has changed
         const existingChatId = snapshot.docs[0].id;
         const existingData = snapshot.docs[0].data();
         if (existingData.customerName !== displayName) {
@@ -61,7 +59,6 @@ export async function getOrCreateChat(
         return existingChatId;
     }
 
-    // Create new unique chat ID
     const newChatId = `${store.id}_${customer.id}`;
     const chatData: Omit<Chat, 'id'> = {
         participants: [store.ownerId, customer.id],
@@ -86,7 +83,7 @@ export async function getOrCreateChat(
 }
 
 /**
- * Sends a text message.
+ * Sends a text message and triggers a push notification.
  */
 export async function sendTextMessage(
     db: Firestore, 
@@ -106,6 +103,11 @@ export async function sendTextMessage(
         createdAt: serverTimestamp()
     };
 
+    // 1. Get Sender Info for Notification
+    const senderSnap = await getDoc(doc(db, 'users', senderId));
+    const senderName = senderSnap.exists() ? `${senderSnap.data().firstName}` : 'New Message';
+
+    // 2. Perform updates
     await Promise.all([
         addDoc(messagesRef, messageData),
         updateDoc(chatRef, {
@@ -113,7 +115,9 @@ export async function sendTextMessage(
             lastSenderId: senderId,
             updatedAt: serverTimestamp(),
             [`unreadCount.${otherParticipantId}`]: increment(1)
-        })
+        }),
+        // 3. Trigger Notification
+        sendChatNotification(otherParticipantId, senderName, text)
     ]);
 }
 
@@ -127,42 +131,45 @@ export async function sendVoiceMessage(
     audioBlob: Blob,
     otherParticipantId: string
 ) {
-    // 1. Initialize Storage using the default bucket defined in app.ts
-    const storage = getStorage();
-    const fileName = `chats/${chatId}/voice_${Date.now()}.webm`;
-    const storageRef = ref(storage, fileName);
-
+    let downloadUrl = '';
+    
     try {
-        // 2. Upload to Storage
+        const storage = getStorage();
+        const fileName = `chats/${chatId}/voice_${Date.now()}.webm`;
+        const storageRef = ref(storage, fileName);
         const uploadResult = await uploadBytes(storageRef, audioBlob);
-        const downloadUrl = await getDownloadURL(uploadResult.ref);
-
-        // 3. Save to Firestore
-        const messagesRef = collection(db, `chats/${chatId}/messages`);
-        const chatRef = doc(db, 'chats', chatId);
-
-        const messageData: Omit<Message, 'id'> = {
-            chatId,
-            senderId,
-            text: '🎤 Voice message',
-            type: 'voice',
-            audioUrl: downloadUrl,
-            createdAt: serverTimestamp()
-        };
-
-        await Promise.all([
-            addDoc(messagesRef, messageData),
-            updateDoc(chatRef, {
-                lastMessage: '🎤 Voice message',
-                lastSenderId: senderId,
-                updatedAt: serverTimestamp(),
-                [`unreadCount.${otherParticipantId}`]: increment(1)
-            })
-        ]);
+        downloadUrl = await getDownloadURL(uploadResult.ref);
     } catch (error) {
-        console.error("Voice message upload failed:", error);
-        throw error;
+        console.warn("Storage upload failed - bucket might not be initialized:", error);
+        // Fallback or error handled by caller
+        throw new Error("Could not upload audio. Please ensure Cloud Storage is set up in your Firebase Console.");
     }
+
+    const messagesRef = collection(db, `chats/${chatId}/messages`);
+    const chatRef = doc(db, 'chats', chatId);
+
+    const messageData: Omit<Message, 'id'> = {
+        chatId,
+        senderId,
+        text: '🎤 Voice message',
+        type: 'voice',
+        audioUrl: downloadUrl,
+        createdAt: serverTimestamp()
+    };
+
+    const senderSnap = await getDoc(doc(db, 'users', senderId));
+    const senderName = senderSnap.exists() ? `${senderSnap.data().firstName}` : 'New Message';
+
+    await Promise.all([
+        addDoc(messagesRef, messageData),
+        updateDoc(chatRef, {
+            lastMessage: '🎤 Voice message',
+            lastSenderId: senderId,
+            updatedAt: serverTimestamp(),
+            [`unreadCount.${otherParticipantId}`]: increment(1)
+        }),
+        sendChatNotification(otherParticipantId, senderName, 'Sent you a voice message.')
+    ]);
 }
 
 /**
