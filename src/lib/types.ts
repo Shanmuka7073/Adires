@@ -153,6 +153,7 @@ export type CallSession = {
 export type Chat = {
     id: string;
     participants: string[]; 
+    customerUid: string;
     lastMessage: string;
     lastSenderId: string;
     updatedAt: any;
