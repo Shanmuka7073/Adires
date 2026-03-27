@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -127,36 +126,42 @@ export async function sendVoiceMessage(
     audioBlob: Blob,
     otherParticipantId: string
 ) {
+    // 1. Initialize Storage using the default bucket defined in app.ts
     const storage = getStorage();
     const fileName = `chats/${chatId}/voice_${Date.now()}.webm`;
     const storageRef = ref(storage, fileName);
 
-    // 1. Upload to Storage
-    const uploadResult = await uploadBytes(storageRef, audioBlob);
-    const downloadUrl = await getDownloadURL(uploadResult.ref);
+    try {
+        // 2. Upload to Storage
+        const uploadResult = await uploadBytes(storageRef, audioBlob);
+        const downloadUrl = await getDownloadURL(uploadResult.ref);
 
-    // 2. Save to Firestore
-    const messagesRef = collection(db, `chats/${chatId}/messages`);
-    const chatRef = doc(db, 'chats', chatId);
+        // 3. Save to Firestore
+        const messagesRef = collection(db, `chats/${chatId}/messages`);
+        const chatRef = doc(db, 'chats', chatId);
 
-    const messageData: Omit<Message, 'id'> = {
-        chatId,
-        senderId,
-        text: '🎤 Voice message',
-        type: 'voice',
-        audioUrl: downloadUrl,
-        createdAt: serverTimestamp()
-    };
+        const messageData: Omit<Message, 'id'> = {
+            chatId,
+            senderId,
+            text: '🎤 Voice message',
+            type: 'voice',
+            audioUrl: downloadUrl,
+            createdAt: serverTimestamp()
+        };
 
-    await Promise.all([
-        addDoc(messagesRef, messageData),
-        updateDoc(chatRef, {
-            lastMessage: '🎤 Voice message',
-            lastSenderId: senderId,
-            updatedAt: serverTimestamp(),
-            [`unreadCount.${otherParticipantId}`]: increment(1)
-        })
-    ]);
+        await Promise.all([
+            addDoc(messagesRef, messageData),
+            updateDoc(chatRef, {
+                lastMessage: '🎤 Voice message',
+                lastSenderId: senderId,
+                updatedAt: serverTimestamp(),
+                [`unreadCount.${otherParticipantId}`]: increment(1)
+            })
+        ]);
+    } catch (error) {
+        console.error("Voice message upload failed:", error);
+        throw error;
+    }
 }
 
 /**
