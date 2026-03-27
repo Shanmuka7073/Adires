@@ -33,7 +33,8 @@ import {
   Trash2,
   Sparkles,
   CalendarCheck,
-  RefreshCw
+  RefreshCw,
+  LogIn
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -41,13 +42,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { getIngredientsForDish } from '@/app/actions';
+import { getIngredientsForDish, addRestaurantOrderItem } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { BookingSheet } from '@/components/features/booking-sheet';
+import Link from 'next/link';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -56,16 +58,37 @@ function LiveBillSheet({
     placedOrders,
     isLoadingOrders,
     onFinalizeBill,
-    customerBookings
+    customerBookings,
+    user
 }: { 
     isSalon: boolean;
     placedOrders: Order[];
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
     customerBookings?: Booking[];
+    user: any;
 }) {
   const { cartItems, removeItem, cartTotal } = useCart();
   
+  if (!user) {
+      return (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 bg-[#FDFCF7]">
+              <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center text-primary">
+                  <LogIn className="h-10 w-10" />
+              </div>
+              <div className="space-y-2">
+                  <h3 className="text-xl font-black uppercase tracking-tight">Identity Required</h3>
+                  <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed">
+                      Please sign in to view your live orders and active beauty sessions.
+                  </p>
+              </div>
+              <Button asChild className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl">
+                  <Link href="/login">Log in to Hub</Link>
+              </Button>
+          </div>
+      );
+  }
+
   if (isSalon) {
       return (
           <div className="flex flex-col h-full bg-[#FDFCF7]">
@@ -213,7 +236,7 @@ function MenuContent() {
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
   const { language, deviceId } = useAppStore();
-  const { cartTotal, setSessionId } = useCart();
+  const { cartTotal, setSessionId, addItem } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => { setHasMounted(true); }, []);
@@ -243,24 +266,16 @@ function MenuContent() {
   }, [stableSessionId, setSessionId, hasMounted]);
 
   const ordersQuery = useMemoFirebase(() => 
-    (hasMounted && firestore && stableSessionId !== 'loading' 
+    (hasMounted && firestore && user && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
         : null
-    ), [firestore, stableSessionId, hasMounted]);
+    ), [firestore, stableSessionId, hasMounted, user]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server' || deviceId === 'loading') return null;
-      
-      const baseCol = collection(firestore, 'bookings');
-      const identifier = user?.uid || deviceId;
-      if (!identifier) return null;
-
-      if (user?.uid) {
-          return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-      }
-      return query(baseCol, where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [hasMounted, firestore, deviceId, storeId, user?.uid]);
+      if (!hasMounted || !firestore || !storeId || !user) return null;
+      return query(collection(firestore, 'bookings'), where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
+  }, [hasMounted, firestore, storeId, user]);
 
   const { data: customerBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
 
@@ -288,6 +303,26 @@ function MenuContent() {
     });
   };
 
+  const handleAddToCart = (item: MenuItem, customs: any) => {
+      if (!user) {
+          toast({ title: "Sign up required", description: "Please create an account to place orders." });
+          return;
+      }
+      
+      const product = { 
+          id: item.id, 
+          name: item.name, 
+          storeId, 
+          imageId: 'cat-restaurant', 
+          isMenuItem: true,
+          imageUrl: item.imageUrl,
+          price: item.price
+      };
+      
+      const variant = { sku: `${item.id}-default`, weight: '1 pc', price: item.price, stock: 999 };
+      addItem(product, variant, 1, tableNumber || undefined, stableSessionId, customs);
+  };
+
   if (storeLoading || menuLoading || !hasMounted) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
   if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900 font-black uppercase tracking-widest text-xs">Store Profile Not Found</div>;
 
@@ -297,7 +332,7 @@ function MenuContent() {
         <IngredientsDialog 
             open={!!selectedItemForIngredients} onClose={() => setSelectedItemForIngredients(null)} item={selectedItemForIngredients} 
             isLoading={isFetchingIngredients} ingredients={(ingredientsData?.components as any) || []} recommendations={[]} 
-            itemType={ingredientsData?.itemType} onAdd={() => { setSelectedItemForIngredients(null); if(isSalon) setBookingService(selectedItemForIngredients); }} onShowRecommendation={(rec) => { setSelectedItemForIngredients(rec); handleShowIngredients(rec); }} 
+            itemType={ingredientsData?.itemType} onAdd={(customs) => { setSelectedItemForIngredients(null); if(isSalon) setBookingService(selectedItemForIngredients); else handleAddToCart(selectedItemForIngredients, customs); }} onShowRecommendation={(rec) => { setSelectedItemForIngredients(rec); handleShowIngredients(rec); }} 
         />
       )}
       
@@ -385,7 +420,7 @@ function MenuContent() {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[3.5rem] p-0 border-0 overflow-hidden shadow-2xl ring-1 ring-black/5">
-                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []}/>
+                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []} user={user}/>
                           </SheetContent>
                       </Sheet>
                   </div>

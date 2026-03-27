@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { SheetHeader, SheetTitle, SheetFooter, SheetClose, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Minus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, Loader2, LogIn, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '../ui/input';
 import { useEffect, useState, useTransition } from 'react';
@@ -17,58 +16,7 @@ import { placeRestaurantOrder } from '@/app/actions';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '../ui/label';
-import { signInAnonymously } from 'firebase/auth';
-import { getDoc, doc } from 'firebase/firestore';
 import type { CartItem } from '@/lib/types';
-
-function GuestOrderDialog({ isOpen, onOpenChange, onPlaceOrder }: { isOpen: boolean, onOpenChange: (open: boolean) => void, onPlaceOrder: (name: string, phone: string, tableNumber: string) => void }) {
-    const [name, setName] = useState('');
-    const [phone, setPhone] = useState('');
-    const [tableNumber, setTableNumber] = useState('');
-    const [isPending, startTransition] = useTransition();
-    
-    const handleSubmit = () => {
-        startTransition(() => {
-            onPlaceOrder(name, phone, tableNumber);
-        });
-    }
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Place Guest Order</DialogTitle>
-                    <DialogDescription>
-                        Please provide your details to place your order.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="guest-name">Name</Label>
-                        <Input id="guest-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your Name" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="guest-phone">Phone Number</Label>
-                        <Input id="guest-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile Number" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="guest-table">Table Number</Label>
-                        <Input id="guest-table" value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} placeholder="Your Table Number" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={!name || !phone || !tableNumber || isPending}>
-                         {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                         Place Order
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 function CartSheetItem({ item, image }: { item: CartItem, image: { imageUrl: string; imageHint: string } }) {
     const { removeItem, updateQuantity } = useCart();
@@ -129,12 +77,9 @@ export function CartSheetContent() {
   const { toast } = useToast();
   const router = useRouter();
   const [isPlacingOrder, startOrderTransition] = useTransition();
-  const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
 
   const isRestaurantOrder = cartItems.length > 0 && cartItems.every(item => item.product.isMenuItem);
   
-  const tableNumberFromCart = cartItems.find(item => item.tableNumber)?.tableNumber;
-
   useEffect(() => {
     const fetchImages = async () => {
         if (cartItems.length === 0) return;
@@ -155,71 +100,44 @@ export function CartSheetContent() {
     fetchImages();
   }, [cartItems]);
   
-  const handlePlaceOrder = (guestInfo?: { name: string, phone: string, tableNumber: string }) => {
+  const handlePlaceOrder = () => {
+    if (!user) {
+        router.push('/login?redirectTo=/cart');
+        return;
+    }
+
     startOrderTransition(async () => {
         try {
             if (!auth || !firestore) throw new Error("Firebase services not available.");
-
-            let currentUser = user;
-            if (!currentUser) {
-                 if (!guestInfo) {
-                    setIsGuestDialogOpen(true);
-                    return;
-                }
-                const userCredential = await signInAnonymously(auth);
-                currentUser = userCredential.user;
-            }
-
-            let finalGuestInfo = guestInfo;
-
-            if (!finalGuestInfo && auth.currentUser) {
-                const userDocSnap = await getDoc(doc(firestore, 'users', auth.currentUser.uid));
-                const userDoc = userDocSnap.data();
-                finalGuestInfo = {
-                   name: userDoc?.firstName ? `${userDoc.firstName} ${userDoc.lastName}` : "Registered User",
-                   phone: userDoc?.phoneNumber || "N/A",
-                   tableNumber: tableNumberFromCart || "N/A"
-                }
-            } else if (!finalGuestInfo) {
-                throw new Error("Guest information is required for anonymous users.");
-            }
             
-            const idToken = await currentUser.getIdToken();
+            const idToken = await user.getIdToken();
+            const guestInfo = {
+                name: `${user.displayName || 'Authenticated User'}`,
+                phone: user.phoneNumber || 'N/A',
+                tableNumber: cartItems.find(i => i.tableNumber)?.tableNumber || 'N/A'
+            };
 
-            const result = await placeRestaurantOrder(cartItems, cartTotal, finalGuestInfo, idToken, sessionId || undefined, deviceId || undefined);
+            const result = await placeRestaurantOrder(cartItems, cartTotal, guestInfo, idToken, sessionId || undefined, deviceId || undefined);
 
             if (result.success && result.orderId) {
-                toast({
-                    title: 'Order Placed!',
-                    description: 'Your order has been sent to the kitchen.',
-                });
+                toast({ title: 'Order Placed!', description: 'Your order has been sent to the kitchen.' });
                 clearCart();
-                setIsGuestDialogOpen(false);
                 router.push(`/order-confirmation?orderId=${result.orderId}`);
             } else {
-                throw new Error(result.error || 'Could not place your order. Please try again.');
+                throw new Error(result.error || 'Could not place your order.');
             }
         } catch (error: any) {
-             toast({
-                variant: 'destructive',
-                title: 'Order Failed',
-                description: error.message,
-            });
+             toast({ variant: 'destructive', title: 'Order Failed', description: error.message });
         }
     });
   };
 
   return (
     <>
-      <GuestOrderDialog 
-        isOpen={isGuestDialogOpen} 
-        onOpenChange={setIsGuestDialogOpen}
-        onPlaceOrder={(name, phone, tableNumber) => handlePlaceOrder({ name, phone, tableNumber })}
-      />
       <SheetHeader>
         <SheetTitle>{t('shopping-cart')} ({cartCount})</SheetTitle>
         <SheetDescription className="sr-only">
-          A summary of the items in your shopping cart. You can view, update quantities, or remove items.
+          A summary of your shopping cart. Authentication is required to complete the purchase.
         </SheetDescription>
       </SheetHeader>
       
@@ -239,17 +157,18 @@ export function CartSheetContent() {
                 <span>{t('total')}</span>
                 <span>₹{cartTotal.toFixed(2)}</span>
               </div>
-              {isRestaurantOrder ? (
-                 <Button onClick={() => handlePlaceOrder()} disabled={isPlacingOrder} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                    {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                    {isPlacingOrder ? 'Placing Order...' : 'Place Order Now'}
-                 </Button>
+              
+              {!user ? (
+                  <Button asChild className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-xl">
+                      <Link href="/login?redirectTo=/cart">
+                          <LogIn className="mr-2 h-4 w-4" /> Sign up to Place Order
+                      </Link>
+                  </Button>
               ) : (
-                <SheetClose asChild>
-                    <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                        <Link href="/cart">{t('proceed-to-checkout')}</Link>
-                    </Button>
-                </SheetClose>
+                  <Button onClick={handlePlaceOrder} disabled={isPlacingOrder} className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-white font-black uppercase text-xs tracking-widest shadow-xl">
+                    {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShoppingBag className="mr-2 h-4 w-4" />}
+                    {isPlacingOrder ? 'Processing...' : 'Confirm Order'}
+                  </Button>
               )}
             </div>
           </SheetFooter>

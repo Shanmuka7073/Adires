@@ -74,73 +74,62 @@ service cloud.firestore {
     }
 
     /* ======================
-       BOOKINGS (FINAL FIX)
+       BOOKINGS (STRICT AUTH)
        ====================== */
 
     function isValidBooking() {
-      return request.resource.data.keys().hasAll([
+      return isSignedIn() // FIX: Strict Auth Required
+      && request.resource.data.keys().hasAll([
         "storeId",
-        "service",
+        "serviceName",
         "date",
         "time",
-        "sessionId",
         "userId"
       ])
       && storeExists(request.resource.data.storeId)
-      && (
-        request.resource.data.userId == "guest" ||
-        (isSignedIn() && request.resource.data.userId == request.auth.uid)
-      );
+      && request.resource.data.userId == request.auth.uid;
     }
 
     match /bookings/{bookingId} {
-      // Allow listing for signed in users (filtered by UI) and store owners
+      // Users can list their own or owners can list their store's
       allow list: if isSignedIn();
       
-      // Owners can read their store's bookings
-      allow get: if isStoreOwner(resource.data.storeId);
-      
-      // Users can read their own bookings
-      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.deviceId == request.auth.uid);
+      // Detailed check for specific doc
+      allow get: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        isStoreOwner(resource.data.storeId)
+      );
 
-      // Create allowed for guests or signed in users
       allow create: if isValidBooking();
 
-      // Updates restricted to creators or store owners
-      allow update: if isStoreOwner(resource.data.storeId) || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
 
       allow delete: if isAdmin();
     }
 
     /* ======================
-       ORDERS
+       ORDERS (STRICT AUTH)
        ====================== */
 
     function isValidOrder() {
-      return (
-        request.resource.data.keys().hasAll([
-          "storeId",
-          "items",
-          "totalAmount",
-          "orderDate",
-          "sessionId"
-        ])
-        && storeExists(request.resource.data.storeId)
-        && request.resource.data.items.size() > 0
-        && request.resource.data.totalAmount > 0
-        && (
-          request.resource.data.userId == "guest" ||
-          (isSignedIn() && request.resource.data.userId == request.auth.uid)
-        )
-      );
+      return isSignedIn() // FIX: Strict Auth Required
+      && request.resource.data.keys().hasAll([
+        "storeId",
+        "items",
+        "totalAmount",
+        "orderDate",
+        "userId"
+      ])
+      && storeExists(request.resource.data.storeId)
+      && request.resource.data.items.size() > 0
+      && request.resource.data.totalAmount > 0
+      && request.resource.data.userId == request.auth.uid;
     }
 
     match /orders/{orderId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isValidOrder();
-      allow update: if isStoreOwner(resource.data.storeId)
-        || (isSignedIn() && resource.data.userId == request.auth.uid)
-        || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
+      allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
     }
 
     /* ======================
@@ -167,14 +156,6 @@ service cloud.firestore {
 
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
-    }
-
-    match /voiceAliasGroups/{key} {
-      allow read: if true;
-    }
-
-    match /voiceCommands/{commandKey} {
-      allow read: if true;
     }
   }
 }

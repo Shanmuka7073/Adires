@@ -74,6 +74,10 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
     try {
         const { db } = await getAdminServices();
         
+        if (!data.userId || data.userId === 'guest') {
+            throw new Error('Authentication required to book a service.');
+        }
+
         const dateStr = String(data.date || format(new Date(), 'yyyy-MM-dd'));
         const timeStr = String(data.time || '10:00');
         const cleanTime = timeStr.replace(':', '');
@@ -90,12 +94,11 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
             const bookingData = {
                 id: bookingId,
                 storeId: data.storeId,
-                userId: data.userId || 'guest',
+                userId: data.userId,
                 deviceId: data.deviceId || 'unknown',
-                sessionId: data.deviceId || 'unknown', // Map deviceId to sessionId for rules
+                sessionId: data.deviceId || 'unknown', 
                 serviceId: data.serviceId,
                 serviceName: data.serviceName,
-                service: data.serviceName, // Map serviceName to service for rules
                 price: data.price,
                 duration: data.duration,
                 customerName: data.customerName,
