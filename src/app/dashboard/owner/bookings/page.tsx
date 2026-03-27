@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -29,6 +28,7 @@ import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { updateBookingStatus } from '@/app/actions';
+import Link from 'next/link';
 
 function BookingActionRow({ booking, onUpdate }: { booking: Booking, onUpdate: () => void }) {
     const [isUpdating, startUpdate] = useTransition();
@@ -103,7 +103,6 @@ export default function SalonBookingsPage() {
 
     const bookingsQuery = useMemoFirebase(() => {
         if (!hasMounted || !firestore || !myStore) return null;
-        // MUST MATCH firestore.indexes.json: storeId ASC, date DESC, time DESC
         return query(
             collection(firestore, 'bookings'),
             where('storeId', '==', myStore.id),

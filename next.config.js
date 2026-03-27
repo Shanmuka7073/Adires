@@ -1,4 +1,3 @@
-
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false, // Force disabled to use manual registration in ServiceWorkerRegister.tsx
