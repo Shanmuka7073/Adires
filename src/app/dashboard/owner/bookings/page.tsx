@@ -103,7 +103,8 @@ export default function SalonBookingsPage() {
     }, [userStore, stores, user?.uid]);
 
     const bookingsQuery = useMemoFirebase(() => {
-        if (!hasMounted || !firestore || !myStore) return null;
+        if (!hasMounted || !firestore || !myStore || !user) return null; // ✅ ADD THIS
+    
         return query(
             collection(firestore, 'bookings'),
             where('storeId', '==', myStore.id),
@@ -111,7 +112,7 @@ export default function SalonBookingsPage() {
             orderBy('time', 'desc'),
             limit(100)
         );
-    }, [firestore, myStore, hasMounted]);
+    }, [firestore, myStore, hasMounted, user]);
 
     const { data: bookings, isLoading, refetch } = useCollection<Booking>(bookingsQuery);
 
