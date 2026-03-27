@@ -22,7 +22,7 @@ import type {
 } from '@/lib/types';
 
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, Suspense } from 'react';
 import Image from 'next/image';
 import { format } from 'date-fns';
 
@@ -35,7 +35,8 @@ import {
   Trash2,
   Sparkles,
   CalendarCheck,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -198,7 +199,7 @@ function ServiceCard({ item, onBook, onShowDetails }: { item: MenuItem, onBook: 
     );
 }
 
-export default function PublicMenuPage() {
+function MenuContent() {
   const { storeId } = useParams<{ storeId: string }>();
   const searchParams = useSearchParams(); 
   const { firestore, user } = useFirebase(); 
@@ -212,7 +213,7 @@ export default function PublicMenuPage() {
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
-  const { language, deviceId, isInitialized } = useAppStore();
+  const { language, deviceId } = useAppStore();
   const { cartTotal, setSessionId } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -231,7 +232,7 @@ export default function PublicMenuPage() {
   }, [searchParams]);
 
   const stableSessionId = useMemo(() => {
-    if (!deviceId) return 'loading';
+    if (!deviceId || deviceId === 'server') return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
     return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
   }, [tableNumber, storeId, deviceId]);
@@ -246,8 +247,9 @@ export default function PublicMenuPage() {
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId || !deviceId || !isInitialized) return null;
+      if (!hasMounted || !firestore || !storeId || !deviceId || deviceId === 'server') return null;
       const baseCol = collection(firestore, 'bookings');
+      
       const identifier = user?.uid || deviceId;
       if (!identifier) return null;
 
@@ -255,9 +257,9 @@ export default function PublicMenuPage() {
           return query(baseCol, where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
       }
       return query(baseCol, where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [hasMounted, firestore, deviceId, storeId, user?.uid, isInitialized]);
+  }, [hasMounted, firestore, deviceId, storeId, user?.uid]);
 
-  const { data: customerBookings } = useCollection<Booking>(bookingsQuery);
+  const { data: customerBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
   const availableCategories = useMemo(() => {
@@ -350,7 +352,7 @@ export default function PublicMenuPage() {
                                                 <p className="font-black text-primary text-sm">₹{item.price}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[10px] uppercase h-9">View</Button>
+                                        <Button size="sm" variant="outline" className="rounded-xl font-black text-[10px] uppercase h-9" onClick={() => handleShowIngredients(item)}>View</Button>
                                     </Card>
                                 )
                             ))}
@@ -364,7 +366,9 @@ export default function PublicMenuPage() {
                   <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white">
                       <div className="flex items-center gap-3">
                           <p className="text-base font-black text-gray-950 leading-none">
-                              {isSalon ? `${customerBookings?.length || 0} Sessions` : `₹${cartTotal.toFixed(0)} Selected`}
+                              {isSalon ? (
+                                  bookingsLoading ? <RefreshCw className="h-4 w-4 animate-spin opacity-40" /> : `${customerBookings?.length || 0} Sessions`
+                              ) : `₹${cartTotal.toFixed(0)} Selected`}
                           </p>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
@@ -383,4 +387,12 @@ export default function PublicMenuPage() {
       </div>
     </>
   );
+}
+
+export default function PublicMenuPage() {
+    return (
+        <Suspense fallback={<div className="p-12 flex items-center justify-center min-h-screen"><Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" /></div>}>
+            <MenuContent />
+        </Suspense>
+    );
 }

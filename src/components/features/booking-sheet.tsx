@@ -55,7 +55,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
     const handleConfirmBooking = () => {
         if (!selectedTime || !customerName || !phone) return;
 
-        // Ensure we have a valid identity string
+        // IDENTITY LOCK: Ensure we capture the current browser's device ID accurately
         const finalDeviceId = storedDeviceId || localStorage.getItem('adires-device-id') || 'unknown';
 
         startBooking(async () => {

@@ -5,8 +5,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { useEffect, RefObject } from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { useEffect, useCallback } from 'react';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useFirebase } from '@/firebase';
@@ -61,12 +60,13 @@ const getInitialLanguage = (): string => {
 
 /**
  * Sync-Safe Device ID Generator
+ * Guaranteed to return a stable ID on the client.
  */
 const getOrGenerateDeviceId = () => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') return 'server';
     let id = localStorage.getItem('adires-device-id');
-    if (!id) {
-        id = Math.random().toString(36).substring(2, 15);
+    if (!id || id === 'null' || id === 'undefined' || id === 'server') {
+        id = 'dev_' + Math.random().toString(36).substring(2, 15);
         localStorage.setItem('adires-device-id', id);
     }
     return id;
@@ -87,7 +87,7 @@ export const useAppStore = create<AppState>()(
       error: null,
       language: getInitialLanguage(),
       activeStoreId: null,
-      deviceId: getOrGenerateDeviceId(),
+      deviceId: null, // Start null to force client-side generation
       isCartOpen: false,
       readCount: 0,
       writeCount: 0,
@@ -127,14 +127,13 @@ export const useAppStore = create<AppState>()(
             stores,
             isInitialized: true,
             loading: false,
-            appReady: true,
             userStore,
             readCount: state.readCount + storesSnap.docs.length
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+          set({ error: error as Error, loading: false, isInitialized: true });
         }
       },
 
@@ -154,13 +153,12 @@ export const useAppStore = create<AppState>()(
             set({
                 userStore,
                 isInitialized: true,
-                appReady: true,
                 loading: false,
                 readCount: state.readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+            set({ error: error as Error, loading: false, isInitialized: true });
         }
       },
 
@@ -178,12 +176,11 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-lean-v4', 
+      name: 'adires-ops-lean-v6', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
           language: state.language,
-          deviceId: state.deviceId,
           isInitialized: state.isInitialized,
       }),
     }
@@ -197,7 +194,6 @@ export const useInitializeApp = () => {
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
-    const userStore = useAppStore(state => state.userStore);
     const deviceId = useAppStore(state => state.deviceId);
     const setDeviceId = useAppStore(state => state.setDeviceId);
 
@@ -211,34 +207,14 @@ export const useInitializeApp = () => {
     }, [deviceId, setDeviceId]);
 
     useEffect(() => {
-        if (isInitialized) {
+        if (isInitialized && deviceId && deviceId !== 'server') {
             setAppReady(true);
         }
         
         if (firestore && !isUserLoading && !loading && !isInitialized) {
             fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady, deviceId]);
 
     return { isLoading: loading };
 };
-
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
