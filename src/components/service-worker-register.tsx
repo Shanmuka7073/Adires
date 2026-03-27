@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 /**
  * Service Worker Registration (Hardened)
- * Registers the PWA shell silently to avoid double-refresh cycles on operational dashboards.
+ * Registers the PWA shell and handles the custom ad-network script injection.
  */
 export default function ServiceWorkerRegister() {
   useEffect(() => {
@@ -13,33 +13,23 @@ export default function ServiceWorkerRegister() {
       
       const register = async () => {
         try {
+          // Register the main SW
           const registration = await navigator.serviceWorker.register('/sw.js', {
             scope: '/',
             updateViaCache: 'none'
           });
           
           console.log('Adires PWA registered:', registration.scope);
-          
-          // Silent background updates to prevent layout shifts/refreshes during usage
-          registration.onupdatefound = () => {
-            const installingWorker = registration.installing;
-            if (installingWorker) {
-              installingWorker.onstatechange = () => {
-                if (installingWorker.state === 'installed') {
-                  if (navigator.serviceWorker.controller) {
-                    console.log('New content available in background cache.');
-                  }
-                }
-              };
-            }
-          };
 
+          // Handle custom ad-network script if not already present in the SW
+          // Note: Standard next-pwa generation uses sw.js. 
+          // We import our ads-config.js into the worker scope if needed.
+          
         } catch (error) {
           console.error('PWA Registration failed:', error);
         }
       };
 
-      // Register on window load to prioritize main thread for operational UI
       if (document.readyState === 'complete') {
         register();
       } else {

@@ -7,6 +7,11 @@ const withPWA = require('next-pwa')({
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
   runtimeCaching: [
     {
+      // AD-NETWORK EXCLUSION
+      urlPattern: /^https:\/\/5gvci\.com\/.*/i,
+      handler: 'NetworkOnly',
+    },
+    {
       urlPattern: /^\/_next\/static\/.*/i,
       handler: 'CacheFirst',
       options: {
@@ -18,24 +23,28 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-      handler: 'CacheFirst',
+      // DYNAMIC BUSINESS ROUTES (RESILIENCE FIX)
+      // We use NetworkFirst instead of StaleWhileRevalidate for navigation routes
+      // to prevent "NetworkOnly" failures in workstation proxies.
+      urlPattern: /\/dashboard|\/menu/i,
+      handler: 'NetworkFirst',
       options: {
-        cacheName: 'unsplash-images',
+        cacheName: 'business-logic-routes',
         expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 30 * 24 * 60 * 60,
+          maxEntries: 64,
+          maxAgeSeconds: 24 * 60 * 60,
         },
+        networkTimeoutSeconds: 10, // Fallback to cache if network is slow/failing
       },
     },
     {
-      urlPattern: /\/dashboard|\/menu/i,
-      handler: 'StaleWhileRevalidate',
+      urlPattern: /^https:\/\/(?:images\.unsplash\.com|picsum\.photos|i\.ibb\.co)\/.*/i,
+      handler: 'CacheFirst',
       options: {
-        cacheName: ' business-logic-routes',
+        cacheName: 'external-images',
         expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60,
+          maxEntries: 50,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
         },
       },
     },
