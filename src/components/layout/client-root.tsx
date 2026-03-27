@@ -11,7 +11,8 @@ import GlobalLoader from './global-loader';
 
 /**
  * RESILIENT HYDRATION ROOT
- * Hardened to ensure initial render matches server (null) 100% of the time.
+ * Ensures initial render matches server (null) 100% of the time.
+ * This eliminates the "Hydration failed" Expected matching div error.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
@@ -20,7 +21,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
     useInitializeApp();
 
     useEffect(() => {
-        // This only runs on the client after the first render
         setIsMounted(true);
     }, []);
     

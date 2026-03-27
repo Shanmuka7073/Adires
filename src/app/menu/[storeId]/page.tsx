@@ -7,7 +7,6 @@ import {
   where,
   doc,
   limit,
-  Timestamp,
   orderBy,
 } from 'firebase/firestore';
 
@@ -265,7 +264,6 @@ function MenuContent() {
       }
   }, [stableSessionId, setSessionId, isMounted]);
 
-  // Query only if signed in to prevent rules crash during hydration
   const ordersQuery = useMemoFirebase(() => 
     (isMounted && firestore && user && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
