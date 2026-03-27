@@ -14,22 +14,20 @@ interface FirebaseClientProviderProps {
 }
 
 /**
- * STRATEGIC CLIENT PROVIDER (V4 - Optimized)
- * Fully dynamic initialization to solve build-time errors and bundle bloat.
- * 1. Initializes basic App and Auth shell on client mount.
- * 2. Lazily loads Firestore and Storage in the background.
- * 3. App Check and reCAPTCHA have been removed for maximum speed.
+ * HYDRATION-SAFE CLIENT PROVIDER
+ * Ensures initial render matches server output (null) to prevent hydration errors.
  */
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
   const [auth, setAuth] = useState<Auth | null>(null);
   const [firestore, setFirestore] = useState<Firestore | null>(null);
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const [isCoreLoaded, setIsCoreLoaded] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const initCoreServices = async () => {
-        // Core initialization only happens on the client
         const appInstance = getFirebaseApp();
         const authInstance = getAuthInstance();
         
@@ -37,7 +35,6 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
         setAuth(authInstance);
         setIsCoreLoaded(true);
 
-        // Background load heavier services
         if (appInstance) {
             try {
                 const [db, st] = await Promise.all([
@@ -47,7 +44,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
                 setFirestore(db);
                 setStorage(st);
             } catch (e) {
-                console.error("Delayed service load failed:", e);
+                console.warn("Delayed service load failed:", e);
             }
         }
     };
@@ -55,8 +52,13 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     initCoreServices();
   }, []);
 
-  // Show the loader only during the initial client-side bootstrap
-  if (!isCoreLoaded && typeof window !== 'undefined') {
+  // 1. Return null on server and initial client pass to avoid hydration mismatch
+  if (!isMounted) {
+    return null;
+  }
+
+  // 2. Show loader only after hydration, while initializing services
+  if (!isCoreLoaded) {
     return <GlobalLoader />;
   }
 

@@ -1,11 +1,9 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem } from '@/lib/types';
-import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
-import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes, isBefore } from 'date-fns';
+import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -100,6 +98,10 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
                 sessionId: data.deviceId || 'unknown', 
                 serviceId: data.serviceId,
                 serviceName: data.serviceName,
+                service: { // Denormalized for security rule keys() validation
+                    id: data.serviceId,
+                    name: data.serviceName
+                },
                 price: data.price,
                 duration: data.duration,
                 customerName: data.customerName,
@@ -523,17 +525,6 @@ export async function uploadStoreImage(storeId: string, base64Image: string) {
         return { success: true, imageUrl: publicUrl };
     } catch (error: any) {
         return { success: false, error: error.message };
-    }
-}
-
-/* ---------------- MISC ACTIONS ---------------- */
-
-export async function getIngredientsForDish({ dishName, language }: { dishName: string; language: 'en' | 'te' }) {
-    try {
-        const result = await getIngredientsForDishFlow({ dishName, language });
-        return sanitizeForClient(result);
-    } catch (error) { 
-        return { isSuccess: false, title: dishName, components: [], steps: [], itemType: 'product' };
     }
 }
 

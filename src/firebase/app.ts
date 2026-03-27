@@ -4,8 +4,7 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 
 /**
  * STRATEGIC FIREBASE APP LOADER
- * Removed dynamic overrides to prevent project mismatch between Client and Admin SDKs.
- * Strictly uses environment variables for reliability.
+ * Strictly uses environment variables to prevent project ID mismatch.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,11 +20,8 @@ export function getFirebaseApp(): FirebaseApp | null {
   
   const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-  // Validation to ensure we are not initializing with undefined/placeholder values
-  const isValidPid = pid && pid !== 'undefined' && pid !== '' && !pid.includes('{');
-
-  if (!isValidPid) {
-    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing in environment variables.");
+  if (!pid || pid === 'undefined' || pid.includes('{')) {
+    console.error("CRITICAL ERROR: Missing or invalid NEXT_PUBLIC_FIREBASE_PROJECT_ID in environment variables.");
     return null;
   }
 

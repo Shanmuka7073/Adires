@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -12,27 +11,24 @@ import GlobalLoader from './global-loader';
 
 /**
  * RESILIENT HYDRATION ROOT
- * Ensures browser APIs (localStorage, window) are only accessed after hydration.
- * Release the UI shell quickly to avoid "hanging" loading screens.
+ * Ensures initial render matches server (null) to eliminate hydration failures.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
-    const [hasHydrated, setHasHydrated] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const { appReady, isInitialized } = useAppStore();
     
-    // Start identity and services bootstrap
     useInitializeApp();
 
     useEffect(() => {
-        setHasHydrated(true);
+        setIsMounted(true);
     }, []);
     
-    // 1. Wait for hydration to avoid server/client HTML mismatch
-    if (!hasHydrated) {
-        return null; // Return empty shell for SSR
+    // 1. Render null until mounted to match server output
+    if (!isMounted) {
+        return null;
     }
 
-    // 2. Show loader ONLY on very first boot or critical sync
-    // Release the UI as soon as possible to allow PWA caching to work
+    // 2. Show loader only if we are absolutely not ready
     if (!isInitialized && !appReady) {
         return <GlobalLoader />;
     }

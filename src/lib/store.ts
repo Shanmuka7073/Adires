@@ -56,6 +56,10 @@ interface ProfileFormState {
   setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
 }
 
+/**
+ * EXPORTED STATE STORES
+ * Restored to fix build-time "Attempted import error".
+ */
 export const useProfileFormStore = create<ProfileFormState>((set) => ({
   form: null,
   setForm: (form) => set({ form }),
@@ -197,7 +201,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v12', 
+      name: 'adires-ops-v13', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

@@ -42,7 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { getIngredientsForDish, addRestaurantOrderItem } from '@/app/actions';
+import { getIngredientsForDish } from '@/app/actions';
 import { useInstall } from '@/components/install-provider';
 import IngredientsDialog from '@/components/IngredientsDialog';
 import { cn } from '@/lib/utils';
@@ -237,9 +237,9 @@ function MenuContent() {
   const { canInstall, triggerInstall } = useInstall();
   const { language, deviceId } = useAppStore();
   const { cartTotal, setSessionId, addItem } = useCart();
-  const [hasMounted, setHasMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => { setHasMounted(true); }, []);
+  useEffect(() => { setIsMounted(true); }, []);
 
   const storeRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]);
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);
@@ -254,30 +254,30 @@ function MenuContent() {
   }, [searchParams]);
 
   const stableSessionId = useMemo(() => {
-    if (!deviceId || deviceId === 'server' || !hasMounted) return 'loading';
+    if (!deviceId || deviceId === 'server' || !isMounted) return 'loading';
     const dS = format(new Date(), 'yyyy-MM-dd');
     return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}-${storeId}`;
-  }, [tableNumber, storeId, deviceId, hasMounted]);
+  }, [tableNumber, storeId, deviceId, isMounted]);
 
   useEffect(() => {
-      if (stableSessionId !== 'loading' && hasMounted) {
+      if (stableSessionId !== 'loading' && isMounted) {
           setSessionId(stableSessionId);
       }
-  }, [stableSessionId, setSessionId, hasMounted]);
+  }, [stableSessionId, setSessionId, isMounted]);
 
   const ordersQuery = useMemoFirebase(() => 
-    (hasMounted && firestore && stableSessionId !== 'loading' 
+    (isMounted && firestore && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
         : null
-    ), [firestore, stableSessionId, hasMounted]);
+    ), [firestore, stableSessionId, isMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId) return null;
+      if (!isMounted || !firestore || !storeId) return null;
       const id = user?.uid || deviceId;
       if (!id) return null;
       return query(collection(firestore, 'bookings'), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [hasMounted, firestore, storeId, user?.uid, deviceId]);
+  }, [isMounted, firestore, storeId, user?.uid, deviceId]);
 
   const { data: allBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
   const customerBookings = useMemo(() => {
@@ -325,7 +325,7 @@ function MenuContent() {
       addItem(product, variant, 1, tableNumber || undefined, stableSessionId, customs);
   };
 
-  if (storeLoading || menuLoading || !hasMounted) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
+  if (!isMounted || storeLoading || menuLoading) return <div className="p-12 flex items-center justify-center bg-[#FDFCF7] min-h-screen"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
   if (!store) return <div className="p-12 text-center bg-[#FDFCF7] min-h-screen text-gray-900 font-black uppercase tracking-widest text-xs">Store Profile Not Found</div>;
 
   return (

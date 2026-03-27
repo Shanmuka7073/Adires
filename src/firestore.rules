@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -33,11 +32,9 @@ service cloud.firestore {
     }
 
     function isStoreOwner(storeId) {
-      return isSignedIn() && (
-        (storeExists(storeId) && getStoreOwnerId(storeId) == request.auth.uid) ||
-        (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
-        (resource != null && resource.data.ownerId == request.auth.uid)
-      );
+      return isSignedIn() &&
+        storeExists(storeId) &&
+        getStoreOwnerId(storeId) == request.auth.uid;
     }
 
     /* ======================
@@ -73,19 +70,26 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // Allow read for session tracking (denied for non-filtered list by engine)
       allow read: if true; 
       allow create: if isSignedIn();
       allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
     }
 
     match /bookings/{bookingId} {
-        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
-        // Note: Filtered queries (where storeId == X) are safe and don't leak global data.
+        // ALLOW PUBLIC READ (Needed for session tracking & merchant dashboards)
         allow read: if true;
-        // Signup required for all modifications
+        // SIGNUP REQUIRED for creation/updates
         allow create: if isSignedIn(); 
         allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
+    }
+
+    match /deliveryPartners/{partnerId} {
+      allow get, update: if isOwner(partnerId);
+      allow create: if isOwner(partnerId);
+    }
+
+    match /siteConfig/{configId} {
+      allow read: if true;
     }
 
     match /voiceAliasGroups/{key} {
@@ -96,24 +100,6 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    match /siteConfig/{configId} {
-      allow read: if true;
-    }
-
-    match /employeeProfiles/{employeeId} {
-      allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
-    }
-
-    match /deliveryPartners/{partnerId} {
-      allow get, update: if isOwner(partnerId);
-      allow create: if isOwner(partnerId);
-    }
-
-    match /canonicalCatalog/{productId} {
-      allow read: if true;
-      allow write: if isSignedIn(); 
-    }
-    
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
     }
