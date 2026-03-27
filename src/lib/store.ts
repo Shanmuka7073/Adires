@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -198,7 +197,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v10', 
+      name: 'adires-ops-v11', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,

@@ -1,10 +1,9 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ======================
-       COMMON FUNCTIONS
+       COMMON HELPER FUNCTIONS
        ====================== */
 
     function isSignedIn() {
@@ -21,41 +20,61 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     function storeExists(storeId) {
       return exists(/databases/$(database)/documents/stores/$(storeId));
     }
 
     function getStoreOwnerId(storeId) {
-      return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
     }
 
     function isStoreOwner(storeId) {
-      return isSignedIn() &&
-        storeExists(storeId) &&
-        getStoreOwnerId(storeId) == request.auth.uid;
+      return isSignedIn() && (
+        (storeExists(storeId) && getStoreOwnerId(storeId) == request.auth.uid) ||
+        (request.resource != null && request.resource.data.ownerId == request.auth.uid) ||
+        (resource != null && resource.data.ownerId == request.auth.uid)
+      );
     }
 
     /* ======================
-       ADMIN OVERRIDE
+       ADMIN OVERRIDE (GLOBAL)
        ====================== */
-
     match /{document=**} {
       allow read, write: if isAdmin();
     }
 
     /* ======================
-       USERS
+       ORDER VALIDATION
+       ====================== */
+
+    function isValidOrder() {
+      return (
+        request.resource.data.keys().hasAll([
+          "storeId",
+          "items",
+          "totalAmount",
+          "orderDate",
+          "sessionId"
+        ])
+        && storeExists(request.resource.data.storeId)
+        && request.resource.data.items.size() > 0
+        && request.resource.data.totalAmount > 0
+        && (
+          request.resource.data.userId == "guest" ||
+          (isSignedIn() && request.resource.data.userId == request.auth.uid)
+        )
+      );
+    }
+
+    /* ======================
+       COLLECTIONS
        ====================== */
 
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow create: if isSignedIn();
     }
-
-    /* ======================
-       STORES
-       ====================== */
 
     match /stores/{storeId} {
       allow get, list: if true;
@@ -67,66 +86,40 @@ service cloud.firestore {
       allow get, list: if true;
       allow write: if isStoreOwner(storeId);
     }
-
+    
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
       allow write: if isStoreOwner(storeId);
     }
 
-    /* ======================
-       BOOKINGS (FIXED: GUEST LIST)
-       ====================== */
-
-    function isValidBooking() {
-      return isSignedIn() 
-      && request.resource.data.keys().hasAll([
-        "storeId",
-        "serviceName",
-        "date",
-        "time",
-        "userId"
-      ])
-      && storeExists(request.resource.data.storeId)
-      && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /bookings/{bookingId} {
-      // ✅ Allow public listing so guest counters work without Permission Denied crashes
-      // Results are still filtered by deviceId in the app code
-      allow list, get: if true;
-
-      // 🔐 Writes require verified Auth
-      allow create: if isValidBooking();
-      allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
-      allow delete: if isAdmin();
-    }
-
-    /* ======================
-       ORDERS (FIXED: GUEST LIST)
-       ====================== */
-
-    function isValidOrder() {
-      return isSignedIn()
-      && request.resource.data.keys().hasAll([
-        "storeId",
-        "items",
-        "totalAmount",
-        "orderDate",
-        "userId"
-      ])
-      && storeExists(request.resource.data.storeId)
-      && request.resource.data.userId == request.auth.uid;
-    }
-
     match /orders/{orderId} {
       allow get, list: if true;
       allow create: if isValidOrder();
-      allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
+      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
     }
 
-    /* ======================
-       OTHER COLLECTIONS
-       ====================== */
+    match /bookings/{bookingId} {
+        // ALLOW PUBLIC READ (Needed for Guest Session Counts & Merchant Dashboards)
+        allow get, list: if true;
+        
+        // ALLOW ANYONE TO CREATE (Necessary for Guest Bookings)
+        allow create: if true; 
+        
+        // RESTRICT UPDATES TO OWNER OR CREATOR
+        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+    }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+    }
+
+    match /siteConfig/{configId} {
+      allow read: if true;
+    }
 
     match /employeeProfiles/{employeeId} {
       allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
@@ -137,15 +130,11 @@ service cloud.firestore {
       allow create: if isOwner(partnerId);
     }
 
-    match /siteConfig/{configId} {
-      allow read: if true;
-    }
-
     match /canonicalCatalog/{productId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isSignedIn(); 
     }
-
+    
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
     }

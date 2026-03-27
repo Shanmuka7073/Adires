@@ -9,7 +9,9 @@ import {
     BarChart3,
     Shield,
     Loader2,
-    RefreshCw
+    RefreshCw,
+    Wrench,
+    Activity
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase } from '@/firebase';
@@ -37,13 +39,19 @@ function StatCard({ title, value, icon: Icon, loading }: { title: string, value:
     )
 }
 
-function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
+function AdminActionCard({ title, description, href, icon: Icon, highlight = false }: { title: string, description: string, href: string, icon: React.ElementType, highlight?: boolean }) {
     return (
         <Link href={href} className="block group">
-            <Card className="rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all h-full bg-white overflow-hidden border-2 border-transparent hover:border-primary/10">
+            <Card className={cn(
+                "rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all h-full bg-white overflow-hidden border-2 border-transparent hover:border-primary/10",
+                highlight && "ring-2 ring-primary/20 border-primary/10 bg-primary/5"
+            )}>
                 <CardHeader className="p-6">
                     <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shadow-inner group-hover:bg-primary group-hover:text-white transition-colors">
+                        <div className={cn(
+                            "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner transition-colors",
+                            highlight ? "bg-primary text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
+                        )}>
                             <Icon className="h-6 w-6" />
                         </div>
                         <div>
@@ -105,25 +113,40 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="space-y-6">
-                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1">Infrastructure Hub</h2>
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1 text-primary flex items-center gap-2">
+                    <Activity className="h-3 w-3" /> Diagnostic & Repair Hub
+                 </h2>
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                     <AdminActionCard 
+                    <AdminActionCard 
+                        title="Nuke & Sync Audit"
+                        description="Fix Index failures and clear ghost data."
+                        href="/dashboard/admin/offline-audit"
+                        icon={Wrench}
+                        highlight={true}
+                    />
+                    <AdminActionCard 
                         title="System Status"
                         description="Live health check of cloud services."
                         href="/dashboard/admin/system-status"
                         icon={Server}
-                    />
-                    <AdminActionCard 
-                        title="Market Catalog"
-                        description="Global product management."
-                        href="/dashboard/owner/my-store"
-                        icon={ShoppingBag}
                     />
                     <AdminActionCard
                         title="Security Rules"
                         description="Firestore permission audit."
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-6 pt-6">
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1">Inventory Modules</h2>
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <AdminActionCard 
+                        title="Market Catalog"
+                        description="Global product management."
+                        href="/dashboard/owner/my-store"
+                        icon={ShoppingBag}
                     />
                 </div>
             </div>

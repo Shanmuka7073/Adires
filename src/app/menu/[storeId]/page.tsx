@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -274,11 +273,18 @@ function MenuContent() {
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
-      if (!hasMounted || !firestore || !storeId || !user) return null;
-      return query(collection(firestore, 'bookings'), where('userId', '==', user.uid), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
-  }, [hasMounted, firestore, storeId, user]);
+      if (!hasMounted || !firestore || !storeId) return null;
+      // Use deviceId if user is guest to allow counter to work without permission errors
+      const id = user?.uid || deviceId;
+      if (!id) return null;
+      return query(collection(firestore, 'bookings'), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
+  }, [hasMounted, firestore, storeId, user?.uid, deviceId]);
 
-  const { data: customerBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
+  const { data: allBookings, isLoading: bookingsLoading } = useCollection<Booking>(bookingsQuery);
+  const customerBookings = useMemo(() => {
+      const id = user?.uid || deviceId;
+      return (allBookings || []).filter(b => b.userId === id || b.deviceId === id);
+  }, [allBookings, user?.uid, deviceId]);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
   const availableCategories = useMemo(() => {
@@ -305,11 +311,6 @@ function MenuContent() {
   };
 
   const handleAddToCart = (item: MenuItem, customs: any) => {
-      if (!user) {
-          toast({ title: "Sign up required", description: "Please create an account to place orders." });
-          return;
-      }
-      
       const product = { 
           id: item.id, 
           name: item.name, 
@@ -410,9 +411,9 @@ function MenuContent() {
                                   bookingsLoading ? (
                                       <div className="flex items-center gap-2"><span>Syncing</span> <RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div>
                                   ) : (
-                                      <div>{customerBookings?.length || 0} Sessions Active</div>
+                                      <span>{customerBookings?.length || 0} Sessions Active</span>
                                   )
-                              ) : <div>₹{cartTotal.toFixed(0)} Manifested</div>}
+                              ) : <span>₹{cartTotal.toFixed(0)} Manifested</span>}
                           </div>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
