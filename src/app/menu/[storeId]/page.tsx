@@ -267,10 +267,10 @@ function MenuContent() {
   }, [stableSessionId, setSessionId, hasMounted]);
 
   const ordersQuery = useMemoFirebase(() => 
-    (hasMounted && firestore && user && stableSessionId !== 'loading' 
+    (hasMounted && firestore && stableSessionId !== 'loading' 
         ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
         : null
-    ), [firestore, stableSessionId, hasMounted, user]);
+    ), [firestore, stableSessionId, hasMounted]);
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {

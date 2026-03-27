@@ -74,11 +74,11 @@ service cloud.firestore {
     }
 
     /* ======================
-       BOOKINGS (FIXED: PUBLIC LIST)
+       BOOKINGS (FIXED: GUEST LIST)
        ====================== */
 
     function isValidBooking() {
-      return isSignedIn() // Enforce mandatory signup for writes
+      return isSignedIn() 
       && request.resource.data.keys().hasAll([
         "storeId",
         "serviceName",
@@ -91,22 +91,22 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      // ✅ Allow public listing so guest sessions/counts work
-      // Firestore will still only return results matching the deviceId filter
+      // ✅ Allow public listing so guest counters work without Permission Denied crashes
+      // Results are still filtered by deviceId in the app code
       allow list, get: if true;
 
-      // 🔐 Writes require Auth
+      // 🔐 Writes require verified Auth
       allow create: if isValidBooking();
       allow update: if isStoreOwner(resource.data.storeId) || isOwner(resource.data.userId);
       allow delete: if isAdmin();
     }
 
     /* ======================
-       ORDERS (FIXED: PUBLIC LIST)
+       ORDERS (FIXED: GUEST LIST)
        ====================== */
 
     function isValidOrder() {
-      return isSignedIn() // Enforce mandatory signup for writes
+      return isSignedIn()
       && request.resource.data.keys().hasAll([
         "storeId",
         "items",
