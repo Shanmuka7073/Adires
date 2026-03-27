@@ -9,9 +9,10 @@ import { ChatMessage } from './chat-message';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Loader2, Smile, Mic, X, Square } from 'lucide-react';
-import { sendTextMessage, sendVoiceMessage, markChatAsRead } from '@/lib/chat-service';
+import { sendTextMessage, saveVoiceMessageMetadata, markChatAsRead } from '@/lib/chat-service';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatWindowProps {
     chatId: string;
@@ -19,6 +20,7 @@ interface ChatWindowProps {
 
 export function ChatWindow({ chatId }: ChatWindowProps) {
     const { firestore, user } = useFirebase();
+    const { toast } = useToast();
     const [inputText, setInputText] = useState('');
     const [isSending, startSend] = useTransition();
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,11 +79,14 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
             mediaRecorderRef.current = recorder;
             audioChunksRef.current = [];
 
-            recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+            recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
             recorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 if (audioBlob.size > 0 && recordingTime > 0) {
-                    await processVoiceMessage(audioBlob);
+                    await uploadAndSaveVoice(audioBlob);
                 }
                 stream.getTracks().forEach(track => track.stop());
             };
@@ -91,12 +96,16 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
             setRecordingTime(0);
             timerRef.current = setInterval(() => {
                 setRecordingTime(prev => {
-                    if (prev >= 59) stopRecording();
+                    if (prev >= 59) {
+                        stopRecording();
+                        return prev;
+                    }
                     return prev + 1;
                 });
             }, 1000);
         } catch (err) {
             console.error("Mic access denied", err);
+            toast({ variant: 'destructive', title: "Mic Access Denied", description: "Please enable microphone permissions." });
         }
     };
 
@@ -110,22 +119,40 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
 
     const cancelRecording = () => {
         if (mediaRecorderRef.current) {
-            mediaRecorderRef.current.onstop = null; // Prevent sending
+            mediaRecorderRef.current.onstop = null; 
             mediaRecorderRef.current.stop();
         }
         setIsRecording(false);
         if (timerRef.current) clearInterval(timerRef.current);
     };
 
-    const processVoiceMessage = async (blob: Blob) => {
+    const uploadAndSaveVoice = async (blob: Blob) => {
         if (!firestore || !user || !chatId) return;
         
         startSend(async () => {
-            const chatSnap = await getDocs(query(collection(firestore, 'chats'), where('__name__', '==', chatId)));
-            const chatData = chatSnap.docs[0]?.data() as Chat;
-            const otherId = chatData.participants.find(p => p !== user.uid) || '';
+            try {
+                // 1. Upload to Node.js Backend
+                const formData = new FormData();
+                formData.append('audio', blob, 'voice.webm');
 
-            await sendVoiceMessage(firestore, chatId, user.uid, blob, otherId);
+                const uploadRes = await fetch('/api/upload-audio', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!uploadRes.ok) throw new Error("Upload failed");
+                const { url } = await uploadRes.json();
+
+                // 2. Save Metadata to Firestore
+                const chatSnap = await getDocs(query(collection(firestore, 'chats'), where('__name__', '==', chatId)));
+                const chatData = chatSnap.docs[0]?.data() as Chat;
+                const otherId = chatData.participants.find(p => p !== user.uid) || '';
+
+                await saveVoiceMessageMetadata(firestore, chatId, user.uid, url, otherId);
+            } catch (err) {
+                console.error("Voice processing failed:", err);
+                toast({ variant: 'destructive', title: "Upload Failed", description: "Could not send voice message." });
+            }
         });
     };
 
@@ -187,9 +214,10 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
                             ) : (
                                 <Button 
                                     onClick={startRecording}
+                                    disabled={isSending}
                                     className="h-11 w-11 rounded-full bg-primary hover:bg-primary/90 text-white p-0 shadow-lg shrink-0"
                                 >
-                                    <Mic className="h-5 w-5" />
+                                    {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
                                 </Button>
                             )}
                         </>

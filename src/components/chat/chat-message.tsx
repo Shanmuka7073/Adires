@@ -5,7 +5,7 @@ import type { Message } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { CheckCheck, Play, Pause } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
 interface ChatMessageProps {
     message: Message;
@@ -62,7 +62,7 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
                         <div className="flex-1 h-1 rounded-full bg-current/20 relative overflow-hidden">
                             <div className={cn(
                                 "absolute inset-0 bg-current transition-all",
-                                isPlaying ? "animate-pulse" : "w-0"
+                                isPlaying ? "w-full animate-pulse" : "w-0"
                             )} />
                         </div>
                         
@@ -70,6 +70,8 @@ export function ChatMessage({ message, isOwn }: ChatMessageProps) {
                             ref={audioRef} 
                             src={message.audioUrl} 
                             onEnded={() => setIsPlaying(false)}
+                            onPause={() => setIsPlaying(false)}
+                            onPlay={() => setIsPlaying(true)}
                             className="hidden"
                         />
                     </div>

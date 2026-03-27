@@ -16,7 +16,6 @@ import {
     limit,
     getDoc
 } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Chat, Message, Store, User } from './types';
 import { sendChatNotification } from '@/app/actions';
 
@@ -103,11 +102,9 @@ export async function sendTextMessage(
         createdAt: serverTimestamp()
     };
 
-    // 1. Get Sender Info for Notification
     const senderSnap = await getDoc(doc(db, 'users', senderId));
     const senderName = senderSnap.exists() ? `${senderSnap.data().firstName}` : 'New Message';
 
-    // 2. Perform updates
     await Promise.all([
         addDoc(messagesRef, messageData),
         updateDoc(chatRef, {
@@ -116,35 +113,20 @@ export async function sendTextMessage(
             updatedAt: serverTimestamp(),
             [`unreadCount.${otherParticipantId}`]: increment(1)
         }),
-        // 3. Trigger Notification
         sendChatNotification(otherParticipantId, senderName, text)
     ]);
 }
 
 /**
- * Sends a voice message.
+ * Finalizes a voice message record in Firestore after the file is uploaded.
  */
-export async function sendVoiceMessage(
+export async function saveVoiceMessageMetadata(
     db: Firestore,
     chatId: string,
     senderId: string,
-    audioBlob: Blob,
+    audioUrl: string,
     otherParticipantId: string
 ) {
-    let downloadUrl = '';
-    
-    try {
-        const storage = getStorage();
-        const fileName = `chats/${chatId}/voice_${Date.now()}.webm`;
-        const storageRef = ref(storage, fileName);
-        const uploadResult = await uploadBytes(storageRef, audioBlob);
-        downloadUrl = await getDownloadURL(uploadResult.ref);
-    } catch (error) {
-        console.warn("Storage upload failed - bucket might not be initialized:", error);
-        // Fallback or error handled by caller
-        throw new Error("Could not upload audio. Please ensure Cloud Storage is set up in your Firebase Console.");
-    }
-
     const messagesRef = collection(db, `chats/${chatId}/messages`);
     const chatRef = doc(db, 'chats', chatId);
 
@@ -153,7 +135,7 @@ export async function sendVoiceMessage(
         senderId,
         text: '🎤 Voice message',
         type: 'voice',
-        audioUrl: downloadUrl,
+        audioUrl: audioUrl,
         createdAt: serverTimestamp()
     };
 
