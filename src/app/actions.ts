@@ -43,6 +43,32 @@ export async function getFirebaseConfig() {
   } catch (e) { return null; }
 }
 
+export async function getSystemStatus() {
+  try {
+    const { db, app, auth } = await getAdminServices();
+    const [usersCount, storesCount] = await Promise.all([
+        db.collection('users').count().get(),
+        db.collection('stores').count().get()
+    ]);
+    
+    return {
+      status: 'ok',
+      llmStatus: 'Online',
+      serverDbStatus: 'Online',
+      identity: (app.options as any).credential?.client_email || 'Service Account Connected',
+      counts: { users: usersCount.data().count, stores: storesCount.data().count }
+    };
+  } catch (error: any) {
+    return { 
+        status: 'error', 
+        serverDbStatus: 'Unavailable',
+        errorMessage: error.message,
+        isCredentialError: error.message?.includes('credential') || error.message?.includes('JSON'),
+        counts: { users: 0, stores: 0 } 
+    };
+  }
+}
+
 /* ---------------- BOOKING ACTIONS ---------------- */
 
 export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
@@ -193,28 +219,6 @@ export async function getPlatformAnalytics() {
     } catch (error) { 
         return null; 
     }
-}
-
-export async function getSystemStatus() {
-  try {
-    const { db } = await getAdminServices();
-    const [usersCount, storesCount] = await Promise.all([
-        db.collection('users').count().get(),
-        db.collection('stores').count().get()
-    ]);
-    
-    return {
-      status: 'ok',
-      llmStatus: 'Online',
-      serverDbStatus: 'Online',
-      counts: { users: usersCount.data().count, stores: storesCount.data().count }
-    };
-  } catch (error: any) {
-    return { 
-        status: 'error', 
-        counts: { users: 0, stores: 0 } 
-    };
-  }
 }
 
 /* ---------------- SITE CONFIG ACTIONS ---------------- */

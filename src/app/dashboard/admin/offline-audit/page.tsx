@@ -143,6 +143,46 @@ export default function OfflineAuditPage() {
         });
     };
 
+    const handleSyncTest = async () => {
+        if (!firestore || !user) {
+            toast({ variant: 'destructive', title: "Auth Required", description: "Login to perform sync test." });
+            return;
+        }
+
+        startTest(async () => {
+            setLastSyncStatus('writing');
+            const testId = `sync-test-${Date.now()}`;
+            const testRef = doc(firestore, 'diagnostic_logs', testId);
+            const testData = {
+                timestamp: serverTimestamp(),
+                userId: user.uid,
+                email: user.email,
+                clientTime: new Date().toISOString(),
+                isOnline
+            };
+
+            const unsubscribe = onSnapshot(testRef, (snapshot) => {
+                if (snapshot.metadata.hasPendingWrites) {
+                    setLastSyncStatus('queued');
+                } else {
+                    setLastSyncStatus('synced');
+                    toast({ title: "Cloud Handshake OK", description: "Document synced to production." });
+                    unsubscribe();
+                }
+            }, (error) => {
+                toast({ variant: 'destructive', title: "Sync Denied", description: error.message });
+                setLastSyncStatus('idle');
+            });
+
+            try {
+                await setDoc(testRef, testData);
+            } catch (e: any) {
+                toast({ variant: 'destructive', title: "Write Failed", description: e.message });
+                setLastSyncStatus('idle');
+            }
+        });
+    };
+
     useEffect(() => {
         if (!isAdminLoading && !isAdmin) router.replace('/dashboard');
         performAudit();
@@ -162,65 +202,66 @@ export default function OfflineAuditPage() {
                 </Button>
             </div>
 
-            <Alert variant="destructive" className="rounded-[2rem] border-2 bg-red-50 p-8 shadow-lg">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-                <div className="ml-2">
-                    <AlertTitle className="text-red-950 font-black uppercase text-sm">Emergency System Reset</AlertTitle>
-                    <AlertDescription className="text-red-800 text-xs font-bold opacity-60 leading-relaxed mt-2 uppercase">
-                        Use this if you see "IndexedDB Corruption" errors. This will clear all local memory, logout the device, and force a clean reload from the cloud.
-                    </AlertDescription>
-                    <Button onClick={handleEmergencyReset} disabled={isRepairing} className="mt-6 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-8 shadow-xl">
-                        {isRepairing ? <Loader2 className="animate-spin h-4 w-4" /> : <Flame className="mr-2 h-4 w-4" />}
-                        Nuke Local Cache & Repair
-                    </Button>
-                </div>
-            </Alert>
-
             <div className="grid md:grid-cols-2 gap-8">
-                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white col-span-full">
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 pb-6 border-b border-black/5">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                                <Lock className="h-4 w-4 text-primary" /> App Shell (Service Worker)
+                                <Lock className="h-4 w-4 text-primary" /> App Shell
                             </CardTitle>
                             <Button size="sm" variant="ghost" onClick={handleRepairShell} disabled={isRepairing} className="h-7 rounded-lg text-[8px] font-black uppercase bg-primary/10 text-primary">
-                                {isRepairing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="mr-1 h-3 w-3" />}
                                 Repair Shell
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="p-8 space-y-6">
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-black uppercase opacity-40">Internal Browser State</span>
+                            <span className="text-[10px] font-black uppercase opacity-40">Service Worker</span>
                             <Badge variant={diag.sw.status === 'active' ? 'default' : 'destructive'} className="font-black uppercase text-[9px]">
                                 {diag.sw.status.toUpperCase()}
                             </Badge>
                         </div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="p-5 bg-muted/30 rounded-2xl border-2 border-transparent">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Detection</p>
-                                <p className="text-sm font-black text-gray-900 leading-tight">{diag.sw.reason}</p>
-                            </div>
-                            <div className="p-5 bg-black/5 rounded-2xl border-2 border-transparent">
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2 flex items-center gap-1"><Bug className="h-3 w-3"/> Details</p>
-                                <p className="text-[11px] font-bold text-gray-600 leading-relaxed">{diag.sw.details || 'No extended issues detected.'}</p>
-                            </div>
+                        <div className="p-5 bg-muted/30 rounded-2xl">
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-2">Detection</p>
+                            <p className="text-sm font-black text-gray-900 leading-tight">{diag.sw.reason}</p>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-slate-900 text-white relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12"><Cloud className="h-32 w-32" /></div>
+                    <CardHeader className="p-8 pb-4 relative z-10">
+                        <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Sync Handshake</CardTitle>
+                        <CardDescription className="text-white/40 font-bold text-[10px] uppercase">Verify Client-Server Write Pipeline</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0 relative z-10 space-y-6">
+                        <div className="h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                            {lastSyncStatus === 'idle' && <p className="text-[10px] font-black uppercase opacity-40">Ready to Test</p>}
+                            {lastSyncStatus === 'writing' && <Loader2 className="animate-spin h-5 w-5 text-primary" />}
+                            {lastSyncStatus === 'queued' && <p className="text-[10px] font-black text-amber-500 uppercase">Queued Locally</p>}
+                            {lastSyncStatus === 'synced' && <CheckCircle2 className="h-6 w-6 text-green-500" />}
+                        </div>
+                        <Button onClick={handleSyncTest} disabled={isTesting} className="w-full h-12 rounded-xl bg-white text-slate-900 font-black uppercase text-[10px] tracking-widest">
+                            {isTesting ? 'Syncing...' : 'Trigger Sync Test'}
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button asChild variant="outline" className="h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest border-2">
-                    <Link href="/dashboard/admin">Return to Decision Hub</Link>
-                </Button>
-            </div>
+            <Alert variant="destructive" className="rounded-[2rem] border-2 bg-red-50 p-8 shadow-lg">
+                <div className="flex gap-4">
+                    <Flame className="h-8 w-8 text-red-600 shrink-0" />
+                    <div>
+                        <AlertTitle className="text-red-950 font-black uppercase text-sm">Emergency System Reset</AlertTitle>
+                        <AlertDescription className="text-red-800 text-xs font-bold opacity-60 leading-relaxed mt-2 uppercase">
+                            Use this if data exists in Firestore but shows as zero in the app. This clears local IndexedDB corruption.
+                        </AlertDescription>
+                        <Button onClick={handleEmergencyReset} disabled={isRepairing} className="mt-6 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest px-8 shadow-xl">
+                            {isRepairing ? <Loader2 className="animate-spin h-4 w-4" /> : 'Nuke Local Cache & Repair'}
+                        </Button>
+                    </div>
+                </div>
+            </Alert>
         </div>
     );
-}
-
-function AlertTriangle(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-  )
 }
