@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { CallSession } from '@/lib/types';
 import { WebRTCManager } from '@/lib/webrtc-service';
 import { useFirebase } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 interface CallOverlayProps {
     call: CallSession;
