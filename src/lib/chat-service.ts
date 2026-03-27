@@ -10,11 +10,10 @@ import {
     setDoc, 
     addDoc, 
     serverTimestamp, 
-    orderBy, 
-    limit, 
     Firestore,
     updateDoc,
-    increment
+    increment,
+    limit
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Chat, Message, Store, User } from './types';
@@ -25,9 +24,14 @@ import type { Chat, Message, Store, User } from './types';
 export async function getOrCreateChat(
     db: Firestore, 
     store: Store, 
-    customer: User
+    customer: Partial<User> & { id: string }
 ): Promise<string> {
+    if (!store.id || !customer.id || !store.ownerId) {
+        throw new Error("Missing required IDs for chat initialization.");
+    }
+
     const chatsRef = collection(db, 'chats');
+    // Check for existing chat between these two specific entities
     const q = query(
         chatsRef, 
         where('storeId', '==', store.id), 
@@ -40,12 +44,12 @@ export async function getOrCreateChat(
         return snapshot.docs[0].id;
     }
 
-    // Create new chat
+    // Create new unique chat ID
     const newChatId = `${store.id}_${customer.id}`;
     const chatData: Omit<Chat, 'id'> = {
         participants: [store.ownerId, customer.id],
         customerUid: customer.id,
-        customerName: `${customer.firstName} ${customer.lastName}`,
+        customerName: `${customer.firstName || 'Customer'} ${customer.lastName || ''}`.trim(),
         customerImageUrl: customer.imageUrl || '',
         storeId: store.id,
         storeName: store.name,
@@ -58,7 +62,9 @@ export async function getOrCreateChat(
         }
     };
 
-    await setDoc(doc(db, 'chats', newChatId), chatData);
+    const chatDocRef = doc(db, 'chats', newChatId);
+    await setDoc(chatDocRef, chatData);
+    
     return newChatId;
 }
 

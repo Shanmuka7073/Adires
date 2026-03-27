@@ -3,6 +3,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    /* ======================
+       COMMON HELPER FUNCTIONS
+       ====================== */
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -19,11 +23,11 @@ service cloud.firestore {
     }
     
     function isParticipant(participants) {
-      return isSignedIn() && request.auth.uid in participants;
+      return isSignedIn() && (request.auth.uid in participants);
     }
 
     /* ======================
-       ADMIN OVERRIDE
+       ADMIN OVERRIDE (GLOBAL)
        ====================== */
     match /{document=**} {
       allow read, write: if isAdmin();
@@ -32,20 +36,26 @@ service cloud.firestore {
     /* ======================
        CHATS & MESSAGES
        ====================== */
+    
     match /chats/{chatId} {
-      allow read: if isParticipant(resource.data.participants);
-      allow create: if isParticipant(request.resource.data.participants);
-      allow update: if isParticipant(resource.data.participants);
+      // Allow listing chats where the user is a participant
+      allow list: if isSignedIn(); 
+      // Allow getting, creating, or updating a specific chat if the user is a participant
+      allow get, create, update: if isSignedIn() && (
+        request.auth.uid in request.resource.data.participants ||
+        request.auth.uid in resource.data.participants
+      );
       
       match /messages/{messageId} {
-        allow read: if isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
-        allow create: if isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+        allow read, write: if isSignedIn() && 
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
       }
     }
 
     /* ======================
-       OTHER COLLECTIONS
+       COLLECTIONS
        ====================== */
+
     match /users/{userId} {
       allow get, update, delete: if isOwner(userId);
       allow create: if isSignedIn();
@@ -54,7 +64,20 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isOwner(get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId);
+      allow update, delete: if isSignedIn() && 
+        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    }
+
+    match /stores/{storeId}/products/{productId} {
+      allow get, list: if true;
+      allow write: if isSignedIn() && 
+        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    }
+    
+    match /stores/{storeId}/menus/{menuId} {
+      allow read: if true;
+      allow write: if isSignedIn() && 
+        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
     }
 
     match /orders/{orderId} {
@@ -65,16 +88,29 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow read: if true;
-      allow create: if isSignedIn(); 
+      allow create: if isSignedIn();
       allow update: if isSignedIn();
     }
 
     match /deliveryPartners/{partnerId} {
-      allow get, update, create: if isOwner(partnerId);
+      allow get, update: if isOwner(partnerId);
+      allow create: if isOwner(partnerId);
     }
 
     match /siteConfig/{configId} {
       allow read: if true;
+    }
+
+    match /voiceAliasGroups/{key} {
+      allow read: if true;
+    }
+    
+    match /voiceCommands/{commandKey} {
+      allow read: if true;
+    }
+
+    match /diagnostic_logs/{logId} {
+      allow read, write: if isSignedIn();
     }
   }
 }
