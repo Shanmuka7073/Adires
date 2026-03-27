@@ -140,10 +140,7 @@ export const useAppStore = create<AppState>()(
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
-        if (state.loading || (state.userStore && state.userStore.ownerId === userId)) {
-            if (!state.appReady) set({ appReady: true });
-            return;
-        }
+        if (state.loading) return;
 
         set({ loading: true, error: null });
 
@@ -196,6 +193,7 @@ export const useAppStore = create<AppState>()(
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
+    const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
@@ -204,7 +202,6 @@ export const useInitializeApp = () => {
     const setDeviceId = useAppStore(state => state.setDeviceId);
 
     useEffect(() => {
-        // Double-lock the device identity on first load
         if (typeof window !== 'undefined') {
             const id = getOrGenerateDeviceId();
             if (id && id !== deviceId) {
@@ -218,18 +215,10 @@ export const useInitializeApp = () => {
             setAppReady(true);
         }
         
-        if (firestore && !isUserLoading && !loading) {
-            if (user) {
-                if (!userStore || userStore.ownerId !== user.uid) {
-                    fetchUserStore(firestore, user.uid);
-                } else {
-                    setAppReady(true);
-                }
-            } else {
-                setAppReady(true);
-            }
+        if (firestore && !isUserLoading && !loading && !isInitialized) {
+            fetchInitialData(firestore, user?.uid);
         }
-    }, [firestore, user?.uid, isUserLoading, loading, fetchUserStore, isInitialized, setAppReady, userStore]);
+    }, [firestore, user?.uid, isUserLoading, loading, fetchInitialData, isInitialized, setAppReady]);
 
     return { isLoading: loading };
 };

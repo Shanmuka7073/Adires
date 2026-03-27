@@ -15,12 +15,13 @@ import {
     WifiOff, 
     Download, 
     Smartphone,
-    CheckCircle2
+    CheckCircle2,
+    Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Store as StoreType } from '@/lib/types';
@@ -28,21 +29,20 @@ import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useInstall } from '@/components/install-provider';
+import { OnboardingChatbot } from '@/components/features/onboarding-chatbot';
 
 export default function ServiceDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { userStore } = useAppStore();
+    const { stores, userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
 
-    const storeQuery = useMemoFirebase(() => {
-        if (!user || (!isRestaurantOwner && !isAdmin) || !firestore) return null;
-        return query(collection(firestore, 'stores'), where('ownerId', '==', user.uid));
-    }, [user, isRestaurantOwner, isAdmin, firestore]);
-
-    const { data: stores } = useCollection<StoreType>(storeQuery);
-    const store = useMemo(() => userStore || stores?.[0], [userStore, stores]);
+    // Check for existing store in global state or current fetch
+    const store = useMemo(() => {
+        if (userStore) return userStore;
+        return stores.find(s => s.ownerId === user?.uid);
+    }, [userStore, stores, user?.uid]);
 
     useEffect(() => {
         if (!isLoading) {
@@ -53,6 +53,12 @@ export default function ServiceDashboardPage() {
             }
         }
     }, [isLoading, user, isRestaurantOwner, isAdmin, router]);
+
+    useEffect(() => {
+        if (firestore && user && !store && isInitialized) {
+            fetchUserStore(firestore, user.uid);
+        }
+    }, [firestore, user, store, isInitialized, fetchUserStore]);
 
     const { dashboardTitle, DashboardIcon, serviceLinks } = useMemo(() => {
         const isSalon = store?.businessType === 'salon';
@@ -81,6 +87,34 @@ export default function ServiceDashboardPage() {
 
     if (!user || (!isRestaurantOwner && !isAdmin)) {
         return null;
+    }
+
+    // IF NO STORE EXISTS: Show the Onboarding Assistant
+    if (!store && isInitialized) {
+        return (
+            <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8 animate-in fade-in duration-700">
+                <div className="text-center space-y-2">
+                    <h1 className="text-4xl font-black font-headline tracking-tighter uppercase italic text-gray-950">Welcome Partner</h1>
+                    <p className="text-muted-foreground font-bold text-[10px] tracking-widest uppercase opacity-40">Let's launch your digital storefront</p>
+                </div>
+                
+                <OnboardingChatbot onComplete={(newStoreId) => {
+                    if (firestore && user) fetchUserStore(firestore, user.uid);
+                }} />
+
+                <div className="p-6 rounded-[2.5rem] bg-white border-2 border-black/5 shadow-sm flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+                        <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                        <h3 className="font-black uppercase text-[10px] tracking-tight">AI Assisted Setup</h3>
+                        <p className="text-[10px] font-bold text-gray-500 leading-relaxed uppercase">
+                            Simply answer a few questions to generate your store profile, set your GPS location, and add your first products.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
