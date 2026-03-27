@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { useAppStore } from '@/lib/store';
 import { doc } from 'firebase/firestore';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 
 function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
