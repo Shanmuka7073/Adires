@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
@@ -8,15 +7,16 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, Volume2, Copy, StopCircle, Salad, Search, MessageCircle } from 'lucide-react';
 import { getIngredientsForDish } from '@/app/actions';
-import type { GetIngredientsOutput, InstructionStep, Store } from '@/lib/types';
+import type { GetIngredientsOutput, InstructionStep, Store, User } from '@/lib/types';
 import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { t as translate } from '@/lib/locales';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getOrCreateChat } from '@/lib/chat-service';
 import { useRouter } from 'next/navigation';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { useAppStore } from '@/lib/store';
+import { doc } from 'firebase/firestore';
 
 function RecipeContent({ result, onSpeak, isSpeaking, onStop, onCopyIngredients, onCopyInstructions }: { result: GetIngredientsOutput, onSpeak: (text: string) => void, isSpeaking: boolean, onStop: () => void, onCopyIngredients: () => void, onCopyInstructions: () => void }) {
     
@@ -94,6 +94,9 @@ export function RecipeCard() {
     const [currentLanguage, setCurrentLanguage] = useState<'en' | 'te'>('en');
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
+    const { data: userData } = useDoc<User>(userDocRef);
+
     const result = useMemo(() => recipeData[currentLanguage] || null, [recipeData, currentLanguage]);
 
     const handleGetIngredients = async (lang: 'en' | 'te', forceRefetch = false) => {
@@ -126,7 +129,7 @@ export function RecipeCard() {
     };
 
     const handleChatWithLocalBasket = () => {
-        if (!user || !firestore) {
+        if (!user || !firestore || !userData) {
             router.push('/login');
             return;
         }
@@ -135,9 +138,7 @@ export function RecipeCard() {
         if (!localBasket) return;
 
         startChatTransition(async () => {
-            // We need customer details for the chat
-            const { data: customer } = { data: { id: user.uid, firstName: user.displayName?.split(' ')[0] || 'User', lastName: '', imageUrl: user.photoURL || '' } };
-            const chatId = await getOrCreateChat(firestore, localBasket, customer as any);
+            const chatId = await getOrCreateChat(firestore, localBasket, userData);
             router.push(`/chat/${chatId}`);
         });
     };

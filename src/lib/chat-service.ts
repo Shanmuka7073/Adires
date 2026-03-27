@@ -19,7 +19,7 @@ import type { Chat, Message, Store, User } from './types';
 
 /**
  * Ensures a chat exists between a customer and a store.
- * Updated to use a rule-compliant query.
+ * Updated to include customer contact details in the display name.
  */
 export async function getOrCreateChat(
     db: Firestore, 
@@ -46,12 +46,20 @@ export async function getOrCreateChat(
         return snapshot.docs[0].id;
     }
 
+    // ENRICH IDENTITY: Format name to include phone number for merchant convenience
+    const firstName = customer.firstName || 'User';
+    const lastName = customer.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    const displayName = customer.phoneNumber 
+        ? `${fullName} (${customer.phoneNumber})` 
+        : fullName;
+
     // Create new unique chat ID
     const newChatId = `${store.id}_${customer.id}`;
     const chatData: Omit<Chat, 'id'> = {
         participants: [store.ownerId, customer.id],
         customerUid: customer.id,
-        customerName: `${customer.firstName || 'Customer'} ${customer.lastName || ''}`.trim(),
+        customerName: displayName,
         customerImageUrl: customer.imageUrl || '',
         storeId: store.id,
         storeName: store.name,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -17,7 +16,8 @@ import type {
   MenuItem,
   Order,
   GetIngredientsOutput,
-  Booking
+  Booking,
+  User
 } from '@/lib/types';
 
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
@@ -252,6 +252,9 @@ function MenuContent() {
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(menuQuery);
   const menu = menus?.[0];
 
+  const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
+  const { data: userData } = useDoc<User>(userDocRef);
+
   useEffect(() => {
       const table = searchParams.get('table');
       if (table) setTableNumber(table);
@@ -308,14 +311,12 @@ function MenuContent() {
   };
 
   const handleStartChat = () => {
-      if (!user || !firestore || !store) {
+      if (!user || !firestore || !store || !userData) {
           router.push(`/login?redirectTo=/menu/${storeId}`);
           return;
       }
       startChat(async () => {
-          const uRef = doc(firestore, 'users', user.uid);
-          const uSnap = await { data: () => ({ id: user.uid, firstName: user.displayName?.split(' ')[0] || 'User', lastName: '' }) };
-          const chatId = await getOrCreateChat(firestore, store, uSnap.data() as any);
+          const chatId = await getOrCreateChat(firestore, store, userData);
           router.push(`/chat/${chatId}`);
       });
   };

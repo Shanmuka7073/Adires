@@ -43,15 +43,31 @@ service cloud.firestore {
        ====================== */
     
     match /chats/{chatId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants);
-      
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn() && 
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-      }
-    }
+
+  // 🔥 LIST (query)
+  allow list: if isSignedIn() &&
+    request.auth.uid in resource.data.participants;
+
+  // 🔥 GET (single doc)
+  allow get: if isSignedIn() &&
+    request.auth.uid in resource.data.participants;
+
+  // CREATE
+  allow create: if isSignedIn();
+
+  // UPDATE
+  allow update: if isSignedIn() &&
+    request.auth.uid in resource.data.participants;
+
+  // DELETE (optional)
+  allow delete: if false;
+
+  // 🔥 MESSAGES SUBCOLLECTION
+  match /messages/{messageId} {
+    allow read, write: if isSignedIn() &&
+      request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+  }
+}
 
     /* ======================
        COLLECTIONS
