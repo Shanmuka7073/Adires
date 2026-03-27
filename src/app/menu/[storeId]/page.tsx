@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -408,11 +407,13 @@ function MenuContent() {
                       <div className="flex items-center gap-3">
                           <div className="text-sm font-black text-gray-950 leading-none uppercase tracking-tighter flex items-center">
                               {isSalon ? (
-                                  bookingsLoading ? (
-                                      <div className="flex items-center gap-2"><span>Syncing</span> <div className="h-3.5 w-3.5"><RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div></div>
-                                  ) : (
-                                      <span>{customerBookings?.length || 0} Sessions Active</span>
-                                  )
+                                  <div className="flex items-center gap-2">
+                                      {bookingsLoading ? (
+                                          <div className="flex items-center gap-2"><span>Syncing</span> <div className="h-3.5 w-3.5"><RefreshCw className="h-3.5 w-3.5 animate-spin opacity-40" /></div></div>
+                                      ) : (
+                                          <span>{customerBookings?.length || 0} Sessions Active</span>
+                                      )}
+                                  </div>
                               ) : <span>₹{cartTotal.toFixed(0)} Manifested</span>}
                           </div>
                       </div>

@@ -1,10 +1,11 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 
 /**
- * HARDENED FIREBASE APP LOADER
+ * STRATEGIC FIREBASE APP LOADER
+ * Removed dynamic overrides to prevent project mismatch between Client and Admin SDKs.
+ * Strictly uses environment variables for reliability.
  */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,22 +19,13 @@ const firebaseConfig = {
 export function getFirebaseApp(): FirebaseApp | null {
   if (getApps().length) return getApp();
   
-  // 1. DYNAMIC ENVIRONMENT DETECTION
-  // If we are in the Firebase Studio preview, we may need to override the Project ID
-  let pid = firebaseConfig.projectId;
-  
-  if (typeof window !== 'undefined') {
-      const isStudio = window.location.hostname.includes('firebase-studio') || window.location.hostname.includes('web-workstation');
-      if (isStudio && (!pid || pid === 'undefined' || pid.includes('{'))) {
-          // Attempt to extract from URL or use common placeholder
-          pid = 'studio-9070259337-c267a'; 
-      }
-  }
+  const pid = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
+  // Validation to ensure we are not initializing with undefined/placeholder values
   const isValidPid = pid && pid !== 'undefined' && pid !== '' && !pid.includes('{');
 
   if (!isValidPid) {
-    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing.");
+    console.error("CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing in environment variables.");
     return null;
   }
 

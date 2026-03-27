@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -223,13 +222,11 @@ export const useInitializeApp = () => {
         if (!firestore || isUserLoading || loading) return;
 
         const bootstrap = async () => {
-            // SEQUENTIAL BOOTSTRAP TO PREVENT HYDRATION CRASH
             if (!isInitialized) {
                 await fetchInitialData(firestore, user?.uid);
             } else if (user?.uid && !userStore) {
                 await fetchUserStore(firestore, user.uid);
             }
-            // CRITICAL: Always mark app as ready to release the GlobalLoader
             setAppReady(true);
         };
 
