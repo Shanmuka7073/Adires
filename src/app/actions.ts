@@ -3,7 +3,7 @@
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Order, ReportData, MenuItem, CartItem, Booking } from '@/lib/types';
+import type { Order, ReportData, MenuItem, CartItem, Booking, SiteConfig } from '@/lib/types';
 import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 import { format, addMinutes, isAfter, parse } from 'date-fns';
 
@@ -89,7 +89,7 @@ export async function getPlatformAnalytics() {
 
 export async function getSystemStatus() {
   try {
-    const { db } = await getAdminServices();
+    const { db, app } = await getAdminServices();
     const [usersCount, storesCount] = await Promise.all([
         db.collection('users').count().get(),
         db.collection('stores').count().get()
@@ -99,23 +99,45 @@ export async function getSystemStatus() {
       status: 'ok',
       llmStatus: 'Online',
       serverDbStatus: 'Online',
+      projectId: app.options.projectId || 'Unknown',
+      identity: (app.options as any).credential?.clientEmail || 'Service Account Active',
       counts: { users: usersCount.data().count, stores: storesCount.data().count }
     };
   } catch (error: any) {
     return { 
         status: 'error', 
+        errorMessage: error.message,
         counts: { users: 0, stores: 0 } 
     };
   }
 }
 
+export async function updateSiteConfig(id: string, config: Partial<SiteConfig>) {
+    try {
+        const { db } = await getAdminServices();
+        await db.collection('siteConfig').doc(id).set(config, { merge: true });
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getSiteConfig(id: string): Promise<SiteConfig | null> {
+    try {
+        const { db } = await getAdminServices();
+        const snap = await db.collection('siteConfig').doc(id).get();
+        return snap.exists ? snap.data() as SiteConfig : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
     try {
         const { db } = await getAdminServices();
-        const bookingId = `${data.storeId}_${data.date}_${data.time.replace(':', '')}`;
+        const bookingId = `${data.storeId}_${data.date}_${data.time?.replace(':', '') || '0000'}`;
         const bookingRef = db.collection('bookings').doc(bookingId);
 
-        // ATOMIC CHECK: Use a transaction to prevent double-booking
         const result = await db.runTransaction(async (transaction) => {
             const snap = await transaction.get(bookingRef);
             if (snap.exists && snap.data()?.status !== 'Cancelled') {
@@ -149,7 +171,6 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
         const startHour = parseInt(storeData?.workingHours?.start?.split(':')[0] || '10');
         const endHour = parseInt(storeData?.workingHours?.end?.split(':')[0] || '20');
 
-        // Fetch existing bookings for this day
         const bookingsSnap = await db.collection('bookings')
             .where('storeId', '==', storeId)
             .where('date', '==', date)

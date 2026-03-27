@@ -61,7 +61,8 @@ import {
   CookingPot,
   Sparkles,
   CheckCircle,
-  CalendarCheck
+  CalendarCheck,
+  RefreshCw
 } from 'lucide-react';
 
 import {
@@ -99,7 +100,6 @@ import { BookingSheet } from '@/components/features/booking-sheet';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-// --- HELPERS ---
 function toDateSafe(d: any): Date {
     if (!d) return new Date();
     if (d instanceof Date) return d;
@@ -112,14 +112,12 @@ function toDateSafe(d: any): Date {
 function LiveBillSheet({ 
     isSalon,
     placedOrders,
-    historyOrders,
     isLoadingOrders,
     onFinalizeBill,
     customerBookings
 }: { 
     isSalon: boolean;
     placedOrders: Order[];
-    historyOrders: Order[];
     isLoadingOrders: boolean;
     onFinalizeBill: () => void;
     customerBookings?: Booking[];
@@ -140,7 +138,7 @@ function LiveBillSheet({
                           <Card key={b.id} className="p-4 rounded-2xl border-2 bg-white shadow-sm flex justify-between items-center">
                               <div>
                                   <p className="text-[10px] font-black uppercase text-primary">{b.serviceName}</p>
-                                  <p className="text-xs font-bold">{format(new Date(b.date), 'dd MMM')} • {b.time}</p>
+                                  <p className="text-xs font-bold">{format(toDateSafe(b.date), 'dd MMM')} • {b.time}</p>
                               </div>
                               <Badge className={cn(
                                   "text-[8px] font-black uppercase",
@@ -257,44 +255,46 @@ function ServiceCard({ item, onBook, onShowDetails }: { item: MenuItem, onBook: 
 
 export default function PublicMenuPage() {
   const { storeId } = useParams<{ storeId: string }>();
-  const searchParams = useSearchParams(); 
   const { firestore, user } = useFirebase(); 
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(''); 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
-  const [tableNumber, setTableNumber] = useState<string | null>(null); 
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
   const [isFetchingIngredients, startFetchingIngredients] = useTransition(); 
   const [bookingService, setBookingService] = useState<MenuItem | null>(null);
   const { canInstall, triggerInstall } = useInstall();
-  const { fetchInitialData, language, incrementWriteCount } = useAppStore();
-  const { cartItems, addItem, clearCart, updateQuantity, cartTotal } = useCart();
+  const { language, deviceId: storeDeviceId } = useAppStore();
+  const { cartTotal } = useCart();
 
   const { data: store, isLoading: storeLoading } = useDoc<Store>(useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]));
   const { data: menus, isLoading: menuLoading } = useCollection<Menu>(useMemoFirebase(() => firestore ? query(collection(firestore, `stores/${storeId}/menus`)) : null, [firestore, storeId]));
   const menu = menus?.[0];
 
   useEffect(() => {
-      if (typeof window !== 'undefined') {
-          let dId = localStorage.getItem(`device_id_${storeId}`);
-          if (!dId) { dId = Math.random().toString(36).substring(2, 15); localStorage.setItem(`device_id_${storeId}`, dId); }
-          setDeviceId(dId);
-      }
-  }, [storeId]);
+      if (storeDeviceId) setDeviceId(storeDeviceId);
+  }, [storeDeviceId]);
 
   const sessionId = useMemo(() => {
-    if (!deviceId) return 'loading';
-    const dS = `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`;
-    return tableNumber ? `table-${tableNumber}-${dS}-${storeId}` : `home-${deviceId}-${dS}`;
-  }, [tableNumber, storeId, deviceId]);
+    if (!deviceId || deviceId === 'loading') return 'pending';
+    const dS = format(new Date(), 'yyyy-MM-dd');
+    return `session-${deviceId}-${dS}-${storeId}`;
+  }, [storeId, deviceId]);
 
-  const ordersQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true)) : null), [firestore, sessionId, deviceId]);
+  const ordersQuery = useMemoFirebase(() => {
+      if (!firestore || sessionId === 'pending') return null;
+      return query(collection(firestore, 'orders'), where('sessionId', '==', sessionId), where('isActive', '==', true));
+  }, [firestore, sessionId]);
+  
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-  const bookingsQuery = useMemoFirebase(() => (firestore && deviceId ? query(collection(firestore, 'bookings'), where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10)) : null), [firestore, deviceId, storeId]);
+  const bookingsQuery = useMemoFirebase(() => {
+      if (!firestore || !deviceId || sessionId === 'pending') return null;
+      return query(collection(firestore, 'bookings'), where('deviceId', '==', deviceId), where('storeId', '==', storeId), orderBy('date', 'desc'), limit(10));
+  }, [firestore, deviceId, storeId, sessionId]);
+  
   const { data: customerBookings } = useCollection<Booking>(bookingsQuery);
 
   const isSalon = useMemo(() => !!(store?.businessType === 'salon'), [store]);
@@ -375,11 +375,7 @@ export default function PublicMenuPage() {
                         <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 px-1">{category}</h2>
                         <div className="grid grid-cols-1 gap-3">
                             {items.map((item) => (
-                                isSalon ? (
-                                    <ServiceCard key={item.id} item={item} onBook={setBookingService} onShowDetails={handleShowIngredients} />
-                                ) : (
-                                    <div key={item.id}>Restaurant Mode placeholder</div>
-                                )
+                                <ServiceCard key={item.id} item={item} onBook={setBookingService} onShowDetails={handleShowIngredients} />
                             ))}
                         </div>
                     </section>
@@ -390,9 +386,9 @@ export default function PublicMenuPage() {
               <div className="max-w-md mx-auto">
                   <div className="bg-[#FDD835] rounded-full h-14 flex items-center justify-between pl-6 pr-1.5 shadow-2xl border-4 border-white">
                       <div className="flex items-center gap-3">
-                          <p className="text-base font-black text-gray-950 leading-none">
+                          <div className="text-base font-black text-gray-950 leading-none">
                               {isSalon ? `${customerBookings?.length || 0} Sessions` : `₹${cartTotal.toFixed(0)} Selected`}
-                          </p>
+                          </div>
                       </div>
                       <Sheet open={isLiveBillOpen} onOpenChange={setIsLiveBillOpen}>
                           <SheetTrigger asChild>
@@ -401,7 +397,7 @@ export default function PublicMenuPage() {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[3rem] p-0 border-0 overflow-hidden shadow-2xl">
-                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} historyOrders={[]} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings} />
+                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings} />
                           </SheetContent>
                       </Sheet>
                   </div>

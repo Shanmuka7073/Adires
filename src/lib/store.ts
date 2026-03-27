@@ -125,15 +125,12 @@ export const useAppStore = create<AppState>()(
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          // If offline, ensure we still mark as initialized to show cached UI
           set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
-        
-        // Return immediately if we already have the profile to avoid re-renders
         if (state.loading || (state.userStore && state.userStore.ownerId === userId)) {
             if (!state.appReady) set({ appReady: true });
             return;
@@ -157,7 +154,6 @@ export const useAppStore = create<AppState>()(
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            // On error (likely offline), mark ready anyway to show what we have in cache
             set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
         }
       },
@@ -188,12 +184,8 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-/**
- * OFFLINE-FIRST INITIALIZATION HOOK
- */
 export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
-    
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
@@ -201,15 +193,10 @@ export const useInitializeApp = () => {
     const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        // OPTIMISTIC UNLOCK: If we have ANY cached identity data, show the app immediately.
-        // This makes the app work "Starting to Ending" without internet.
-        if (isInitialized) {
-            setAppReady(true);
-        }
+        if (isInitialized) setAppReady(true);
         
         if (firestore && !isUserLoading && !loading) {
             if (user) {
-                // Background sync only if missing or mismatched
                 if (!userStore || userStore.ownerId !== user.uid) {
                     fetchUserStore(firestore, user.uid);
                 } else {

@@ -11,6 +11,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /**
+     * GLOBAL ADMINISTRATOR CHECK
+     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -27,7 +30,9 @@ service cloud.firestore {
     }
 
     function getStoreOwnerId(storeId) {
-        return get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId;
+        return storeExists(storeId) 
+          ? get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId 
+          : null;
     }
 
     function isStoreOwner(storeId) {
@@ -39,26 +44,10 @@ service cloud.firestore {
     }
 
     /* ======================
-       ORDER VALIDATION (SAFE GUEST SUPPORT)
+       ADMIN OVERRIDE (GLOBAL)
        ====================== */
-
-    function isValidOrder() {
-      return (
-        request.resource.data.keys().hasAll([
-          "storeId",
-          "items",
-          "totalAmount",
-          "orderDate",
-          "sessionId"
-        ])
-        && storeExists(request.resource.data.storeId)
-        && request.resource.data.items.size() > 0
-        && request.resource.data.totalAmount > 0
-        && (
-          request.resource.data.userId == "guest" ||
-          (isSignedIn() && request.resource.data.userId == request.auth.uid)
-        )
-      );
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
     /* ======================
@@ -66,7 +55,7 @@ service cloud.firestore {
        ====================== */
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId) || isAdmin();
+      allow get, update, delete: if isOwner(userId);
       allow list: if isAdmin();
       allow create: if isSignedIn();
     }
@@ -74,19 +63,14 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isStoreOwner(storeId) || isAdmin();
+      allow update, delete: if isStoreOwner(storeId);
     }
 
     match /stores/{storeId}/products/{productId} {
       allow get, list: if true;
-      allow write: if isStoreOwner(storeId) || isAdmin();
+      allow write: if isStoreOwner(storeId);
     }
     
-    // Admin Global Product Audit (Collection Group)
-    match /{path=**}/products/{productId} {
-      allow read, list: if isAdmin();
-    }
-
     match /stores/{storeId}/menus/{menuId} {
       allow read: if true;
       allow write: if isStoreOwner(storeId);
@@ -94,39 +78,35 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow get, list: if true;
-      allow create: if isValidOrder();
-      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.userId == 'guest' && request.resource.data.sessionId == resource.data.sessionId);
+      allow create: if isSignedIn();
+      allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
     }
 
+    // ✅ FINAL PRODUCTION RULE: Allow read for session tracking, strict update/create
     match /bookings/{bookingId} {
-        allow get, list: if true;
-        allow create: if true; // Validation handled by atomic transaction logic
-        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid || (resource.data.deviceId != null && request.resource.data.deviceId == resource.data.deviceId);
+        allow read: if true; 
+        allow create: if isSignedIn();
+        allow update: if isStoreOwner(resource.data.storeId) || resource.data.userId == request.auth.uid;
     }
 
     match /voiceAliasGroups/{key} {
       allow read: if true;
-      allow write: if isAdmin();
     }
     
     match /voiceCommands/{commandKey} {
       allow read: if true;
-      allow write: if isAdmin();
     }
 
     match /siteConfig/{configId} {
       allow read: if true;
-      allow write: if isAdmin();
     }
 
     match /employeeProfiles/{employeeId} {
       allow get, update: if isOwner(employeeId) || isStoreOwner(resource.data.storeId);
-      allow create, delete, list: if isAdmin();
     }
 
     match /deliveryPartners/{partnerId} {
       allow get, update: if isOwner(partnerId);
-      allow list: if isAdmin();
       allow create: if isOwner(partnerId);
     }
 
