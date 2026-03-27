@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -19,7 +20,7 @@ import type { Chat, Message, Store, User } from './types';
 
 /**
  * Ensures a chat exists between a customer and a store.
- * Updated to include customer contact details in the display name.
+ * Constructs a rich identity string containing the name and phone number.
  */
 export async function getOrCreateChat(
     db: Firestore, 
@@ -32,7 +33,15 @@ export async function getOrCreateChat(
 
     const chatsRef = collection(db, 'chats');
     
-    // Rule-compliant query: includes participant filter to satisfy index/security requirements
+    // ENRICH IDENTITY: construct display name early for both query and creation
+    const firstName = customer.firstName || 'User';
+    const lastName = customer.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    const displayName = customer.phoneNumber 
+        ? `${fullName} (${customer.phoneNumber})` 
+        : fullName;
+
+    // Rule-compliant query: includes participants array-contains to satisfy index/security requirements
     const q = query(
         chatsRef, 
         where('participants', 'array-contains', customer.id),
@@ -43,16 +52,14 @@ export async function getOrCreateChat(
 
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-        return snapshot.docs[0].id;
+        // Update existing chat with latest contact info if it has changed
+        const existingChatId = snapshot.docs[0].id;
+        const existingData = snapshot.docs[0].data();
+        if (existingData.customerName !== displayName) {
+            updateDoc(doc(db, 'chats', existingChatId), { customerName: displayName });
+        }
+        return existingChatId;
     }
-
-    // ENRICH IDENTITY: Format name to include phone number for merchant convenience
-    const firstName = customer.firstName || 'User';
-    const lastName = customer.lastName || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    const displayName = customer.phoneNumber 
-        ? `${fullName} (${customer.phoneNumber})` 
-        : fullName;
 
     // Create new unique chat ID
     const newChatId = `${store.id}_${customer.id}`;

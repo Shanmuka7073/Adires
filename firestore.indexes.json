@@ -13,6 +13,7 @@
       "collectionGroup": "chats",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "participants", "order": "ARRAY_CONTAINS" },
         { "fieldPath": "storeId", "order": "ASCENDING" },
         { "fieldPath": "customerUid", "order": "ASCENDING" }
       ]
