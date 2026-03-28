@@ -22,7 +22,6 @@ import {
     MessageSquare,
     CalendarCheck
 } from 'lucide-react';
-import Link from 'next/navigation';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -176,6 +175,7 @@ export default function MerchantDashboardPage() {
     const router = useRouter();
     const { stores, userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
+    const [hasFetched, setHasFetched] = useState(false);
 
     const store = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
 
@@ -187,10 +187,13 @@ export default function MerchantDashboardPage() {
     }, [isLoading, isMerchant, isAdmin, router]);
 
     useEffect(() => {
-        if (firestore && user && !store && isInitialized) {
+        if (!firestore || !user?.uid || !isInitialized || hasFetched) return;
+
+        if (!userStore) {
+            setHasFetched(true);
             fetchUserStore(firestore, user.uid);
         }
-    }, [firestore, user, store, isInitialized, fetchUserStore]);
+    }, [firestore, user?.uid, isInitialized]);
 
     const serviceLinks = useMemo(() => {
         const isSalon = store?.businessType === 'salon';
