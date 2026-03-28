@@ -8,7 +8,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 
 /**
  * CLIENT ROOT
- * Corrects the circular dependency by serving as the top-level provider shell.
+ * Wraps the application in all necessary client-side providers.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (

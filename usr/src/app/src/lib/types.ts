@@ -3,32 +3,42 @@ import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
 export type ProductVariant = {
-  sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
-  weight: string; // e.g., '500gm', '1kg', '2kg'
+  sku: string;
+  weight: string;
   price: number;
-  stock: number; // The available quantity
+  stock: number;
 };
 
 export type Product = {
   id: string;
-  name: string; // Base name, e.g., 'Potatoes'
+  name: string;
   description: string;
   variants?: ProductVariant[]; 
   imageId: string;
   storeId: string;
   category?: string;
-  imageUrl?: string; // Data URI for AI-generated image
+  imageUrl?: string;
   imageHint?: string;
-  matchedAlias?: string; // The alias the user spoke
-  isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean; // NEW: Flag to identify a restaurant menu item
-  price?: number; // NEW: Direct price for menu items
+  matchedAlias?: string;
+  isAiAssisted?: boolean;
+  isMenuItem?: boolean;
+  price?: number;
+};
+
+export type CanonicalProduct = {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  category?: string;
+  businessType?: string;
+  discoveredAt?: any;
+  discoveredInStoreId?: string;
+  updatedAt?: any;
 };
 
 export type Store = {
-  businessType: string;
   id: string;
-  name:string;
+  name: string;
   teluguName?: string;
   description: string;
   address: string;
@@ -39,7 +49,14 @@ export type Store = {
   longitude: number;
   distance?: number;
   isClosed?: boolean;
-  tables?: string[]; // For restaurant table numbers
+  tables?: string[];
+  liveVideoUrl?: string;
+  upiId?: string;
+  businessType?: 'restaurant' | 'salon' | 'grocery';
+  workingHours?: {
+      start: string;
+      end: string;
+  };
 };
 
 export type User = {
@@ -49,6 +66,8 @@ export type User = {
     email: string;
     address: string;
     phoneNumber: string;
+    accountType?: 'groceries' | 'restaurant' | 'employee';
+    storeId?: string;
     imageUrl?: string;
     latitude?: number;
     longitude?: number;
@@ -56,71 +75,236 @@ export type User = {
 }
 
 export type CartItem = {
-  product: Product; // The base product
-  variant: ProductVariant; // The specific variant chosen
+  product: Product;
+  variant: ProductVariant;
   quantity: number;
   tableNumber?: string;
   sessionId?: string;
+  selectedCustomizations?: Record<string, CustomizationOption[]>;
 };
 
-export type Ingredient = {
-  name: string;
-  baseQuantity?: number;
-  quantity: string;
-  unit?: 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'tsp' | 'tbsp' | '' ;
-  cost?: number;
+export type UnidentifiedCartItem = {
+    id: string;
+    term: string;
+    status: 'pending' | 'failed' | 'identified';
 };
+
+export type CustomizationOption = {
+    name: string;
+    price: number;
+};
+
+export type CustomizationGroup = {
+    title: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    options: CustomizationOption[];
+};
+
+export type MenuItem = {
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+    dietary?: 'veg' | 'non-veg' | '';
+    imageUrl?: string;
+    isAvailable?: boolean;
+    duration?: number;
+    customizations?: CustomizationGroup[];
+};
+
+export type MenuTheme = {
+    backgroundColor: string;
+    primaryColor: string;
+    textColor: string;
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
+    theme?: MenuTheme;
+};
+
+export type Booking = {
+    id: string;
+    storeId: string;
+    userId: string;
+    deviceId: string;
+    serviceId: string;
+    serviceName: string;
+    price: number;
+    duration: number;
+    customerName: string;
+    phone: string;
+    notes?: string;
+    date: string;
+    time: string;
+    status: 'Booked' | 'In Progress' | 'Completed' | 'Cancelled';
+    createdAt: any;
+    updatedAt: any;
+    store?: Store;
+};
+
+export type EmployeeProfile = {
+    userId: string;
+    storeId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address: string;
+    employeeId: string;
+    role: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+    payoutMethod: 'bank' | 'upi';
+    reportingTo?: string;
+    upiId?: string | null;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    } | null;
+};
+
+export type ReasonEntry = {
+    text: string;
+    timestamp: Date | Timestamp;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: Timestamp;
+    workDateStr: string;
+    punchInTime: Timestamp | null;
+    punchOutTime: Timestamp | null;
+    status: 'present' | 'partially_present' | 'pending_approval' | 'approved' | 'rejected';
+    workHours: number;
+    rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
+};
+
+export type SalarySlip = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    periodStart: string;
+    periodEnd: string;
+    baseSalary: number;
+    netPay: number;
+    generatedAt: Timestamp;
+    attendance?: any;
+};
+
+export type SiteConfig = {
+    liveVideoUrl?: string;
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+};
+
+export type VoiceAliasGroup = {
+    id: string;
+    en: string[];
+    te: string[];
+    hi: string[];
+    updatedAt: any;
+    [key: string]: any;
+};
+
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
+};
+
+export type CallSession = {
+    id: string;
+    callerId: string;
+    callerName: string;
+    callerImageUrl?: string;
+    type: 'audio';
+    status: 'ringing' | 'active' | 'ended' | 'missed';
+    startedAt: any;
+    offer?: any;
+    answer?: any;
+}
+
+export type Chat = {
+    id: string;
+    participants: string[];
+    customerUid: string;
+    customerName: string;
+    customerImageUrl: string;
+    storeId: string;
+    storeName: string;
+    lastMessage: string;
+    lastSenderId: string;
+    updatedAt: any;
+    unreadCount: Record<string, number>;
+    activeCallId?: string | null;
+}
+
+export type Message = {
+    id: string;
+    chatId: string;
+    senderId: string;
+    text: string;
+    type: 'text' | 'voice' | 'image';
+    audioUrl?: string;
+    imageUrl?: string;
+    createdAt: any;
+}
 
 export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
-  menuItemId?: string; // Reference to the menu item for cost calculation
+  menuItemId?: string;
   productName: string;
   variantSku: string;
   variantWeight: string;
   quantity: number;
   price: number;
-  recipeSnapshot?: { name: string; qty: number; unit: string; cost?: number; }[];
-}
+};
 
 export type Order = {
-  id:string;
+  id: string;
   userId: string;
   storeId: string;
-  customerName: string;
-  deliveryAddress: string;
+  customerName?: string;
+  phone?: string;
+  email?: string;
+  deliveryAddress?: string;
   deliveryLat: number;
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
   status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
-  orderDate: Timestamp | Date | string;
-  phone: string;
-  email: string;
-  translatedList?: string;
-  store?: Store; 
-  deliveryPartnerId?: string | null;
-  tableNumber?: string | null;
-  sessionId?: string; // To group all orders for a single table session
-  paidAt?: Timestamp;
-  paymentMode?: string;
+  orderDate: any;
   updatedAt?: any;
-};
-
-
-export type DeliveryPartner = {
-  userId: string; // The user's UID
-  totalEarnings: number;
-  lastPayoutDate?: Timestamp;
-  payoutsEnabled: boolean;
-  payoutMethod?: 'bank' | 'upi';
-  upiId?: string;
-  bankDetails?: {
-    accountHolderName: string;
-    accountNumber: string;
-    ifscCode: string;
-  };
+  isActive?: boolean;
+  orderType?: 'delivery' | 'dine-in' | 'takeaway' | 'counter';
+  sessionId?: string;
+  tableNumber?: string | null;
+  needsService?: boolean;
+  serviceType?: string | null;
+  store?: Store;
+  deliveryPartnerId?: string | null;
 };
 
 export type Payout = {
@@ -131,34 +315,48 @@ export type Payout = {
   completionDate?: Timestamp;
   status: 'pending' | 'completed' | 'failed';
   payoutMethod: 'bank' | 'upi';
-  payoutDetails: any; // upiId or bankDetails
+  payoutDetails: any;
 };
 
-// Represents the canonical pricing for a product, managed by the admin.
+export type DeliveryPartner = {
+  userId: string;
+  totalEarnings: number;
+  lastPayoutDate?: Timestamp;
+  payoutsEnabled: boolean;
+  payoutMethod?: 'bank' | 'upi';
+  upiId?: string;
+  zoneId?: string;
+  bankDetails?: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
+};
+
 export type ProductPrice = {
-    productName: string; // The unique name of the product, matches the document ID.
+    productName: string;
     variants: ProductVariant[];
 }
 
 export type FailedVoiceCommand = {
     id: string;
     userId: string;
-    commandText: string;
-    language: string;
-    timestamp: Timestamp | Date | string;
-    reason: string;
-    status?: 'new' | 'no_suggestion'; // Status for processing
+    text: string;
+    lang: string;
+    timestamp: any;
+    storeId?: string;
+    status: 'new' | 'resolved' | 'ignored';
+    suggestion?: string;
 }
-
-export type VoiceAliasGroup = {
-    id: string; // The canonical key, e.g., 'tomatoes'
-    type: 'product' | 'store' | 'command';
-    [key: string]: any; // To allow for language codes as keys (en, te, hi, etc.)
-};
 
 export interface InstructionStep {
     title: string;
     actions: string[];
+}
+
+export interface Ingredient {
+    name: string;
+    quantity: string;
 }
 
 export interface GetIngredientsOutput {
@@ -175,7 +373,7 @@ export interface GetIngredientsOutput {
 
 export type CachedRecipe = {
     id: string;
-    dishName: string;
+    name: string;
     itemType: 'food' | 'service' | 'product';
     components: Ingredient[];
     steps: InstructionStep[];
@@ -183,14 +381,14 @@ export type CachedRecipe = {
         calories: number;
         protein: number;
     };
-    createdAt: any; // Allow serverTimestamp
+    createdAt: any; 
 }
 
 export type CachedAIResponse = {
     id: string;
     question: string;
     answer: string;
-    createdAt: any; // Allow serverTimestamp
+    createdAt: any;
 }
 
 export type DayPlan = {
@@ -212,120 +410,11 @@ export type MonthlyPackage = {
     schedule?: DayPlan[];
 };
 
-export type SiteConfig = {
-    liveVideoUrl?: string;
-    isPackGeneratorEnabled?: boolean;
-    isRecipeApiEnabled?: boolean;
-    isGeneralQuestionApiEnabled?: boolean;
-    isAliasSuggesterEnabled?: boolean;
-};
-
-export type ChatMessage = {
-  id?: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp?: any;
-};
-
-export type Voiceprint = {
-  userId: string; 
-  enrollments: number[][]; 
-  voiceprint: number[]; 
-  createdAt: string;
-  lastUpdatedAt: string;
-};
-
-export const CreateVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user.'),
-  audioDataUri: z
-    .string()
-    .describe(
-      "A recording of the user's voice as a data URI. Must include a MIME type and use Base64 encoding. E.g., 'data:audio/webm;base64,...'"
-    ),
-});
-export type CreateVoiceprintInput = z.infer<typeof CreateVoiceprintInputSchema>;
-
-export const CreateVoiceprintOutputSchema = z.object({
-  isSuccess: z.boolean().describe('Whether the voiceprint was successfully saved.'),
-  enrollmentCount: z.number().describe('The total number of enrollments the user now has.'),
-  error: z.string().optional().describe('An error message if the process failed.'),
-});
-export type CreateVoiceprintOutput = z.infer<typeof CreateVoiceprintOutputSchema>;
-
-export const VerifyVoiceprintInputSchema = z.object({
-  userId: z.string().describe('The unique ID of the user to verify against.'),
-  audioDataUri: z.string().describe("A new voice recording to compare against the stored voiceprint."),
-});
-export type VerifyVoiceprintInput = z.infer<typeof VerifyVoiceprintInputSchema>;
-
-export const VerifyVoiceprintOutputSchema = z.object({
-    isMatch: z.boolean().describe('Whether the new recording matches the stored voiceprint.'),
-    confidence: z.number().describe('A score from 0 to 1 indicating the similarity.'),
-    error: z.string().optional().describe('An error message if verification failed.'),
-});
-export type VerifyVoiceprintOutput = z.infer<typeof VerifyVoiceprintOutputSchema>;
-
-export type CommandGroup = {
-  display: string;
-  reply: {
-    en: string;
-    te?: string;
-    hi?: string;
-    en_audio?: string;
-    te_audio?: string;
-    hi_audio?: string;
-  };
-};
-
-export type Locales = Record<string, VoiceAliasGroup>;
-
-export type NluExtractedSentence = {
-    id: string;
-    rawText: string;
-    extractedNumbers: any[]; 
-    confidence: number;
-    status: 'pending' | 'approved' | 'rejected';
-    createdAt: any;
-};
-
-export type GenerateBreakfastPackOutput = {
-  packName: string;
-  schedule: DayPlan[];
-  shoppingList: {
-    itemName: string;
-    quantity: string;
-  }[];
-  estimatedCost: number;
-};
-
-// Restaurant Menu Types
-export type MenuItem = {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  category: string;
-  ingredients?: Ingredient[];
-};
-
-export type Menu = {
-  id: string;
-  storeId: string;
-  items: MenuItem[];
-};
-
-export type UnidentifiedCartItem = {
-    id: string;
-    term: string;
-    status: 'pending' | 'failed' | 'identified';
-};
-
-// Type for Restaurant Inventory
-export type RestaurantIngredient = {
-  id: string;
-  name: string;
-  unit: string; // e.g., 'kg', 'litre', 'pc'
-  cost: number; // The purchase cost per unit
+export type ReportData = {
+    totalSales: number;
+    totalOrders: number;
+    topProducts: { name: string; count: number }[];
+    ingredientCost?: number;
 };
 
 declare global {
