@@ -7,8 +7,8 @@ import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 
 /**
- * FIXED CLIENT ROOT
- * Resolved circular import. Correctly serves as the top-level provider shell.
+ * CLIENT ROOT
+ * Corrects the circular dependency by serving as the top-level provider shell.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (

@@ -342,16 +342,41 @@ export interface InstructionStep {
     actions: string[];
 }
 
+export interface Ingredient {
+    name: string;
+    quantity: string;
+}
+
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     itemType: 'food' | 'service' | 'product';
     title: string;
-    components: any[];
+    components: Ingredient[];
     steps: InstructionStep[];
     nutrition?: {
         calories: number;
         protein: number;
     };
+}
+
+export type CachedRecipe = {
+    id: string;
+    name: string;
+    itemType: 'food' | 'service' | 'product';
+    components: Ingredient[];
+    steps: InstructionStep[];
+    nutrition?: {
+        calories: number;
+        protein: number;
+    };
+    createdAt: any; 
+}
+
+export type CachedAIResponse = {
+    id: string;
+    question: string;
+    answer: string;
+    createdAt: any;
 }
 
 export type DayPlan = {
