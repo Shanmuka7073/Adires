@@ -187,3 +187,18 @@ service cloud.firestore {
     }
   }
 }
+// ✅ bookings collection (your current error)
+match /bookings/{bookingId} {
+  allow read, write: if isSignedIn();
+}
+
+// ✅ siteConfig (used in your app)
+match /siteConfig/{doc} {
+  allow read: if true;
+}
+
+// ✅ canonicalCatalog (aliases/items)
+match /canonicalCatalog/{doc} {
+  allow read: if true;
+  allow write: if isSignedIn();
+}
