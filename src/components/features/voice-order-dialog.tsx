@@ -29,20 +29,33 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
   const { toast } = useToast();
   
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [parsedItems, setParsedItems] = useState<any[]>([]);
+  const [transcript, setTranscript] = useState(''); // Current segment
+  const [parsedItems, setParsedItems] = useState<any[]>([]); // Committed items
   const [activeLang, setActiveLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
 
-  const processTranscript = useCallback((text: string) => {
-    if (!text) {
-        setParsedItems([]);
-        return;
-    }
-    const result = runNLU(text, activeLang, menu);
-    setParsedItems(result.items);
-  }, [menu, activeLang]);
+  // Helper to merge items into existing list
+  const mergeItems = useCallback((newItems: any[]) => {
+      setParsedItems(current => {
+          const newList = [...current];
+          newItems.forEach(newItem => {
+              const existingIndex = newList.findIndex(item => item.name === newItem.name);
+              if (existingIndex !== -1) {
+                  // Increment quantity of existing item
+                  newList[existingIndex] = {
+                      ...newList[existingIndex],
+                      quantity: newList[existingIndex].quantity + newItem.quantity
+                  };
+              } else {
+                  // Add new item to list
+                  newList.push(newItem);
+              }
+          });
+          return newList;
+      });
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -53,35 +66,62 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       recognitionRef.current.lang = activeLang;
 
       recognitionRef.current.onresult = (event: any) => {
-        let fullTranscript = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          fullTranscript += event.results[i][0].transcript;
+        let interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcriptSegment = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            // Process and commit final segments immediately
+            const result = runNLU(transcriptSegment, activeLang, menu);
+            if (result.items.length > 0) {
+                mergeItems(result.items);
+            }
+          } else {
+            interimTranscript += transcriptSegment;
+          }
         }
-        setTranscript(fullTranscript.trim());
+        setTranscript(interimTranscript);
       };
 
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        // AUTO-RESTART LOGIC: If we should still be listening, start again
+        if (isListeningRef.current) {
+            try {
+                recognitionRef.current.start();
+            } catch (e) {
+                console.warn("Recognition restart attempt failed", e);
+            }
+        } else {
+            setIsListening(false);
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        setIsListening(false);
         if (event.error !== 'no-speech') {
-            toast({ variant: 'destructive', title: "Mic Error", description: event.error });
+            console.error("Speech Recognition Error:", event.error);
+            // Don't toast 'no-speech' errors as they are common during pauses
+            if (event.error === 'network') {
+                toast({ variant: 'destructive', title: "Network Error", description: "Speech recognition interrupted." });
+            }
         }
       };
     }
-  }, [activeLang, toast]);
 
-  useEffect(() => {
-      processTranscript(transcript);
-  }, [transcript, processTranscript]);
+    return () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
+    };
+  }, [activeLang, toast, menu, mergeItems]);
 
   const toggleListening = () => {
     if (isListening) {
+      isListeningRef.current = false;
       recognitionRef.current?.stop();
+      setIsListening(false);
     } else {
+      isListeningRef.current = true;
       setIsListening(true);
+      setTranscript('');
       try {
         recognitionRef.current?.start();
       } catch (e) {
@@ -139,7 +179,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
               <div>
                 <DialogTitle className="text-xl font-black uppercase tracking-tight">Voice Hub</DialogTitle>
                 <DialogDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                    Local Intelligence Powered
+                    Continuous Ordering Enabled
                 </DialogDescription>
               </div>
               <div className="flex gap-1 bg-black/5 p-1 rounded-xl">
@@ -176,12 +216,19 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                         {isListening && <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-20" />}
                         {isListening ? <X className="h-8 w-8 text-white" /> : <Mic className="h-8 w-8 text-white" />}
                     </button>
-                    <p className="text-xs font-black uppercase tracking-widest text-gray-400 animate-pulse">
-                        {isListening ? 'System Listening...' : 'Tap to command'}
-                    </p>
+                    <div className="text-center space-y-1">
+                        <p className="text-xs font-black uppercase tracking-widest text-gray-400">
+                            {isListening ? 'System Listening...' : 'Tap to command'}
+                        </p>
+                        {isListening && transcript && (
+                            <p className="text-[10px] font-bold text-primary italic animate-in fade-in slide-in-from-top-1">
+                                "{transcript}..."
+                            </p>
+                        )}
+                    </div>
                 </div>
 
-                {/* Order Manifest (The only text displayed) */}
+                {/* Order Manifest */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center px-1">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Order Manifest</h3>
