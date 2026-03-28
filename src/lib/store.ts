@@ -8,6 +8,8 @@ import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './t
 import { UseFormReturn } from 'react-hook-form';
 import { Locales, getAllAliases as getAliasesFromLocales, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
+import { useFirebase } from '@/firebase';
+import { useEffect } from 'react';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -203,7 +205,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v18', 
+      name: 'adires-ops-v19', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
