@@ -131,9 +131,9 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
 
                 <ScrollArea className="flex-1">
                     <Tabs defaultValue="manual" className="w-full">
-                        <TabsList className="bg-black/5 mx-4 sm:mx-8 mt-6 p-1 rounded-xl border h-10">
-                            <TabsTrigger value="manual" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6">Manual & Bulk</TabsTrigger>
-                            <TabsTrigger value="ai" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6">AI Extractor</TabsTrigger>
+                        <TabsList className="bg-black/5 mx-4 sm:mx-8 mt-6 p-1 rounded-xl border h-auto flex flex-wrap sm:flex-nowrap">
+                            <TabsTrigger value="manual" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6 h-10">Manual & Bulk</TabsTrigger>
+                            <TabsTrigger value="ai" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6 h-10">AI Extractor</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="manual" className="p-4 sm:p-8 space-y-6">
@@ -153,10 +153,10 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                                     </div>
                                 </div>
                                 <Textarea 
-                                    placeholder="Paste thousands of aliases here (comma or newline separated)..." 
+                                    placeholder="Paste aliases here..." 
                                     value={bulkInput}
                                     onChange={e => setBulkInput(e.target.value)}
-                                    className="min-h-[150px] rounded-2xl border-2 font-bold bg-white"
+                                    className="min-h-[120px] rounded-2xl border-2 font-bold bg-white"
                                 />
                                 <div className="flex gap-2">
                                     <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
@@ -195,7 +195,7 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                                 <div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0"><Bot className="h-5 w-5" /></div>
                                 <div>
                                     <h4 className="font-black uppercase text-xs text-indigo-900 tracking-tight">Linguistic Deep Scan</h4>
-                                    <p className="text-[10px] font-bold text-indigo-700/60 leading-relaxed uppercase mt-1">Paste a regional recipe or Wikipedia snippet. The AI will extract all nicknames and slang for this product.</p>
+                                    <p className="text-[10px] font-bold text-indigo-700/60 leading-relaxed uppercase mt-1">AI will extract nicknames and slang from any text block.</p>
                                 </div>
                             </div>
                             <Textarea 
@@ -363,9 +363,9 @@ export default function VoiceIntelligencePage() {
             </div>
 
             <Tabs defaultValue="failed" className="w-full">
-                <TabsList className="bg-black/5 p-1.5 rounded-[1.5rem] border mb-8 h-12 w-full sm:w-auto overflow-x-auto no-scrollbar">
-                    <TabsTrigger value="failed" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8">Failed Commands</TabsTrigger>
-                    <TabsTrigger value="aliases" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8">Global Aliases</TabsTrigger>
+                <TabsList className="bg-black/5 p-1.5 rounded-[1.5rem] border mb-8 h-auto w-full sm:w-auto overflow-x-auto no-scrollbar flex sm:inline-flex">
+                    <TabsTrigger value="failed" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8 h-10">Failed Commands</TabsTrigger>
+                    <TabsTrigger value="aliases" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8 h-10">Global Aliases</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="failed" className="animate-in slide-in-from-bottom-2 duration-500">
@@ -389,13 +389,12 @@ export default function VoiceIntelligencePage() {
                                     <TableRow>
                                         <TableHead className="text-[10px] font-black uppercase pl-6 min-w-[200px]">Transcript</TableHead>
                                         <TableHead className="text-[10px] font-black uppercase">Lang</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase hidden sm:table-cell">Identity</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase pr-6">AI Fix</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {!failedCommands || failedCommands.length === 0 ? (
-                                        <TableRow><TableCell colSpan={4} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={3} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands</TableCell></TableRow>
                                     ) : failedCommands.map(cmd => (
                                         <TableRow key={cmd.id} className="border-b border-black/5 hover:bg-muted/30">
                                             <TableCell className="py-6 pl-6">
@@ -405,7 +404,6 @@ export default function VoiceIntelligencePage() {
                                             <TableCell>
                                                 <Badge variant="outline" className="text-[8px] font-black uppercase">{cmd.lang}</Badge>
                                             </TableCell>
-                                            <TableCell className="text-[9px] font-bold opacity-40 uppercase truncate max-w-[100px] hidden sm:table-cell">{cmd.userId}</TableCell>
                                             <TableCell className="text-right pr-6">
                                                 {cmd.status === 'resolved' ? (
                                                     <Badge className="bg-green-500 text-white font-black text-[8px] uppercase">LINKED: {cmd.suggestion}</Badge>
@@ -429,7 +427,7 @@ export default function VoiceIntelligencePage() {
                 </TabsContent>
 
                 <TabsContent value="aliases" className="animate-in slide-in-from-bottom-2 duration-500 space-y-8">
-                    <div className="grid lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         {/* LEFT: PLATFORM INVENTORY */}
                         <Card className="lg:col-span-1 rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white h-fit">
                             <CardHeader className="bg-black/5 pb-4 border-b border-black/5">

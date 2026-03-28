@@ -93,7 +93,8 @@ function findBestMatch(input: string, menu: MenuItem[]) {
     // 5. PENALTY: Prevent short words matching long names (e.g. "Chicken" matching "Chicken Biryani")
     const nameWordsCount = name.split(" ").length;
     if (inputWordsCount < nameWordsCount) {
-        score *= (inputWordsCount / nameWordsCount); // Penalize missing words
+        // Multiply by coverage ratio
+        score *= (inputWordsCount / nameWordsCount); 
     }
 
     if (score > maxScore) {
@@ -125,6 +126,7 @@ export function cleanText(input: string): string {
 
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
+  // Split by common conjunctions
   const segments = cleaned.split(/ also | and | next | then /);
   const items: any[] = [];
 
@@ -146,7 +148,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productPhrase, menu);
 
-    // Only accept confident matches
+    // Only accept confident matches (Raised threshold to 0.6)
     if (confidence >= 0.6) {
         items.push({
             name: best?.name || productPhrase,
