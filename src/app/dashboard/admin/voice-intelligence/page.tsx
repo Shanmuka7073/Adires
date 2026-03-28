@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAliasGroup, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,31 +14,165 @@ import {
     Sparkles, 
     Trash2, 
     CheckCircle2, 
-    Languages, 
     RefreshCw, 
     Loader2, 
     Bot, 
     Plus,
-    X,
     Save,
     Search,
     ShoppingBag,
     AlertCircle,
-    ArrowRight
+    ArrowRight,
+    Edit3,
+    FileText,
+    Languages
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { suggestAlias } from '@/ai/flows/suggest-alias-flow';
 import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
+import { extractAliasesFromText } from '@/ai/flows/extract-aliases-flow';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasGroup, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isSaving, startSave] = useTransition();
+    const [isExtracting, startExtract] = useTransition();
+    
+    const [bulkInput, setBulkInput] = useState('');
+    const [targetLang, setTargetLang] = useState<'en' | 'te' | 'hi'>('en');
+    const [extractionText, setExtractionText] = useState('');
+
+    const handleBulkAdd = () => {
+        if (!bulkInput.trim() || !firestore) return;
+        startSave(async () => {
+            const newAliases = bulkInput.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 1);
+            const docRef = doc(firestore, 'voiceAliasGroups', group.id);
+            const current = group[targetLang] || [];
+            const merged = [...new Set([...current, ...newAliases])];
+            
+            await updateDoc(docRef, { [targetLang]: merged, updatedAt: serverTimestamp() });
+            toast({ title: "Bulk Sync Complete", description: `Added ${newAliases.length} aliases to ${targetLang.toUpperCase()}` });
+            setBulkInput('');
+        });
+    };
+
+    const handleAIExtract = () => {
+        if (!extractionText.trim()) return;
+        startExtract(async () => {
+            try {
+                const result = await extractAliasesFromText({ textBlock: extractionText, targetProduct: group.id });
+                const docRef = doc(firestore, 'voiceAliasGroups', group.id);
+                
+                await updateDoc(docRef, {
+                    en: [...new Set([...(group.en || []), ...result.en])],
+                    te: [...new Set([...(group.te || []), ...result.te])],
+                    hi: [...new Set([...(group.hi || []), ...result.hi])],
+                    updatedAt: serverTimestamp()
+                });
+                
+                toast({ title: "Linguistic Extraction Success", description: "AI matched and imported new aliases." });
+                setExtractionText('');
+            } catch (e) {
+                toast({ variant: 'destructive', title: "Extraction Failed" });
+            }
+        });
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-[#FDFCF7]">
+                <DialogHeader className="p-8 bg-white border-b shrink-0">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="text-2xl font-black uppercase tracking-tight">{group.id}</DialogTitle>
+                            <DialogDescription className="font-bold text-[10px] uppercase opacity-40">Comprehensive Alias Suite</DialogDescription>
+                        </div>
+                        <Badge className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] px-3 h-6 uppercase">Total: {(group.en?.length || 0) + (group.te?.length || 0) + (group.hi?.length || 0)}</Badge>
+                    </div>
+                </DialogHeader>
+
+                <Tabs defaultValue="manual" className="w-full">
+                    <TabsList className="bg-black/5 mx-8 mt-6 p-1 rounded-xl border h-10">
+                        <TabsTrigger value="manual" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">Manual & Bulk</TabsTrigger>
+                        <TabsTrigger value="ai" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">AI Text Extractor</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="manual" className="p-8 space-y-6">
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end px-1">
+                                <Label className="text-[10px] font-black uppercase opacity-40">Bulk Import Tool</Label>
+                                <div className="flex gap-1 bg-black/5 p-1 rounded-lg">
+                                    {(['en', 'te', 'hi'] as const).map(l => (
+                                        <button 
+                                            key={l} 
+                                            onClick={() => setTargetLang(l)}
+                                            className={cn("px-3 h-6 rounded-md text-[9px] font-black uppercase transition-all", targetLang === l ? "bg-white shadow-sm text-primary" : "text-gray-400")}
+                                        >
+                                            {l}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <Textarea 
+                                placeholder="Paste thousands of aliases here (comma or newline separated)..." 
+                                value={bulkInput}
+                                onChange={e => setBulkInput(e.target.value)}
+                                className="min-h-[150px] rounded-2xl border-2 font-bold bg-white"
+                            />
+                            <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
+                                Sync Bulk List to {targetLang.toUpperCase()}
+                            </Button>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-black uppercase opacity-40 px-1">Current Inventory</Label>
+                            <ScrollArea className="h-40 rounded-2xl border-2 bg-white p-4">
+                                <div className="flex flex-wrap gap-2">
+                                    {(group[targetLang] || []).map(a => (
+                                        <Badge key={a} variant="secondary" className="rounded-lg h-7 font-bold text-[10px] uppercase">{a}</Badge>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="ai" className="p-8 space-y-6">
+                        <div className="p-6 rounded-[2rem] bg-indigo-50 border-2 border-indigo-100 flex gap-4 items-start">
+                            <div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0"><Bot className="h-5 w-5" /></div>
+                            <div>
+                                <h4 className="font-black uppercase text-xs text-indigo-900 tracking-tight">Linguistic Deep Scan</h4>
+                                <p className="text-[10px] font-bold text-indigo-700/60 leading-relaxed uppercase mt-1">Paste a regional recipe or Wikipedia snippet. The AI will extract all nicknames and slang for this product.</p>
+                            </div>
+                        </div>
+                        <Textarea 
+                            placeholder="Paste text block here..." 
+                            value={extractionText}
+                            onChange={e => setExtractionText(e.target.value)}
+                            className="min-h-[200px] rounded-2xl border-2 font-medium bg-white"
+                        />
+                        <Button onClick={handleAIExtract} disabled={isExtracting || !extractionText.trim()} className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-200">
+                            {isExtracting ? <Loader2 className="animate-spin h-5 w-5" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                            Extract Aliases with AI
+                        </Button>
+                    </TabsContent>
+                </Tabs>
+                <div className="h-10" />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function VoiceIntelligencePage() {
-    const { firestore, user } = useFirebase();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSuggesting, startSuggest] = useTransition();
     const [isGeneratingAliases, startGenAliases] = useTransition();
@@ -45,6 +180,7 @@ export default function VoiceIntelligencePage() {
     const [inventorySearch, setInventorySearch] = useState('');
     const [isAddingNew, setIsAddingNew] = useState(false);
     const [prefilledName, setPrefilledName] = useState('');
+    const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<VoiceAliasGroup | null>(null);
 
     // --- FAILED COMMANDS LOGIC ---
     const failedQuery = useMemoFirebase(() => 
@@ -54,7 +190,7 @@ export default function VoiceIntelligencePage() {
 
     // --- ALIAS GROUPS LOGIC ---
     const aliasesQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'voiceAliasGroups')) : null, 
+        firestore ? query(collection(firestore, 'voiceAliasGroups'), orderBy('id', 'asc')) : null, 
     [firestore]);
     const { data: aliasGroups, isLoading: aliasesLoading } = useCollection<VoiceAliasGroup>(aliasesQuery);
 
@@ -150,6 +286,14 @@ export default function VoiceIntelligencePage() {
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
+            {selectedGroupForEdit && (
+                <ManageAliasDialog 
+                    group={selectedGroupForEdit} 
+                    isOpen={!!selectedGroupForEdit} 
+                    onOpenChange={(o) => !o && setSelectedGroupForEdit(null)} 
+                />
+            )}
+
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Voice Intel</h1>
@@ -333,14 +477,14 @@ export default function VoiceIntelligencePage() {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {filteredAliases.map(group => (
-                                        <Card key={group.id} className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white group hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/10">
+                                        <Card key={group.id} className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white group hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/10 cursor-pointer" onClick={() => setSelectedGroupForEdit(group)}>
                                             <CardHeader className="bg-primary/5 border-b border-black/5 pb-4">
                                                 <div className="flex justify-between items-start">
                                                     <div className="min-w-0">
                                                         <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950 truncate max-w-[220px]">{group.id}</CardTitle>
-                                                        <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Canonical Key</p>
+                                                        <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Canonical Key • Click to Manage</p>
                                                     </div>
-                                                    <button onClick={() => deleteDoc(doc(firestore!, 'voiceAliasGroups', group.id))} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
+                                                    <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(firestore!, 'voiceAliasGroups', group.id)); }} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
                                                 </div>
@@ -348,29 +492,29 @@ export default function VoiceIntelligencePage() {
                                             <CardContent className="p-6 space-y-4">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1">
-                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu</p>
+                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu Synonyms</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.te?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-primary/20 text-primary">{a}</Badge>)}
-                                                            {(group.te?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.te.length - 3}</span>}
+                                                            {(group.te?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.te!.length - 3}</span>}
                                                         </div>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi</p>
+                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi Synonyms</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.hi?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-orange-200 text-orange-600">{a}</Badge>)}
-                                                            {(group.hi?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.hi.length - 3}</span>}
+                                                            {(group.hi?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.hi!.length - 3}</span>}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    onClick={() => handleGenerateGroup(group.id)} 
-                                                    disabled={isGeneratingAliases}
-                                                    className="w-full h-8 rounded-xl font-black text-[8px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 border border-black/5 bg-gray-50"
-                                                >
-                                                    <Sparkles className="h-3 w-3 mr-1.5 text-primary" /> Re-Sync AI Aliases
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="flex-1 h-8 rounded-xl font-black text-[8px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 border border-black/5 bg-gray-50"
+                                                    >
+                                                        <Edit3 className="h-3 w-3 mr-1.5" /> Advanced Edit
+                                                    </Button>
+                                                </div>
                                             </CardContent>
                                         </Card>
                                     ))}
