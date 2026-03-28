@@ -173,30 +173,31 @@ export default function MerchantDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isMerchant, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { stores, userStore, fetchUserStore, isInitialized } = useAppStore();
+    const { userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
+    
+    // GUARD AGAINST INFINITE LOOPS
     const [hasFetched, setHasFetched] = useState(false);
-
-    const store = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
 
     useEffect(() => {
         if (!isLoading && !isMerchant && !isAdmin) {
-            console.log("[RESTAURANT_DASH] User is not merchant, redirecting to generic dashboard");
             router.replace('/dashboard');
         }
     }, [isLoading, isMerchant, isAdmin, router]);
 
     useEffect(() => {
-        if (!firestore || !user?.uid || !isInitialized || hasFetched) return;
+        // Only run if we have a user and haven't fetched in this component mount yet
+        if (!firestore || !user?.uid || hasFetched) return;
 
-        if (!userStore) {
+        // Condition: Fetch only if we don't have a store or the owner ID mismatch
+        if (!userStore || userStore.ownerId !== user.uid) {
             setHasFetched(true);
             fetchUserStore(firestore, user.uid);
         }
-    }, [firestore, user?.uid, isInitialized]);
+    }, [firestore, user?.uid, isInitialized, userStore, fetchUserStore, hasFetched]);
 
     const serviceLinks = useMemo(() => {
-        const isSalon = store?.businessType === 'salon';
+        const isSalon = userStore?.businessType === 'salon';
         return [
             { title: 'MY STORE', description: 'Manage products & profile', href: '/dashboard/owner/my-store', icon: Store },
             { title: isSalon ? 'BOOKINGS' : 'STORE ORDERS', description: isSalon ? 'Live appointments' : 'Live table orders', href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', icon: isSalon ? CalendarCheck : ShoppingBag, highlight: true },
@@ -205,7 +206,7 @@ export default function MerchantDashboardPage() {
             { title: 'EMPLOYEES', description: 'Staff & Payroll', href: '/dashboard/owner/employees', icon: Users },
             { title: 'OFFLINE AUDIT', description: 'Audit device persistence', href: '/dashboard/offline-audit', icon: Smartphone }
         ];
-    }, [store]);
+    }, [userStore]);
 
     if (isLoading) {
         return <div className="h-[80vh] flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -213,7 +214,7 @@ export default function MerchantDashboardPage() {
 
     if (!user || (!isMerchant && !isAdmin)) return null;
 
-    if (!store && isInitialized) {
+    if (!userStore && isInitialized) {
         return (
             <div className="container mx-auto px-4 py-12 max-w-4xl space-y-12 animate-in fade-in duration-700">
                 <CreateStoreForm onComplete={() => firestore && fetchUserStore(firestore, user.uid)} />
@@ -225,10 +226,10 @@ export default function MerchantDashboardPage() {
         <div className="container mx-auto px-3 py-3 max-w-2xl space-y-3 pb-24 animate-in fade-in duration-500">
             <div className="flex items-center gap-3 border-b pb-3 border-black/5">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    {store?.businessType === 'salon' ? <Scissors className="h-5 w-5" /> : <Utensils className="h-5 w-5" />}
+                    {userStore?.businessType === 'salon' ? <Scissors className="h-5 w-5" /> : <Utensils className="h-5 w-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h1 className="text-sm font-black uppercase tracking-tight truncate leading-none">{store?.name || 'My Hub'}</h1>
+                    <h1 className="text-sm font-black uppercase tracking-tight truncate leading-none">{userStore?.name || 'My Hub'}</h1>
                     <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">Operational Control</p>
                 </div>
                 <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-2.5 py-1.5 rounded-full border border-green-100 shadow-sm">

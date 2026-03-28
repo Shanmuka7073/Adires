@@ -145,20 +145,20 @@ export const useAppStore = create<AppState>()(
         
         try {
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
-          const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          let userStore = null;
+          let currentUserStore = null;
           if (userId) {
-              userStore = stores.find((s: Store) => s.ownerId === userId) || null;
+              currentUserStore = storesList.find((s: Store) => s.ownerId === userId) || null;
           }
 
           const id = getOrGenerateDeviceId();
 
           set({
-            stores,
+            stores: storesList,
             isInitialized: true,
             isFetchingStores: false,
-            userStore,
+            userStore: currentUserStore,
             deviceId: id,
             appReady: true,
             readCount: get().readCount + storesSnap.docs.length
@@ -171,25 +171,25 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
+        if (!userId) return;
+        
         set({ isFetchingUserStore: true, error: null });
 
         try {
             const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
             const snap = await getDocs(q);
-            const userStore = snap.docs.length > 0 
+            const storeData = snap.docs.length > 0 
                 ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
                 : null;
 
             set({
-                userStore,
-                isInitialized: true,
+                userStore: storeData,
                 isFetchingUserStore: false,
-                appReady: true,
                 readCount: get().readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, isFetchingUserStore: false, isInitialized: true, appReady: true });
+            set({ error: error as Error, isFetchingUserStore: false });
         }
       },
 
@@ -205,7 +205,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v20', 
+      name: 'adires-ops-v21', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
