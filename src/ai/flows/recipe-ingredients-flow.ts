@@ -1,6 +1,7 @@
 /**
  * @fileOverview An AI flow to provide detailed information about a product or service.
  * This is an internal server utility called by Server Actions.
+ * It is not marked 'use server' because it is consumed by other server-side code.
  */
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -9,8 +10,18 @@ import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from './recipe-
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import type { GetIngredientsOutput } from './recipe-ingredients-types';
 
-const prompt = ai.definePrompt(
-  {
+export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
+  const { db } = getAdminServices();
+  
+  const language = input.language || 'en';
+
+  // 1. Check cache first
+  const cachedData = await getCachedRecipe(db, input.dishName, language);
+  if (cachedData) {
+    return cachedData as any;
+  }
+  
+  const prompt = ai.definePrompt({
     name: 'recipeIngredientsPrompt',
     input: { schema: GetIngredientsInputSchema },
     output: { schema: GetIngredientsOutputSchema },
@@ -44,20 +55,8 @@ const prompt = ai.definePrompt(
 
         If the item name is ambiguous or unknown, try your best to describe it based on common knowledge.
         `,
-  }
-);
+  });
 
-export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  const { db } = getAdminServices();
-  
-  const language = input.language || 'en';
-
-  // 1. Check cache first
-  const cachedData = await getCachedRecipe(db, input.dishName, language);
-  if (cachedData) {
-    return cachedData as any;
-  }
-  
   // 2. Generate if not cached
   const { output } = await prompt({ ...input, language });
   

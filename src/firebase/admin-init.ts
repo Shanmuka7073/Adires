@@ -7,6 +7,7 @@ import { getMessaging, Messaging } from 'firebase-admin/messaging';
 /**
  * @fileOverview This file is an internal server-side utility.
  * It does NOT use 'use server' because it returns non-serializable Firebase Admin instances.
+ * It is used by Server Actions in the /app directory.
  */
 
 interface AdminServices {
@@ -23,11 +24,10 @@ function getAppOptions(): AppOptions {
     let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
-        throw new Error("CRITICAL: 'SERVICE_ACCOUNT' environment variable is missing. Please add it to Vercel Settings > Environment Variables.");
+        throw new Error("CRITICAL: 'SERVICE_ACCOUNT' environment variable is missing.");
     }
 
     try {
-        // Cleanup potential string escaping issues from env vars
         serviceAccountString = serviceAccountString.trim();
         if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
             serviceAccountString = serviceAccountString.slice(1, -1);
