@@ -1,12 +1,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { getAdminServices } from '@/firebase/admin-init';
 
 /**
- * BACKEND: Audio Upload Handler
- * Receives multipart/form-data, validates size/type, and saves to public/uploads.
+ * BACKEND: Audio Upload Handler (Cloud Storage Edition)
+ * Receives multipart/form-data and uploads directly to Firebase Storage.
+ * Bypasses Vercel's read-only filesystem limitations.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -25,28 +24,36 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "File too large. Max 2MB." }, { status: 400 });
         }
 
-        // 2. PREPARE STORAGE: Ensure public/uploads exists
+        // 2. GET STORAGE BUCKET
+        const { storage } = await getAdminServices();
+        const bucket = storage.bucket();
+
+        // 3. PREPARE CLOUD BLOB
+        const filename = `voice-messages/${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
+        const blob = bucket.file(filename);
+        
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        
-        const uploadDir = join(process.cwd(), 'public', 'uploads');
-        if (!existsSync(uploadDir)) {
-            await mkdir(uploadDir, { recursive: true });
-        }
 
-        // 3. SAVE FILE: Generate unique filename
-        const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
-        const path = join(uploadDir, filename);
-        
-        await writeFile(path, buffer);
-        
-        // 4. RETURN URL: Publicly accessible path
-        const url = `/uploads/${filename}`;
+        // 4. UPLOAD TO CLOUD
+        await blob.save(buffer, {
+            metadata: { 
+                contentType: file.type || 'audio/webm',
+                cacheControl: 'public, max-age=31536000',
+            },
+            public: true
+        });
+
+        // 5. CONSTRUCT PUBLIC URL
+        // Note: This URL pattern works if the bucket/file is public.
+        const url = `https://storage.googleapis.com/${bucket.name}/${filename}`;
         
         return NextResponse.json({ url });
 
     } catch (error: any) {
         console.error("Upload API Error:", error);
-        return NextResponse.json({ error: "Server failed to process upload" }, { status: 500 });
+        return NextResponse.json({ 
+            error: error.message || "Server failed to process upload. Ensure your Firebase Storage bucket is created." 
+        }, { status: 500 });
     }
 }

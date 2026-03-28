@@ -131,7 +131,7 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
         
         startSend(async () => {
             try {
-                // 1. Upload to Node.js Backend
+                // 1. Upload to Node.js Backend (which streams to Storage)
                 const formData = new FormData();
                 formData.append('audio', blob, 'voice.webm');
 
@@ -140,8 +140,13 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
                     body: formData,
                 });
 
-                if (!uploadRes.ok) throw new Error("Upload failed");
-                const { url } = await uploadRes.json();
+                const uploadData = await uploadRes.json();
+
+                if (!uploadRes.ok) {
+                    throw new Error(uploadData.error || "Upload failed");
+                }
+                
+                const url = uploadData.url;
 
                 // 2. Save Metadata to Firestore
                 const chatSnap = await getDocs(query(collection(firestore, 'chats'), where('__name__', '==', chatId)));
@@ -149,9 +154,13 @@ export function ChatWindow({ chatId }: ChatWindowProps) {
                 const otherId = chatData.participants.find(p => p !== user.uid) || '';
 
                 await saveVoiceMessageMetadata(firestore, chatId, user.uid, url, otherId);
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Voice processing failed:", err);
-                toast({ variant: 'destructive', title: "Upload Failed", description: "Could not send voice message." });
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Voice Failed", 
+                    description: err.message || "Could not process audio." 
+                });
             }
         });
     };
