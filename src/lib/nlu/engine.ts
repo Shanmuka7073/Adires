@@ -1,6 +1,7 @@
 /**
- * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (PHONETIC & FUZZY)
- * Optimized for Indian English, Telugu, and Hindi speech fragments.
+ * 🚀 ENHANCED NLU ENGINE (PHONETIC & FUZZY)
+ * Optimized for Indian English, Telugu, and Hindi speech.
+ * Handles "aliases" (alaies) by prioritizing phonetic similarity.
  */
 
 import { calculateSimilarity } from "../calculate-similarity";
@@ -13,13 +14,13 @@ import type { MenuItem } from "../types";
 const NOISE_WORDS = [
   "please", "give", "add", "i", "want", "me", "needed", "need",
   "kavali", "ivvandi", "petandi", "chahiye", "lelo", "mangao",
-  "b", "the", "of", "also", "and", "plus"
+  "b", "the", "of", "also", "and", "plus", "pettandi", "tesko"
 ];
 
 const NUMBER_MAP: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5,
   six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  a: 1, an: 1, half: 0.5,
+  a: 1, an: 1, half: 0.5, "one and half": 1.5,
   okati: 1, rendu: 2, moodu: 3, nalugu: 4,
   aidu: 5, aaru: 6, yedu: 7, enimidi: 8,
   tommidi: 9, padi: 10, oka: 1, ara: 0.5,
@@ -31,14 +32,14 @@ const NUMBER_MAP: Record<string, number> = {
 ========================= */
 
 /**
- * Sounds-Like Key Generator (Simplified Double Metaphone approach)
+ * Sounds-Like Key Generator
  * Strips vowels and reduces double consonants to find matches despite spelling differences.
  */
 function getPhoneticKey(str: string): string {
   return str.toLowerCase()
     .replace(/[^a-z0-9]/g, '')
-    .replace(/[aeiouyhw]/g, '') // remove vowels and quiet letters
-    .replace(/(.)\1+/g, '$1'); // deduplicate (e.g. "kk" -> "k")
+    .replace(/[aeiouyhw]/g, '') 
+    .replace(/(.)\1+/g, '$1'); 
 }
 
 /**
@@ -83,19 +84,18 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 
     // 3. Phonetic Match Boost
     if (inputPhonetic && namePhonetic) {
-        if (inputPhonetic === namePhonetic) score += 0.4;
-        else if (namePhonetic.includes(inputPhonetic)) score += 0.2;
+        if (inputPhonetic === namePhonetic) score += 0.5;
+        else if (namePhonetic.includes(inputPhonetic)) score += 0.3;
     }
 
-    // 4. Fuzzy Lev Score
+    // 4. Fuzzy Levenshtein Score
     const fuzzy = calculateSimilarity(inputLower, name);
     score = Math.max(score, fuzzy);
 
     // 5. STRICT PENALTY: Prevent short words matching long names 
-    // (e.g. "Chicken" should NOT match "Chicken Biryani" unless biryani is the only option)
     if (inputWordsCount < nameWordsCount) {
         const coverage = inputWordsCount / nameWordsCount;
-        if (coverage < 0.6) score *= 0.5; // Severe penalty for low coverage
+        if (coverage < 0.7) score *= 0.4; 
         else score *= coverage;
     }
 
@@ -128,7 +128,6 @@ export function cleanText(input: string): string {
 
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
-  // Split by common segment delimiters but ensure we don't break multi-word products
   const segments = cleaned.split(/\s+also\s+|\s+and\s+|\s+next\s+|\s+then\s+/);
   const items: any[] = [];
 
@@ -136,7 +135,6 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
     const tokens = seg.trim().split(/\s+/);
     if (!tokens.length || tokens[0] === "") return;
 
-    // Extract quantity
     let qty = 1;
     const remainingTokens = tokens.filter(t => {
         const num = parseFloat(t);
@@ -150,8 +148,8 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productPhrase, menu);
 
-    // Only accept highly confident matches (Threshold 0.7)
-    if (confidence >= 0.7) {
+    // Increased threshold for better accuracy
+    if (confidence >= 0.75) {
         items.push({
             name: best?.name || productPhrase,
             quantity: qty,
@@ -178,5 +176,6 @@ export function recognizeIntent(text: string, lang: string = "en"): any {
     const lower = text.toLowerCase().trim();
     if (lower.includes('home')) return { type: 'NAVIGATE', destination: 'home' };
     if (lower.includes('cart')) return { type: 'NAVIGATE', destination: 'cart' };
-    return { type: 'ORDER_ITEM' };
+    if (lower.includes('order') || lower.includes('buy')) return { type: 'ORDER_ITEM' };
+    return { type: 'UNKNOWN' };
 }

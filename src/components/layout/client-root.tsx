@@ -8,8 +8,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 /**
  * CLIENT ROOT
  * Wraps the application in all necessary client-side providers.
- * This file centralizes the provider hierarchy to ensure all child components
- * have access to the required contexts (Firebase, Cart, etc.).
+ * Fixed circular dependency by removing self-import.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
