@@ -552,7 +552,7 @@ export async function uploadStoreImage(storeId: string, base64Image: string) {
 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
-    const { db } = getAdminServices();
+    const { db } = await getAdminServices();
     const slipDocActual = await db.collection("stores").doc(storeId!).collection("salarySlips").doc(slipId).get();
     if (!slipDocActual.exists) return null;
     const slip = slipDocActual.data();

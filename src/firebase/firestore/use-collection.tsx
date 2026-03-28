@@ -48,9 +48,9 @@ export interface InternalQuery extends Query<DocumentData> {
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error, refetch.
  */
 export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
+    memoizedTargetRefOrQuery: (CollectionReference<DocumentData> | Query<DocumentData>) | null | undefined,
 ): UseCollectionResult<T> {
-  type ResultItemType = WithId<T>;
+  type ResultItemType = T & { id: string };
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
@@ -95,11 +95,12 @@ export function useCollection<T = any>(
           path,
         });
 
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
+        setTimeout(() => {
+          setError(contextualError);
+          setData(null);
+          setIsLoading(false);
+          errorEmitter.emit('permission-error', contextualError);
+        }, 0);
       }
     );
 

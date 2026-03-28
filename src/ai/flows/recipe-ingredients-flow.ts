@@ -19,7 +19,7 @@ export async function getIngredientsForDishFlow(input: { dishName: string; langu
     return cachedData as any;
   }
   
-  // 2. Generate if not cached
+  // 2. Define and run the prompt
   const prompt = ai.definePrompt({
     name: 'recipeIngredientsPrompt',
     input: { schema: GetIngredientsInputSchema },

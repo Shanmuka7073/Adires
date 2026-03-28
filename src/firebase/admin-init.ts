@@ -4,11 +4,6 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
 
-/**
- * @fileOverview This file is an internal server-side utility.
- * It does NOT use 'use server' because it returns non-serializable Firebase Admin instances.
- */
-
 interface AdminServices {
   app: App;
   auth: Auth;

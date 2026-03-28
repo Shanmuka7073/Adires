@@ -16,62 +16,17 @@ export type Product = {
   imageId: string;
   storeId: string;
   category?: string;
-  imageUrl?: string;
+  imageUrl?: string; // Data URI for AI-generated image
   imageHint?: string;
-  matchedAlias?: boolean;
-  isMenuItem?: boolean;
-  price?: number;
-};
-
-export type CanonicalProduct = {
-  id: string;
-  name: string;
-  category: string;
-  imageUrl?: string;
-  description?: string;
-};
-
-export type MenuTheme = {
-    backgroundColor: string;
-    primaryColor: string;
-    textColor: string;
-};
-
-export type CustomizationOption = {
-    name: string;
-    price: number;
-};
-
-export type CustomizationGroup = {
-    title: string;
-    required?: boolean;
-    multiSelect?: boolean;
-    options: CustomizationOption[];
-};
-
-export type MenuItem = {
-    id: string;
-    name: string;
-    description?: string;
-    price: number;
-    category: string;
-    dietary?: 'veg' | 'non-veg' | '';
-    imageUrl?: string;
-    isAvailable?: boolean;
-    duration?: number;
-    customizations?: CustomizationGroup[];
-};
-
-export type Menu = {
-    id: string;
-    storeId: string;
-    items: MenuItem[];
-    theme?: MenuTheme;
+  matchedAlias?: string; // The alias the user spoke
+  isAiAssisted?: boolean; // Flag to show if AI identified this item
+  isMenuItem?: boolean; // Flag to identify a restaurant menu item
+  price?: number; // Direct price for menu items
 };
 
 export type Store = {
   id: string;
-  name:string;
+  name: string;
   teluguName?: string;
   description: string;
   address: string;
@@ -116,10 +71,40 @@ export type CartItem = {
   selectedCustomizations?: Record<string, CustomizationOption[]>;
 };
 
-export type UnidentifiedCartItem = {
+export type CustomizationOption = {
+    name: string;
+    price: number;
+};
+
+export type CustomizationGroup = {
+    title: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    options: CustomizationOption[];
+};
+
+export type MenuItem = {
     id: string;
-    term: string;
-    status: 'pending' | 'failed' | 'identified';
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+    dietary?: 'veg' | 'non-veg' | '';
+    imageUrl?: string;
+    isAvailable?: boolean;
+    duration?: number;
+    customizations?: CustomizationGroup[];
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
+    theme?: {
+        backgroundColor: string;
+        primaryColor: string;
+        textColor: string;
+    };
 };
 
 export type Booking = {
@@ -142,114 +127,116 @@ export type Booking = {
     store?: Store;
 };
 
+export type EmployeeProfile = {
+    userId: string;
+    storeId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address: string;
+    employeeId: string;
+    role: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+    payoutMethod: 'bank' | 'upi';
+    reportingTo?: string;
+    upiId?: string | null;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    } | null;
+};
+
+export type ReasonEntry = {
+    text: string;
+    timestamp: Date | Timestamp;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: Timestamp;
+    workDateStr: string;
+    punchInTime: Timestamp | null;
+    punchOutTime: Timestamp | null;
+    status: 'present' | 'partially_present' | 'pending_approval' | 'approved' | 'rejected';
+    workHours: number;
+    rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
+};
+
+export type SalarySlip = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    periodStart: string;
+    periodEnd: string;
+    baseSalary: number;
+    netPay: number;
+    generatedAt: Timestamp;
+    attendance?: any;
+};
+
+export type SiteConfig = {
+    liveVideoUrl?: string;
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+};
+
+export type VoiceAliasGroup = {
+    id: string; // The canonical key, e.g., 'tomatoes'
+    en: string[];
+    te: string[];
+    hi: string[];
+    updatedAt: any;
+    [key: string]: any;
+};
+
 export type CallSession = {
     id: string;
     callerId: string;
     callerName: string;
     callerImageUrl?: string;
-    type: 'audio' | 'video';
-    status: 'ringing' | 'accepted' | 'active' | 'ended';
+    type: 'audio';
+    status: 'ringing' | 'active' | 'ended' | 'missed';
+    startedAt: any;
     offer?: any;
     answer?: any;
-    startedAt: any;
-};
+}
 
 export type Chat = {
     id: string;
-    participants: string[]; 
+    participants: string[];
     customerUid: string;
+    customerName: string;
+    customerImageUrl: string;
+    storeId: string;
+    storeName: string;
     lastMessage: string;
     lastSenderId: string;
     updatedAt: any;
-    storeId: string;
-    storeName: string;
-    customerName: string;
-    customerImageUrl?: string;
     unreadCount: Record<string, number>;
     activeCallId?: string | null;
-};
+}
 
 export type Message = {
     id: string;
     chatId: string;
     senderId: string;
     text: string;
-    type: 'text' | 'voice' | 'system';
+    type: 'text' | 'voice' | 'image';
     audioUrl?: string;
-    duration?: number;
+    imageUrl?: string;
     createdAt: any;
-};
-
-export type CommandGroup = {
-  display: string;
-  reply: {
-    en: string;
-    te?: string;
-    hi?: string;
-    en_audio?: string;
-    te_audio?: string;
-    hi_audio?: string;
-  };
-};
-
-export type FailedVoiceCommand = {
-    id: string;
-    text: string;
-    lang: string;
-    timestamp: any;
-    storeId?: string;
-    userId?: string;
-    status: 'new' | 'resolved' | 'ignored';
-    suggestion?: string;
-};
-
-export type VoiceAliasGroup = {
-    id: string;
-    en: string[];
-    te: string[];
-    hi: string[];
-    category?: string;
-    updatedAt: any;
-    [key: string]: any;
-};
-
-export type OrderItem = {
-  id: string;
-  orderId: string;
-  productId: string;
-  menuItemId: string;
-  productName: string;
-  variantSku: string;
-  variantWeight: string;
-  quantity: number;
-  price: number;
 }
-
-export type Order = {
-  id:string;
-  userId: string;
-  storeId: string;
-  customerName: string;
-  deliveryAddress: string;
-  deliveryLat: number;
-  deliveryLng: number;
-  items: OrderItem[];
-  totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
-  orderType: 'dine-in' | 'takeaway' | 'delivery' | 'counter';
-  orderDate: any;
-  phone: string;
-  email: string;
-  store?: Store; 
-  deliveryPartnerId?: string | null;
-  tableNumber?: string | null;
-  sessionId?: string;
-  updatedAt?: any;
-  isActive?: boolean;
-  needsService?: boolean;
-  serviceType?: string;
-  deviceId?: string;
-};
 
 declare global {
   interface Window {

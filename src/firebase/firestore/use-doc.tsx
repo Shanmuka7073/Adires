@@ -76,11 +76,12 @@ export function useDoc<T = any>(
           path: memoizedDocRef.path,
         });
 
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
+        setTimeout(() => {
+          setError(contextualError);
+          setData(null);
+          setIsLoading(false);
+          errorEmitter.emit('permission-error', contextualError);
+        }, 0);
       }
     );
 

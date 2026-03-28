@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview An AI flow to extract potential product aliases from a block of text.
  *

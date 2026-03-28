@@ -387,7 +387,7 @@ export default function VoiceIntelligencePage() {
                                         <TableHead className="text-[10px] font-black uppercase text-left">Lang</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase pr-6">AI Fix</TableHead>
                                     </TableRow>
-                                高校                                </TableHeader>
+                                </TableHeader>
                                 <TableBody>
                                     {!failedCommands || failedCommands.length === 0 ? (
                                         <TableRow><TableCell colSpan={3} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands</TableCell></TableRow>
