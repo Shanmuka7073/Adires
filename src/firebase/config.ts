@@ -1,11 +1,8 @@
-// This file will now dynamically fetch the config, so hardcoded values are removed.
-import { getFirebaseConfig } from '@/app/actions';
-
-// This function is now async to fetch the config from the server.
-export async function getClientFirebaseConfig() {
-  const config = await getFirebaseConfig();
-  if (!config) {
-    throw new Error("Could not fetch Firebase configuration from the server.");
-  }
-  return config;
-}
+export const firebaseConfig = {
+  "projectId": "studio-9070259337-c267a",
+  "appId": "1:215572467483:web:88e4f0f118aa0d57b1cdbe",
+  "apiKey": "AIzaSyA6Qnsk2vz3GfABFJMM53FhNCAf74SBarE",
+  "authDomain": "studio-9070259337-c267a.firebaseapp.com",
+  "measurementId": "G-LVM69NSF3S",
+  "messagingSenderId": "215572467483"
+};

@@ -1,40 +1,39 @@
-
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { useToast } from '@/hooks/use-toast';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
- * VISIBLE ERROR LISTENER
- * Surfaced hidden Permission Denied errors to the UI for rapid debugging.
+ * An invisible component that listens for globally emitted 'permission-error' events.
+ * It throws any received error to be caught by Next.js's global-error.tsx.
  */
 export function FirebaseErrorListener() {
-  const { toast } = useToast();
+  // Use the specific error type for the state for type safety.
+  const [error, setError] = useState<FirestorePermissionError | null>(null);
 
   useEffect(() => {
-    const handlePermissionError = (error: any) => {
-      console.error("CRITICAL FIRESTORE ERROR DETECTED:", error);
-      
-      // We throw this error so it hits the Next.js Dev Overlay
-      // This is much easier to see than a tiny log message.
-      if (process.env.NODE_ENV === 'development') {
-          toast({
-            variant: 'destructive',
-            title: 'Permission Denied',
-            description: `Path: ${error.request?.path || 'unknown'}`,
-          });
-          
-          // Re-throw to trigger the dev overlay if possible
-          setTimeout(() => {
-              throw error;
-          }, 100);
-      }
+    // The callback now expects a strongly-typed error, matching the event payload.
+    const handleError = (error: FirestorePermissionError) => {
+      // Set error in state to trigger a re-render.
+      setError(error);
     };
 
-    errorEmitter.on('permission-error', handlePermissionError);
-    return () => errorEmitter.off('permission-error', handlePermissionError);
-  }, [toast]);
+    // The typed emitter will enforce that the callback for 'permission-error'
+    // matches the expected payload type (FirestorePermissionError).
+    errorEmitter.on('permission-error', handleError);
 
+    // Unsubscribe on unmount to prevent memory leaks.
+    return () => {
+      errorEmitter.off('permission-error', handleError);
+    };
+  }, []);
+
+  // On re-render, if an error exists in state, throw it.
+  if (error) {
+    throw error;
+  }
+
+  // This component renders nothing.
   return null;
 }

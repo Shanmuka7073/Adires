@@ -2,119 +2,188 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ======================
-       COMMON HELPER FUNCTIONS
-       ====================== */
+    /**
+     * LOCALBASKET SECURITY RULES
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset implements a multi-tenant security model for a grocery marketplace. It prioritizes
+     * authorization independence, meaning each document contains the necessary IDs (denormalized) 
+     * to make access decisions without expensive cross-collection lookups.
+     *
+     * DATA STRUCTURE:
+     * - /users/{userId}: Private user profiles and nested personal data (addresses, carts).
+     * - /stores/{storeId}: Publicly readable store and product listings, owned by specific users.
+     * - /orders/{orderId}: Shared documents accessible by both the customer and the store owner.
+     * - /roles_storeOwners/{userId}: A system-level collection used to verify store owner status.
+     *
+     * KEY SECURITY DECISIONS:
+     * - Ownership: Strict path-based ownership for user data.
+     * - Public Read: Stores and Products are publicly readable to facilitate browsing.
+     * - Shared Access: Orders use denormalized IDs to allow access to both parties involved in the transaction.
+     * - Prototyping Mode: Schema validation is limited to relational integrity (ID consistency) to allow
+     *   for rapid iteration while maintaining strict access control.
+     *
+     * DENORMALIZATION FOR AUTHORIZATION:
+     * - 'storeOwnerId' is stored on Products and Store Addresses to allow owner-only writes without parent lookups.
+     * - 'userId' and 'storeOwnerId' are stored on Orders and Order Items to facilitate multi-party access.
+     */
 
+    // --- HELPER FUNCTIONS ---
+
+    /** Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'shanmuka7073@gmail.com' ||
-        request.auth.token.email == 'admin@gmail.com'
-      );
-    }
-
+    /** Checks if the authenticated user's UID matches a specific userId. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    function storeExists(storeId) {
-      return exists(/databases/$(database)/documents/stores/$(storeId));
+
+    /** Checks ownership for an existing document during update/delete. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
     }
 
-    function isStoreOwner(storeId) {
-      return isSignedIn() &&
-        storeExists(storeId) &&
-        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+    /** Checks if the authenticated user has the 'store owner' role via existence check. */
+    function isStoreOwner() {
+      return exists(/databases/$(database)/documents/roles_storeOwners/$(request.auth.uid));
     }
 
-    /* ======================
-       ADMIN OVERRIDE (GLOBAL)
-       ===================== */
-    match /{document=**} {
-      allow read, write: if isAdmin();
+    /** Checks if the user's UID matches a field on the document (e.g., ownerId, authorId). */
+    function isDocumentOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
     }
 
-    /* ======================
-       CALLS & SIGNALING (RECURSIVE)
-       ====================== */
-    
-    match /calls/{callId} {
-      // Allow read/write for signaling handshake
-      allow read, write: if isSignedIn();
-      
-      match /{allPaths=**} {
-        // Ensure subcollections (ICE candidates) are accessible
-        allow read, write: if isSignedIn();
-      }
+    /** Verifies a document exists before allowing modification. */
+    function documentExists() {
+      return resource != null;
     }
 
-    /* ======================
-       CHATS & MESSAGES
-       ====================== */
-    
-    match /chats/{chatId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants);
+    // --- COLLECTION RULES ---
 
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-      }
-    }
-
-    /* ======================
-       COLLECTIONS
-       ====================== */
-
+    /**
+     * @description Rules for user profiles. Only the user themselves can read or write their profile.
+     * @path /users/{userId}
+     * @allow (get) { uid: "user_123" } requests /users/user_123
+     * @deny (list) requests /users (Listing all users is prohibited)
+     * @principle Restricts access to a user's own data tree and enforces ID consistency.
+     */
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId);
-      allow create: if isSignedIn();
+      allow get: if isOwner(userId);
+      allow list: if false; 
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description User-specific delivery addresses.
+       * @path /users/{userId}/addresses/{addressId}
+       * @allow (create) { uid: "user_123" } creates /users/user_123/addresses/addr_1
+       * @deny (get) { uid: "user_abc" } requests /users/user_123/addresses/addr_1
+       * @principle Ownership-based subcollection access.
+       */
+      match /addresses/{addressId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description User's private shopping cart.
+       * @path /users/{userId}/cart
+       */
+      match /cart {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description Individual items within a user's cart.
+         * @path /users/{userId}/cart/items/{cartItemId}
+         */
+        match /items/{cartItemId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update, delete: if isExistingOwner(userId);
+        }
+      }
     }
 
+    /**
+     * @description System collection to track store owner roles.
+     * @path /roles_storeOwners/{userId}
+     * @principle Existence-based role management (DBAC). Writes are restricted (handled by admin/backend).
+     */
+    match /roles_storeOwners/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Stores information. Publicly readable, writeable only by authorized store owners.
+     * @path /stores/{storeId}
+     * @allow (list) Any user can browse stores.
+     * @deny (create) { uid: "user_123", isStoreOwner: false } attempts to create a store.
+     * @principle Public Read with Owner-Only Writes.
+     */
     match /stores/{storeId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isStoreOwner(storeId);
+      allow create: if isStoreOwner() && isDocumentOwner(request.resource.data.ownerId);
+      allow update: if documentExists() && isDocumentOwner(resource.data.ownerId) && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if documentExists() && isDocumentOwner(resource.data.ownerId);
+
+      /**
+       * @description Store products. Publicly readable, manageable by the store owner.
+       * @path /stores/{storeId}/products/{productId}
+       */
+      match /products/{productId} {
+        allow get, list: if true;
+        allow create: if isStoreOwner() && isDocumentOwner(request.resource.data.storeOwnerId);
+        allow update: if documentExists() && isDocumentOwner(resource.data.storeOwnerId) && request.resource.data.storeOwnerId == resource.data.storeOwnerId;
+        allow delete: if documentExists() && isDocumentOwner(resource.data.storeOwnerId);
+      }
+
+      /**
+       * @description Physical address of a store.
+       * @path /stores/{storeId}/address
+       */
+      match /address {
+        allow get, list: if true;
+        allow create: if isStoreOwner() && isDocumentOwner(request.resource.data.storeOwnerId);
+        allow update: if documentExists() && isDocumentOwner(resource.data.storeOwnerId);
+        allow delete: if documentExists() && isDocumentOwner(resource.data.storeOwnerId);
+      }
     }
 
-    match /stores/{storeId}/products/{productId} {
-      allow get, list: if true;
-      allow write: if isStoreOwner(storeId);
-    }
-    
-    match /stores/{storeId}/menus/{menuId} {
-      allow read: if true;
-      allow write: if isStoreOwner(storeId);
-    }
-
+    /**
+     * @description Customer orders. Accessible by the customer (userId) and the store owner (storeOwnerId).
+     * @path /orders/{orderId}
+     * @allow (get) { uid: "customer_1" } reads an order where userId == "customer_1".
+     * @allow (get) { uid: "owner_99" } reads an order where storeOwnerId == "owner_99".
+     * @principle Shared Access using denormalized IDs for collaborative data.
+     */
     match /orders/{orderId} {
-      allow read: if true; 
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-    }
+      allow get: if isDocumentOwner(resource.data.userId) || isDocumentOwner(resource.data.storeOwnerId);
+      allow list: if isSignedIn() && (request.query.limit <= 100); // QAPs: User must filter by their own ID in the client query.
+      allow create: if isSignedIn() && isDocumentOwner(request.resource.data.userId);
+      allow update: if documentExists() && (isDocumentOwner(resource.data.userId) || isDocumentOwner(resource.data.storeOwnerId));
+      allow delete: if false; // Orders are generally immutable or cancelled via status update.
 
-    match /bookings/{bookingId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-    }
-
-    match /deliveryPartners/{partnerId} {
-      allow get, update: if isOwner(partnerId);
-      allow create: if isOwner(partnerId);
-    }
-
-    match /siteConfig/{configId} {
-      allow read: if true;
-    }
-
-    match /diagnostic_logs/{logId} {
-      allow read, write: if isSignedIn();
+      /**
+       * @description Items within an order.
+       * @path /orders/{orderId}/items/{orderItemId}
+       */
+      match /items/{orderItemId} {
+        allow get: if isDocumentOwner(resource.data.orderUserId) || isDocumentOwner(resource.data.orderStoreOwnerId);
+        allow list: if isSignedIn();
+        allow create: if isSignedIn() && isDocumentOwner(request.resource.data.orderUserId);
+        allow update: if documentExists() && (isDocumentOwner(resource.data.orderUserId) || isDocumentOwner(resource.data.orderStoreOwnerId));
+        allow delete: if false;
+      }
     }
   }
 }
