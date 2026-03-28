@@ -27,9 +27,18 @@ export type Intent =
   | { type: 'UNKNOWN'; originalText: string; lang: string };
 
 const NUMBER_MAP: Record<string, number> = {
+  // English
   "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
   "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-  "half": 0.5, "quarter": 0.25, "a": 1, "an": 1
+  "half": 0.5, "quarter": 0.25, "a": 1, "an": 1,
+  // Telugu (Romanized & common)
+  "okati": 1, "rendu": 2, "moodu": 3, "nalugu": 4, "aidu": 5,
+  "aaru": 6, "yedu": 7, "enimidi": 8, "tommidi": 9, "padi": 10,
+  "oka": 1, "ara": 0.5,
+  // Hindi (Romanized & common)
+  "ek": 1, "do": 2, "teen": 3, "chaar": 4, "paanch": 5,
+  "che": 6, "saath": 7, "aath": 8, "nau": 9, "das": 10,
+  "adha": 0.5
 };
 
 /**
@@ -55,7 +64,7 @@ export function parseOrder(text: string, menu: MenuItem[]): ParsedOrderItem[] {
       qty = parseFloat(firstToken);
       nameStartIndex = 1;
     } 
-    // 2. Check for word quantity
+    // 2. Check for word quantity (English, Telugu, Hindi)
     else if (NUMBER_MAP[firstToken]) {
       qty = NUMBER_MAP[firstToken];
       nameStartIndex = 1;
@@ -68,13 +77,15 @@ export function parseOrder(text: string, menu: MenuItem[]): ParsedOrderItem[] {
     let bestMatch: MenuItem | undefined;
     let highestConfidence = 0;
 
-    menu.forEach(menuItem => {
-      const score = calculateSimilarity(itemPhrase, menuItem.name.toLowerCase());
-      if (score > highestConfidence) {
-        highestConfidence = score;
-        bestMatch = menuItem;
-      }
-    });
+    if (menu.length > 0) {
+        menu.forEach(menuItem => {
+          const score = calculateSimilarity(itemPhrase, menuItem.name.toLowerCase());
+          if (score > highestConfidence) {
+            highestConfidence = score;
+            bestMatch = menuItem;
+          }
+        });
+    }
 
     results.push({
       name: itemPhrase,
@@ -130,7 +141,6 @@ export function runNLU(text: string, lang: string = "en"): NLUResult {
 
 /**
  * Extracts quantity and product details.
- * Optimized to satisfy the return type expected by scripts/test-voice-commands.ts.
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
     const firstItem = nlu.items[0];
