@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAliasGroup, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +29,8 @@ import { suggestProductAliases } from '@/ai/flows/suggest-product-aliases-flow';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export default function VoiceIntelligencePage() {
     const { firestore } = useFirebase();
@@ -51,7 +52,6 @@ export default function VoiceIntelligencePage() {
     const { data: aliasGroups, isLoading: aliasesLoading } = useCollection<VoiceAliasGroup>(aliasesQuery);
 
     // --- MASTER PRODUCT LIST (FOR NLU REFERENCE) ---
-    // We fetch all menu items from all stores to build a reference list
     const [masterItems, setMasterItems] = useState<string[]>([]);
     useMemo(async () => {
         if (!firestore) return;
@@ -60,7 +60,8 @@ export default function VoiceIntelligencePage() {
         for (const sDoc of storesSnap.docs) {
             const menuSnap = await getDocs(collection(firestore, `stores/${sDoc.id}/menus`));
             menuSnap.docs.forEach(m => {
-                (m.data().items as MenuItem[]).forEach(it => itemNames.add(it.name));
+                const items = m.data().items as MenuItem[];
+                if (items) items.forEach(it => itemNames.add(it.name));
             });
         }
         setMasterItems(Array.from(itemNames));
@@ -119,7 +120,7 @@ export default function VoiceIntelligencePage() {
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32">
             <div className="border-b pb-10 border-black/5">
                 <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Voice Intel</h1>
-                <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Browser-Side NLU Command center</p>
+                <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide NLU Training Center</p>
             </div>
 
             <Tabs defaultValue="failed" className="w-full">
@@ -238,15 +239,17 @@ export default function VoiceIntelligencePage() {
                                         <div className="space-y-1">
                                             <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu Synonyms</p>
                                             <div className="flex flex-wrap gap-1.5">
-                                                {group.te.slice(0, 4).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-primary/20 text-primary">{a}</Badge>)}
-                                                {group.te.length > 4 && <span className="text-[8px] font-black opacity-20">+{group.te.length - 4}</span>}
+                                                {group.te?.slice(0, 4).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-primary/20 text-primary">{a}</Badge>)}
+                                                {(group.te?.length || 0) > 4 && <span className="text-[8px] font-black opacity-20">+{group.te.length - 4}</span>}
+                                                {(!group.te || group.te.length === 0) && <p className="text-[8px] font-bold text-gray-300 italic uppercase">Not set</p>}
                                             </div>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi Synonyms</p>
                                             <div className="flex flex-wrap gap-1.5">
-                                                {group.hi.slice(0, 4).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-orange-200 text-orange-600">{a}</Badge>)}
-                                                {group.hi.length > 4 && <span className="text-[8px] font-black opacity-20">+{group.hi.length - 4}</span>}
+                                                {group.hi?.slice(0, 4).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-orange-200 text-orange-600">{a}</Badge>)}
+                                                {(group.hi?.length || 0) > 4 && <span className="text-[8px] font-black opacity-20">+{group.hi.length - 4}</span>}
+                                                {(!group.hi || group.hi.length === 0) && <p className="text-[8px] font-bold text-gray-300 italic uppercase">Not set</p>}
                                             </div>
                                         </div>
                                     </div>
@@ -268,8 +271,3 @@ export default function VoiceIntelligencePage() {
         </div>
     );
 }
-
-// STUBS FOR MISSING COMPONENTS USED IN NEW PAGE
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { serverTimestamp } from 'firebase/firestore';
-import { Label } from '@/components/ui/label';
