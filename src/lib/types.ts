@@ -72,6 +72,12 @@ export type CartItem = {
   selectedCustomizations?: Record<string, CustomizationOption[]>;
 };
 
+export type UnidentifiedCartItem = {
+    id: string;
+    term: string;
+    status: 'pending' | 'failed' | 'identified';
+};
+
 export type CustomizationOption = {
     name: string;
     price: number;
@@ -301,7 +307,6 @@ export type DeliveryPartner = {
   };
 };
 
-// Represents the canonical pricing for a product, managed by the admin.
 export type ProductPrice = {
     productName: string;
     variants: ProductVariant[];
@@ -316,6 +321,23 @@ export type FailedVoiceCommand = {
     storeId?: string;
     status: 'new' | 'resolved' | 'ignored';
     suggestion?: string;
+}
+
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
+
+export interface GetIngredientsOutput {
+    isSuccess: boolean;
+    itemType: 'food' | 'service' | 'product';
+    title: string;
+    components: any[];
+    steps: InstructionStep[];
+    nutrition?: {
+        calories: number;
+        protein: number;
+    };
 }
 
 declare global {
