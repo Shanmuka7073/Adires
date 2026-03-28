@@ -1,7 +1,6 @@
 /**
  * 🚀 ENHANCED NLU ENGINE (PHONETIC & FUZZY)
  * Optimized for Indian English, Telugu, and Hindi speech.
- * Handles "aliases" (alaies) by prioritizing phonetic similarity.
  */
 
 import { calculateSimilarity } from "../calculate-similarity";
@@ -14,7 +13,7 @@ import type { MenuItem } from "../types";
 const NOISE_WORDS = [
   "please", "give", "add", "i", "want", "me", "needed", "need",
   "kavali", "ivvandi", "petandi", "chahiye", "lelo", "mangao",
-  "b", "the", "of", "also", "and", "plus", "pettandi", "tesko"
+  "b", "the", "of", "also", "and", "next", "then", "pettandi", "tesko"
 ];
 
 const NUMBER_MAP: Record<string, number> = {

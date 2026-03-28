@@ -2,15 +2,15 @@ import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
 export type ProductVariant = {
-  sku: string;
-  weight: string;
+  sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
+  weight: string; // e.g., '500gm', '1kg', '2kg'
   price: number;
-  stock: number;
+  stock: number; // The available quantity
 };
 
 export type Product = {
   id: string;
-  name: string;
+  name: string; // Base name, e.g., 'Potatoes'
   description: string;
   variants?: ProductVariant[]; 
   imageId: string;
@@ -18,8 +18,7 @@ export type Product = {
   category?: string;
   imageUrl?: string;
   imageHint?: string;
-  matchedAlias?: string;
-  isAiAssisted?: boolean;
+  matchedAlias?: boolean;
   isMenuItem?: boolean;
   price?: number;
 };
@@ -211,7 +210,7 @@ export type VoiceAliasGroup = {
     hi: string[];
     category?: string;
     updatedAt: any;
-    [key: string]: any; // Allow indexing with string for langCode access
+    [key: string]: any;
 };
 
 export type OrderItem = {
@@ -251,154 +250,6 @@ export type Order = {
   serviceType?: string;
   deviceId?: string;
 };
-
-export type EmployeeProfile = {
-    userId: string;
-    storeId: string;
-    employeeId: string;
-    role: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
-    hireDate: string;
-    salaryRate: number;
-    salaryType: 'monthly' | 'hourly';
-    payoutMethod: 'bank' | 'upi';
-    upiId?: string | null;
-    bankDetails?: {
-        accountHolderName: string;
-        accountNumber: string;
-        ifscCode: string;
-    } | null;
-    reportingTo?: string;
-};
-
-export type ReasonEntry = {
-    text: string;
-    timestamp: any;
-    status: 'submitted' | 'approved' | 'rejected';
-    rejectionReason?: string;
-};
-
-export type AttendanceRecord = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    workDate: any;
-    workDateStr: string;
-    punchInTime: any;
-    punchOutTime: any;
-    status: 'present' | 'partially_present' | 'approved' | 'pending_approval' | 'rejected';
-    workHours: number;
-    rejectionCount?: number;
-    reasonHistory?: ReasonEntry[];
-};
-
-export type SalarySlip = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    periodStart: string;
-    periodEnd: string;
-    baseSalary: number;
-    overtimeHours: number;
-    overtimePay: number;
-    deductions: number;
-    netPay: number;
-    generatedAt: any;
-    attendance?: any;
-};
-
-export type DeliveryPartner = {
-  userId: string; 
-  totalEarnings: number;
-  payoutsEnabled: boolean;
-  payoutMethod?: 'bank' | 'upi';
-  upiId?: string;
-  bankDetails?: {
-    accountHolderName: string;
-    accountNumber: string;
-    ifscCode: string;
-  };
-  zoneId?: string;
-};
-
-export type Payout = {
-  id: string;
-  partnerId: string;
-  amount: number;
-  requestDate: any;
-  status: 'pending' | 'completed' | 'failed';
-  payoutMethod: 'bank' | 'upi';
-  payoutDetails: any;
-};
-
-export type ProductPrice = {
-    productName: string;
-    variants: ProductVariant[];
-}
-
-export interface GetIngredientsOutput {
-    isSuccess: boolean;
-    itemType: 'food' | 'service' | 'product';
-    title: string;
-    components: any[];
-    steps: InstructionStep[];
-    nutrition?: {
-        calories: number;
-        protein: number;
-    };
-}
-
-export type CachedRecipe = {
-    id: string;
-    name: string;
-    itemType: 'food' | 'service' | 'product';
-    components: any[];
-    steps: InstructionStep[];
-    nutrition?: {
-        calories: number;
-        protein: number;
-    };
-    createdAt: any;
-};
-
-export type ReportData = {
-  totalSales: number;
-  totalOrders: number;
-  topProducts: { name: string; count: number }[];
-  ingredientCost?: number;
-};
-
-export type MonthlyPackage = {
-    id: string;
-    storeId: string;
-    name: string;
-    memberCount: number;
-    price: number;
-    items: {
-        name: string;
-        quantity: string;
-    }[];
-    schedule?: {
-        day: number;
-        mainItem: string;
-        sideItem: string;
-    }[];
-};
-
-export type SiteConfig = {
-    liveVideoUrl?: string;
-    isPackGeneratorEnabled?: boolean;
-    isMaintenance?: boolean;
-};
-
-export interface InstructionStep {
-    title: string;
-    actions: string[];
-}
 
 declare global {
   interface Window {
