@@ -31,8 +31,8 @@ const NUMBER_MAP: Record<string, number> = {
 ========================= */
 
 /**
- * Sounds-Like Key Generator
- * Strips vowels and double consonants to find matches despite spelling differences.
+ * Sounds-Like Key Generator (Simplified Double Metaphone approach)
+ * Strips vowels and reduces double consonants to find matches despite spelling differences.
  */
 function getPhoneticKey(str: string): string {
   return str.toLowerCase()
@@ -150,7 +150,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productPhrase, menu);
 
-    // Only accept highly confident matches
+    // Only accept highly confident matches (Threshold 0.7)
     if (confidence >= 0.7) {
         items.push({
             name: best?.name || productPhrase,

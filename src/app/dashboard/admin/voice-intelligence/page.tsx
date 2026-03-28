@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAliasGroup, MenuItem } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,11 @@ import {
     Loader2, 
     Bot, 
     Plus,
-    Save,
     Search,
     ShoppingBag,
     AlertCircle,
     ArrowRight,
     Edit3,
-    FileText,
-    Languages,
-    ArrowUp,
-    ArrowDown,
     ChevronUp,
     ChevronDown,
     Eraser
@@ -119,13 +114,13 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-[#FDFCF7] max-h-[90vh] flex flex-col">
-                <DialogHeader className="p-6 sm:p-8 bg-white border-b shrink-0">
+                <DialogHeader className="p-6 sm:p-8 bg-white border-b shrink-0 text-left">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight">{group.id}</DialogTitle>
+                        <div className="min-w-0">
+                            <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight truncate pr-4">{group.id}</DialogTitle>
                             <DialogDescription className="font-bold text-[10px] uppercase opacity-40">Comprehensive Alias Suite</DialogDescription>
                         </div>
-                        <Badge className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] px-3 h-6 uppercase">Total: {(group.en?.length || 0) + (group.te?.length || 0) + (group.hi?.length || 0)}</Badge>
+                        <Badge className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] px-3 h-6 uppercase shrink-0">Total: {(group.en?.length || 0) + (group.te?.length || 0) + (group.hi?.length || 0)}</Badge>
                     </div>
                 </DialogHeader>
 
@@ -341,19 +336,11 @@ export default function VoiceIntelligencePage() {
     }, [masterItems, inventorySearch]);
 
     return (
-        <div className="container mx-auto py-6 sm:py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
-            {selectedGroupForEdit && (
-                <ManageAliasDialog 
-                    group={selectedGroupForEdit} 
-                    isOpen={!!selectedGroupForEdit} 
-                    onOpenChange={(o) => !o && setSelectedGroupForEdit(null)} 
-                />
-            )}
-
+        <div className="container mx-auto py-6 sm:py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500 text-left">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-4xl sm:text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Voice Intel</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide NLU Training Center</p>
+                    <h1 className="text-4xl sm:text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 text-left">Voice Intel</h1>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40 text-left">System-wide NLU Training Center</p>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <Button variant="outline" size="sm" onClick={scanPlatformInventory} disabled={isScanningInventory} className="flex-1 sm:flex-none rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm bg-white">
@@ -370,7 +357,7 @@ export default function VoiceIntelligencePage() {
 
                 <TabsContent value="failed" className="animate-in slide-in-from-bottom-2 duration-500">
                     <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
-                        <CardHeader className="bg-red-50 border-b border-red-100 pb-6">
+                        <CardHeader className="bg-red-50 border-b border-red-100 pb-6 text-left">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <CardTitle className="text-sm font-black uppercase tracking-widest text-red-900 flex items-center gap-2">
@@ -387,8 +374,8 @@ export default function VoiceIntelligencePage() {
                             <Table>
                                 <TableHeader className="bg-black/5">
                                     <TableRow>
-                                        <TableHead className="text-[10px] font-black uppercase pl-6 min-w-[200px]">Transcript</TableHead>
-                                        <TableHead className="text-[10px] font-black uppercase">Lang</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase pl-6 min-w-[200px] text-left">Transcript</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase text-left">Lang</TableHead>
                                         <TableHead className="text-right text-[10px] font-black uppercase pr-6">AI Fix</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -397,11 +384,11 @@ export default function VoiceIntelligencePage() {
                                         <TableRow><TableCell colSpan={3} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands</TableCell></TableRow>
                                     ) : failedCommands.map(cmd => (
                                         <TableRow key={cmd.id} className="border-b border-black/5 hover:bg-muted/30">
-                                            <TableCell className="py-6 pl-6">
+                                            <TableCell className="py-6 pl-6 text-left">
                                                 <p className="font-black text-sm text-gray-950 italic">"{cmd.text}"</p>
                                                 <p className="text-[8px] font-bold opacity-40 uppercase mt-1">{format(cmd.timestamp?.toDate() || new Date(), 'Pp')}</p>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-left">
                                                 <Badge variant="outline" className="text-[8px] font-black uppercase">{cmd.lang}</Badge>
                                             </TableCell>
                                             <TableCell className="text-right pr-6">
@@ -430,7 +417,7 @@ export default function VoiceIntelligencePage() {
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         {/* LEFT: PLATFORM INVENTORY */}
                         <Card className="lg:col-span-1 rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white h-fit">
-                            <CardHeader className="bg-black/5 pb-4 border-b border-black/5">
+                            <CardHeader className="bg-black/5 pb-4 border-b border-black/5 text-left">
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
@@ -438,8 +425,8 @@ export default function VoiceIntelligencePage() {
                                         </CardTitle>
                                     </div>
                                     <div className="flex gap-1">
-                                        <button onClick={() => handleInventoryScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3 w-3" /></button>
-                                        <button onClick={() => handleInventoryScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3 w-3" /></button>
+                                        <button onClick={() => handleInventoryScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3.5 w-3.5" /></button>
+                                        <button onClick={() => handleInventoryScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3.5 w-3.5" /></button>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -506,7 +493,7 @@ export default function VoiceIntelligencePage() {
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-6 sm:p-8">
-                                        <DialogHeader>
+                                        <DialogHeader className="text-left">
                                             <DialogTitle className="font-black uppercase tracking-tight">Add Canonical Product</DialogTitle>
                                             <DialogDescription className="text-xs font-bold uppercase opacity-40">Create a central item for multilingual aliasing</DialogDescription>
                                         </DialogHeader>
@@ -540,7 +527,7 @@ export default function VoiceIntelligencePage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {filteredAliases.map(group => (
                                         <Card key={group.id} className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white group hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/10 cursor-pointer" onClick={() => setSelectedGroupForEdit(group)}>
-                                            <CardHeader className="bg-primary/5 border-b border-black/5 pb-4">
+                                            <CardHeader className="bg-primary/5 border-b border-black/5 pb-4 text-left">
                                                 <div className="flex justify-between items-start">
                                                     <div className="min-w-0">
                                                         <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950 truncate max-w-[220px]">{group.id}</CardTitle>
@@ -553,14 +540,14 @@ export default function VoiceIntelligencePage() {
                                             </CardHeader>
                                             <CardContent className="p-6 space-y-4">
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
+                                                    <div className="space-y-1 text-left">
                                                         <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.te?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-primary/20 text-primary">{a}</Badge>)}
                                                             {(group.te?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.te!.length - 3}</span>}
                                                         </div>
                                                     </div>
-                                                    <div className="space-y-1">
+                                                    <div className="space-y-1 text-left">
                                                         <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.hi?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-orange-200 text-orange-600">{a}</Badge>)}
@@ -587,3 +574,191 @@ export default function VoiceIntelligencePage() {
         </div>
     );
 }
+
+```
+- workspace/src/lib/nlu/engine.ts:
+```ts
+/**
+ * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (PHONETIC & FUZZY)
+ * Optimized for Indian English, Telugu, and Hindi speech fragments.
+ */
+
+import { calculateSimilarity } from "../calculate-similarity";
+import type { MenuItem } from "../types";
+
+/* =========================
+   🔧 CONFIG
+========================= */
+
+const NOISE_WORDS = [
+  "please", "give", "add", "i", "want", "me", "needed", "need",
+  "kavali", "ivvandi", "petandi", "chahiye", "lelo", "mangao",
+  "b", "the", "of", "also", "and", "plus"
+];
+
+const NUMBER_MAP: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  a: 1, an: 1, half: 0.5,
+  okati: 1, rendu: 2, moodu: 3, nalugu: 4,
+  aidu: 5, aaru: 6, yedu: 7, enimidi: 8,
+  tommidi: 9, padi: 10, oka: 1, ara: 0.5,
+  ek: 1, do: 2, teen: 3, chaar: 4, paanch: 5, adha: 0.5
+};
+
+/* =========================
+   🔥 PHONETIC HASHING
+========================= */
+
+/**
+ * Sounds-Like Key Generator (Simplified Double Metaphone approach)
+ * Strips vowels and reduces double consonants to find matches despite spelling differences.
+ */
+function getPhoneticKey(str: string): string {
+  return str.toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/[aeiouyhw]/g, '') // remove vowels and quiet letters
+    .replace(/(.)\1+/g, '$1'); // deduplicate (e.g. "kk" -> "k")
+}
+
+/**
+ * Calculates word-overlap similarity.
+ */
+function wordSimilarity(a: string, b: string): number {
+  const aWords = a.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const bWords = b.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+
+  if (aWords.length === 0) return 0;
+
+  let matches = 0;
+  aWords.forEach(w => {
+    if (bWords.includes(w)) matches++;
+  });
+
+  return matches / Math.max(aWords.length, bWords.length);
+}
+
+/* =========================
+   🧠 MATCHING ENGINE
+========================= */
+
+function findBestMatch(input: string, menu: MenuItem[]) {
+  let best: MenuItem | undefined;
+  let maxScore = 0;
+
+  const inputLower = input.toLowerCase().trim();
+  const inputPhonetic = getPhoneticKey(inputLower);
+  const inputWordsCount = inputLower.split(/\s+/).filter(Boolean).length;
+
+  for (const item of menu) {
+    const name = item.name.toLowerCase();
+    const namePhonetic = getPhoneticKey(name);
+    const nameWordsCount = name.split(/\s+/).filter(Boolean).length;
+    
+    // 1. Exact Match (Perfect)
+    if (name === inputLower) return { best: item, confidence: 1.0 };
+
+    // 2. Word Overlap Score
+    let score = wordSimilarity(inputLower, name);
+
+    // 3. Phonetic Match Boost
+    if (inputPhonetic && namePhonetic) {
+        if (inputPhonetic === namePhonetic) score += 0.4;
+        else if (namePhonetic.includes(inputPhonetic)) score += 0.2;
+    }
+
+    // 4. Fuzzy Lev Score
+    const fuzzy = calculateSimilarity(inputLower, name);
+    score = Math.max(score, fuzzy);
+
+    // 5. STRICT PENALTY: Prevent short words matching long names 
+    // (e.g. "Chicken" should NOT match "Chicken Biryani" unless biryani is the only option)
+    if (inputWordsCount < nameWordsCount) {
+        const coverage = inputWordsCount / nameWordsCount;
+        if (coverage < 0.6) score *= 0.5; // Severe penalty for low coverage
+        else score *= coverage;
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
+      best = item;
+    }
+  }
+
+  return { best, confidence: maxScore };
+}
+
+/* =========================
+   🚀 EXPORTS
+========================= */
+
+export interface NLUResult {
+  cleanedText: string;
+  language: string;
+  items: any[];
+}
+
+export function cleanText(input: string): string {
+  return input.toLowerCase()
+    .replace(/[,.]/g, " ")
+    .split(/\s+/)
+    .filter(w => !NOISE_WORDS.includes(w))
+    .join(" ");
+}
+
+export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
+  const cleaned = cleanText(text);
+  // Split by common segment delimiters but ensure we don't break multi-word products
+  const segments = cleaned.split(/\s+also\s+|\s+and\s+|\s+next\s+|\s+then\s+/);
+  const items: any[] = [];
+
+  segments.forEach(seg => {
+    const tokens = seg.trim().split(/\s+/);
+    if (!tokens.length || tokens[0] === "") return;
+
+    // Extract quantity
+    let qty = 1;
+    const remainingTokens = tokens.filter(t => {
+        const num = parseFloat(t);
+        if (!isNaN(num)) { qty = num; return false; }
+        if (NUMBER_MAP[t]) { qty = NUMBER_MAP[t]; return false; }
+        return true;
+    });
+
+    const productPhrase = remainingTokens.join(" ");
+    if (productPhrase.length < 2) return;
+
+    const { best, confidence } = findBestMatch(productPhrase, menu);
+
+    // Only accept highly confident matches (Threshold 0.7)
+    if (confidence >= 0.7) {
+        items.push({
+            name: best?.name || productPhrase,
+            quantity: qty,
+            match: best,
+            confidence
+        });
+    }
+  });
+
+  return { cleanedText: cleaned, language: lang, items };
+}
+
+export function extractQuantityAndProduct(nlu: NLUResult) {
+    const first = nlu.items[0];
+    return { 
+        qty: first?.quantity ?? 1, 
+        productPhrase: first?.name ?? nlu.cleanedText,
+        unit: null,
+        money: null
+    };
+}
+
+export function recognizeIntent(text: string, lang: string = "en"): any {
+    const lower = text.toLowerCase().trim();
+    if (lower.includes('home')) return { type: 'NAVIGATE', destination: 'home' };
+    if (lower.includes('cart')) return { type: 'NAVIGATE', destination: 'cart' };
+    return { type: 'ORDER_ITEM' };
+}
+
+```

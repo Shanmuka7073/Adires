@@ -9,40 +9,33 @@ import { useInitializeApp } from '@/lib/store';
 import { InstallProvider } from '@/components/install-provider';
 
 /**
- * RESILIENT HYDRATION ROOT
- * Ensures initial render matches server (null) 100% of the time.
- * This eliminates the "Hydration failed" Expected matching div error.
+ * CLIENT ROOT
+ * Wraps the application in all necessary client-side providers.
  */
-function AppContent({ children }: { children: React.ReactNode }) {
+export function ClientRoot({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
     
+    // Ensure app is initialized correctly on client mount
     useInitializeApp();
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
     
-    // Return null on both server and client first render to ensure hydration match
     if (!isMounted) {
         return null;
     }
 
     return (
-        <InstallProvider>
-            <CartProvider>
-                <MainLayout>
-                    {children}
-                </MainLayout>
-                <Toaster />
-            </CartProvider>
-        </InstallProvider>
+        <FirebaseClientProvider>
+            <InstallProvider>
+                <CartProvider>
+                    <MainLayout>
+                        {children}
+                    </MainLayout>
+                    <Toaster />
+                </CartProvider>
+            </InstallProvider>
+        </FirebaseClientProvider>
     );
-}
-
-export function ClientRoot({ children }: { children: React.ReactNode }) {
-  return (
-    <FirebaseClientProvider>
-        <AppContent>{children}</AppContent>
-    </FirebaseClientProvider>
-  );
 }

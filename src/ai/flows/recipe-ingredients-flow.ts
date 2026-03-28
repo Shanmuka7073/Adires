@@ -1,5 +1,7 @@
-
-'use server';
+/**
+ * @fileOverview An AI flow to provide detailed information about a product or service.
+ * This is an internal server utility called by Server Actions.
+ */
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { ai } from '@/ai/genkit';
@@ -45,29 +47,26 @@ const prompt = ai.definePrompt(
   }
 );
 
-
-// This function is the AI flow that follows a cache-first strategy.
 export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  const { db } = await getAdminServices();
+  const { db } = getAdminServices();
   
   const language = input.language || 'en';
 
-  // 1. Check catalogue first (Directly fetch from Firestore)
+  // 1. Check cache first
   const cachedData = await getCachedRecipe(db, input.dishName, language);
   if (cachedData) {
     return cachedData as any;
   }
   
-  // 2. If not in catalogue, ask AI to generate new details
+  // 2. Generate if not cached
   const { output } = await prompt({ ...input, language });
   
-  // 3. If AI call is successful, add same details to catalogue for next time (Teaching the system)
+  // 3. Cache result
   if (output && output.isSuccess) {
     await cacheRecipe(db, input.dishName, language, output as any);
     return output;
   }
   
-  // Fallback return if AI failed or is not successful
   return {
       isSuccess: false,
       itemType: 'product',
