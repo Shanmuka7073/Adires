@@ -176,10 +176,25 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 }
 
 /* =========================
-   🚀 MAIN PARSER (runNLU)
+   🚀 TYPES & MAIN PARSER
 ========================= */
 
-export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []) {
+export interface NLUResult {
+  cleanedText: string;
+  language: string;
+  items: any[];
+}
+
+export type Intent =
+  | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
+  | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
+  | { type: 'ORDER_ITEM', originalText: string, lang: string }
+  | { type: 'UNKNOWN', originalText: string, lang: string };
+
+/**
+ * Main NLU runner that parses voice text into items.
+ */
+export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
   const segments = cleaned.split(/ and | , | also | next /);
 
@@ -237,7 +252,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 /**
  * Classifies the user's spoken text into a specific intent.
  */
-export function recognizeIntent(text: string, lang: string = "en") {
+export function recognizeIntent(text: string, lang: string = "en"): Intent {
   const lower = text.toLowerCase().trim();
   
   if (lower.includes('home') || lower.includes('start')) {
@@ -258,9 +273,9 @@ export function recognizeIntent(text: string, lang: string = "en") {
 }
 
 /**
- * Extracts quantity and product details.
+ * Extracts quantity and product details from the NLU result.
  */
-export function extractQuantityAndProduct(nlu: any) {
+export function extractQuantityAndProduct(nlu: NLUResult) {
     const firstItem = nlu.items[0];
     return { 
         qty: firstItem?.quantity ?? 1, 
