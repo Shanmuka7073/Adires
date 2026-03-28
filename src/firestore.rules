@@ -43,34 +43,6 @@ service cloud.firestore {
     }
 
     /* ======================
-       CALLS & SIGNALING (RECURSIVE)
-       ====================== */
-    
-    match /calls/{callId} {
-      allow read, write: if isSignedIn();
-      
-      match /{allPaths=**} {
-        allow read, write: if isSignedIn();
-      }
-    }
-
-    /* ======================
-       CHATS & MESSAGES
-       ====================== */
-    
-    match /chats/{chatId} {
-      allow list: if isSignedIn();
-      allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
-
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-      }
-    }
-
-    /* ======================
        COLLECTIONS
        ====================== */
 
@@ -83,21 +55,29 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isSignedIn();
       allow update, delete: if isStoreOwner(storeId);
-    }
 
-    match /stores/{storeId}/products/{productId} {
-      allow get, list: if true;
-      allow write: if isStoreOwner(storeId);
-    }
-    
-    match /stores/{storeId}/menus/{menuId} {
-      allow read: if true;
-      allow write: if isStoreOwner(storeId);
+      match /products/{productId} {
+        allow get, list: if true;
+        allow write: if isStoreOwner(storeId);
+      }
+      
+      match /menus/{menuId} {
+        allow read: if true;
+        allow write: if isStoreOwner(storeId);
+      }
+
+      match /attendance/{recordId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /salarySlips/{slipId} {
+        allow read, write: if isSignedIn();
+      }
     }
 
     match /orders/{orderId} {
       allow read: if true; 
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() || request.resource.data.userId == 'guest';
       allow update: if isSignedIn();
     }
 
@@ -107,9 +87,25 @@ service cloud.firestore {
       allow update: if isSignedIn();
     }
 
+    match /chats/{chatId} {
+      allow list: if isSignedIn();
+      allow get, update: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn();
+
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /calls/{callId} {
+      allow read, write: if isSignedIn();
+      match /{allPaths=**} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
     match /deliveryPartners/{partnerId} {
-      allow get, update: if isOwner(partnerId);
-      allow create: if isOwner(partnerId);
+      allow get, update, create: if isOwner(partnerId);
     }
 
     match /diagnostic_logs/{logId} {

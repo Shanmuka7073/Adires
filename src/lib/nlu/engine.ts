@@ -45,8 +45,8 @@ function getPhoneticKey(str: string): string {
  * Calculates word-overlap similarity.
  */
 function wordSimilarity(a: string, b: string): number {
-  const aWords = a.toLowerCase().split(" ").filter(w => w.length > 1);
-  const bWords = b.toLowerCase().split(" ").filter(w => w.length > 1);
+  const aWords = a.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const bWords = b.toLowerCase().split(/\s+/).filter(w => w.length > 1);
 
   if (aWords.length === 0) return 0;
 
@@ -68,11 +68,12 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 
   const inputLower = input.toLowerCase().trim();
   const inputPhonetic = getPhoneticKey(inputLower);
-  const inputWordsCount = inputLower.split(" ").length;
+  const inputWordsCount = inputLower.split(/\s+/).filter(Boolean).length;
 
   for (const item of menu) {
     const name = item.name.toLowerCase();
     const namePhonetic = getPhoneticKey(name);
+    const nameWordsCount = name.split(/\s+/).filter(Boolean).length;
     
     // 1. Exact Match (Perfect)
     if (name === inputLower) return { best: item, confidence: 1.0 };
@@ -82,19 +83,20 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 
     // 3. Phonetic Match Boost
     if (inputPhonetic && namePhonetic) {
-        if (inputPhonetic === namePhonetic) score += 0.5;
-        else if (namePhonetic.includes(inputPhonetic)) score += 0.3;
+        if (inputPhonetic === namePhonetic) score += 0.4;
+        else if (namePhonetic.includes(inputPhonetic)) score += 0.2;
     }
 
     // 4. Fuzzy Lev Score
     const fuzzy = calculateSimilarity(inputLower, name);
     score = Math.max(score, fuzzy);
 
-    // 5. PENALTY: Prevent short words matching long names (e.g. "Chicken" matching "Chicken Biryani")
-    const nameWordsCount = name.split(" ").length;
+    // 5. STRICT PENALTY: Prevent short words matching long names 
+    // (e.g. "Chicken" should NOT match "Chicken Biryani" unless biryani is the only option)
     if (inputWordsCount < nameWordsCount) {
-        // Multiply by coverage ratio
-        score *= (inputWordsCount / nameWordsCount); 
+        const coverage = inputWordsCount / nameWordsCount;
+        if (coverage < 0.6) score *= 0.5; // Severe penalty for low coverage
+        else score *= coverage;
     }
 
     if (score > maxScore) {
@@ -126,12 +128,12 @@ export function cleanText(input: string): string {
 
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
-  // Split by common conjunctions
-  const segments = cleaned.split(/ also | and | next | then /);
+  // Split by common segment delimiters but ensure we don't break multi-word products
+  const segments = cleaned.split(/\s+also\s+|\s+and\s+|\s+next\s+|\s+then\s+/);
   const items: any[] = [];
 
   segments.forEach(seg => {
-    const tokens = seg.trim().split(" ");
+    const tokens = seg.trim().split(/\s+/);
     if (!tokens.length || tokens[0] === "") return;
 
     // Extract quantity
@@ -148,8 +150,8 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productPhrase, menu);
 
-    // Only accept confident matches (Raised threshold to 0.6)
-    if (confidence >= 0.6) {
+    // Only accept highly confident matches
+    if (confidence >= 0.7) {
         items.push({
             name: best?.name || productPhrase,
             quantity: qty,
