@@ -34,6 +34,10 @@ const CORRECTIONS_DICT: Record<string, string> = {
   "beast": "piece",
   "chiken": "chicken",
   "stik": "stick",
+  "bistic": "stick",
+  "nastic": "stick",
+  "biskit": "biscuit",
+  "biskut": "biscuit",
   "bryani": "biryani",
   "biriyani": "biryani",
   "briyani": "biryani",
@@ -82,6 +86,7 @@ export function cleanText(input: string): string {
   words = words.filter(w => !NOISE_WORDS.includes(w));
 
   // 3. Remove duplicate repeated words (e.g., "one one" -> "one")
+  // Enhanced to handle stuttering or browser repeat errors
   const cleaned: string[] = [];
   for (let i = 0; i < words.length; i++) {
     if (words[i] !== words[i - 1]) {

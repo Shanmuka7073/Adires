@@ -56,15 +56,13 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       recognitionRef.current.lang = activeLang;
 
       recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
+        // Construct the full transcript from the current result list
+        // This avoids the double-append bug where we add cumulative results to existing state
+        let fullTranscript = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          fullTranscript += event.results[i][0].transcript;
         }
-        if (finalTranscript) {
-            setTranscript(prev => (prev + ' ' + finalTranscript).trim());
-        }
+        setTranscript(fullTranscript.trim());
       };
 
       recognitionRef.current.onend = () => {
@@ -196,7 +194,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                         {cleanedTranscript && (
                             <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 shadow-sm relative animate-in slide-in-from-bottom-2">
                                 <p className="text-[8px] font-black uppercase text-primary mb-1 flex items-center gap-1">
-                                    <Sparkles className="h-2 w-2" /> Cleaned Interpretation
+                                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Cleaned Interpretation
                                 </p>
                                 <p className="text-sm font-black text-gray-900 leading-relaxed uppercase tracking-tight">
                                     {cleanedTranscript}
