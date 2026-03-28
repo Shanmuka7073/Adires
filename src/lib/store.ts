@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -8,8 +7,6 @@ import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './t
 import { UseFormReturn } from 'react-hook-form';
 import { Locales, getAllAliases as getAliasesFromLocales, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
-import { useFirebase } from '@/firebase';
-import { useEffect } from 'react';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -205,7 +202,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v21', 
+      name: 'adires-ops-v22', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
@@ -214,29 +211,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-export const useInitializeApp = () => {
-    const { firestore, user, isUserLoading } = useFirebase();
-    const fetchUserStore = useAppStore(state => state.fetchUserStore);
-    const fetchInitialData = useAppStore(state => state.fetchInitialData);
-    const isInitialized = useAppStore(state => state.isInitialized);
-    const isFetchingStores = useAppStore(state => state.isFetchingStores);
-    const isFetchingUserStore = useAppStore(state => state.isFetchingUserStore);
-    const userStore = useAppStore(state => state.userStore);
-
-    useEffect(() => {
-        if (!firestore || isUserLoading) return;
-
-        const bootstrap = async () => {
-            if (!isInitialized && !isFetchingStores) {
-                await fetchInitialData(firestore, user?.uid);
-            } else if (user?.uid && !isFetchingUserStore && (!userStore || userStore.ownerId !== user.uid)) {
-                await fetchUserStore(firestore, user.uid);
-            }
-        };
-
-        bootstrap();
-    }, [firestore, isUserLoading, user?.uid]); 
-
-    return { isLoading: isUserLoading };
-};

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -156,12 +155,7 @@ export function Header() {
   const { isRestaurantOwner, isAdmin } = useAdminAuth();
   const { onToggleVoice, voiceEnabled, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
 
-  if (pathname === '/') return null;
-
-  const showShoppingControls = !isRestaurantOwner && !isAdmin;
   const isMenuPage = pathname.startsWith('/menu/');
-  const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
-
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
 
@@ -176,7 +170,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
 
-      <Link href={homeHref} className="flex items-center gap-1 min-w-0">
+      <Link href="/" className="flex items-center gap-1 min-w-0">
 
         <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
           <Image 
@@ -220,8 +214,8 @@ export function Header() {
             <Mic className="h-4 w-4" />
         </Button>
 
-        {showShoppingControls && <LanguageSwitcher />}
-        {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
+        {!isAdmin && !isRestaurantOwner && <LanguageSwitcher />}
+        {!isAdmin && !isRestaurantOwner && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
       </div>
 
