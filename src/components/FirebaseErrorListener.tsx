@@ -13,7 +13,8 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (err: FirestorePermissionError) => {
-      // Defer the state update to avoid "update while rendering" warning
+      // Use a standard timeout to ensure the state update happens in the next tick
+      // This prevents the "Cannot update a component while rendering a different component" error.
       setTimeout(() => {
         setError(err);
       }, 0);

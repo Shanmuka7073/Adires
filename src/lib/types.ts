@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -144,8 +143,6 @@ export type Booking = {
     store?: Store;
 };
 
-/* ---------------- CHAT & CALL TYPES ---------------- */
-
 export type CallSession = {
     id: string;
     callerId: string;
@@ -196,8 +193,6 @@ export type CommandGroup = {
   };
 };
 
-/* ---------------- VOICE INTELLIGENCE TYPES ---------------- */
-
 export type FailedVoiceCommand = {
     id: string;
     text: string;
@@ -210,15 +205,14 @@ export type FailedVoiceCommand = {
 };
 
 export type VoiceAliasGroup = {
-    id: string; // The canonical name (e.g. "Chicken Biryani")
+    id: string;
     en: string[];
     te: string[];
     hi: string[];
     category?: string;
     updatedAt: any;
+    [key: string]: any; // Allow indexing with string for langCode access
 };
-
-/* ---------------- REST OF TYPES ---------------- */
 
 export type OrderItem = {
   id: string;

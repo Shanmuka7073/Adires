@@ -106,9 +106,5 @@ export function useCollection<T = any>(
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery, tick]);
 
-  if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    console.warn('useCollection: targetRefOrQuery was not properly memoized. This may cause unnecessary re-subscriptions.');
-  }
-
   return { data, isLoading, error, refetch };
 }
