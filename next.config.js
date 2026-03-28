@@ -1,13 +1,11 @@
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false,
   skipWaiting: true,
   disable: false,
   buildExcludes: [/middleware-manifest\.json$/, /app-build-manifest\.json$/],
-  importScripts: ['https://5gvci.com/pwa/10790859'],
-
   runtimeCaching: [
-    // ✅ GOOGLE AUTH FIX
     {
       urlPattern: /^https:\/\/accounts\.google\.com\/.*/i,
       handler: 'NetworkOnly',
@@ -24,14 +22,6 @@ const withPWA = require('next-pwa')({
       urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
       handler: 'NetworkOnly',
     },
-
-    // ✅ AD NETWORK
-    {
-      urlPattern: /^https:\/\/5gvci\.com\/.*/i,
-      handler: 'NetworkOnly',
-    },
-
-    // ✅ STATIC FILES
     {
       urlPattern: /^\/_next\/static\/.*/i,
       handler: 'CacheFirst',
@@ -43,22 +33,6 @@ const withPWA = require('next-pwa')({
         },
       },
     },
-
-    // ✅ DYNAMIC ROUTES
-    {
-      urlPattern: /\/dashboard|\/menu/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'business-logic-routes',
-        networkTimeoutSeconds: 10,
-        expiration: {
-          maxEntries: 64,
-          maxAgeSeconds: 24 * 60 * 60,
-        },
-      },
-    },
-
-    // ✅ IMAGES
     {
       urlPattern: /^https:\/\/(?:images\.unsplash\.com|picsum\.photos|i\.ibb\.co|storage\.googleapis\.com)\/.*/i,
       handler: 'CacheFirst',
@@ -91,7 +65,6 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
-    esmExternals: false,
   },
 
   webpack: (config, { isServer }) => {
@@ -102,6 +75,7 @@ const nextConfig = {
         dns: false,
         tls: false,
         fs: false,
+        http2: false,
         child_process: false,
       };
     }

@@ -1,41 +1,47 @@
+
+'use server';
 /**
- * @fileOverview An AI flow to extract potential product aliases from a block of text.
- *
- * - extractAliasesFromText - A function that analyzes text and suggests new voice aliases for existing products.
- * - ExtractAliasesInput - The input type for the flow.
- * - ExtractAliasesOutput - The return type for the flow.
+ * @fileOverview An AI flow to extract synonyms and aliases for a product from a block of text.
+ * Optimized for marketplace expansion and multilingual support.
+ * 
+ * - extractAliasesFromText - Main function to handle extraction.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const ExtractAliasesInputSchema = z.object({
-  textBlock: z.string().describe('A block of text to analyze for product aliases (e.g., from a book, article, or recipe).'),
-  targetProduct: z.string().describe('The canonical product name we are looking for aliases for (e.g., "Aloo Gobi").'),
+  textBlock: z.string().describe('The block of text to analyze for aliases.'),
+  targetProduct: z.string().describe('The canonical product name to match against.'),
 });
 export type ExtractAliasesInput = z.infer<typeof ExtractAliasesInputSchema>;
 
 const ExtractAliasesOutputSchema = z.object({
   en: z.array(z.string()).describe('English synonyms found.'),
-  te: z.array(z.string()).describe('Telugu synonyms or transliterations found.'),
-  hi: z.array(z.string()).describe('Hindi synonyms or transliterations found.'),
+  te: z.array(z.string()).describe('Telugu synonyms found (native or Roman).'),
+  hi: z.array(z.string()).describe('Hindi synonyms found (native or Roman).'),
 });
 export type ExtractAliasesOutput = z.infer<typeof ExtractAliasesOutputSchema>;
 
-const extractAliasesPrompt = ai.definePrompt({
+const aliasPrompt = ai.definePrompt({
   name: 'extractAliasesPrompt',
   input: { schema: ExtractAliasesInputSchema },
   output: { schema: ExtractAliasesOutputSchema },
-  model: 'googleai/gemini-2.5-flash',
-  prompt: `You are a linguistic expert. Read the following text and find ALL possible synonyms, regional names, slang, or common misspellings used for the product: "{{targetProduct}}".
-    
-    Text to analyze:
-    "{{textBlock}}"
-    
-    Return the unique aliases grouped by English, Telugu, and Hindi. Include both native scripts and Roman transliterations.`,
+  model: 'googleai/gemini-1.5-flash',
+  prompt: `You are an expert linguist for an Indian marketplace.
+Extract every possible nickname, slang term, misspelling, or synonym for the product "{{targetProduct}}" from the text below.
+
+Text Block:
+"""
+{{textBlock}}
+"""
+
+Categorize the results into English (en), Telugu (te), and Hindi (hi). 
+For Telugu and Hindi, include both native script and Roman transliterations if found.
+Return as structured JSON.`,
 });
 
 export async function extractAliasesFromText(input: ExtractAliasesInput): Promise<ExtractAliasesOutput> {
-  const { output } = await extractAliasesPrompt(input);
+  const { output } = await aliasPrompt(input);
   return output || { en: [], te: [], hi: [] };
 }

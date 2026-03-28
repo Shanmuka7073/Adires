@@ -1,27 +1,28 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
 export type ProductVariant = {
-  sku: string; // Unique identifier for the variant, e.g., 'prod-potatoes-1kg'
-  weight: string; // e.g., '500gm', '1kg', '2kg'
+  sku: string;
+  weight: string;
   price: number;
-  stock: number; // The available quantity
+  stock: number;
 };
 
 export type Product = {
   id: string;
-  name: string; // Base name, e.g., 'Potatoes'
+  name: string;
   description: string;
   variants?: ProductVariant[]; 
   imageId: string;
   storeId: string;
   category?: string;
-  imageUrl?: string; // Data URI for AI-generated image
+  imageUrl?: string;
   imageHint?: string;
-  matchedAlias?: string; // The alias the user spoke
-  isAiAssisted?: boolean; // Flag to show if AI identified this item
-  isMenuItem?: boolean; // Flag to identify a restaurant menu item
-  price?: number; // Direct price for menu items
+  matchedAlias?: string;
+  isAiAssisted?: boolean;
+  isMenuItem?: boolean;
+  price?: number;
 };
 
 export type Store = {
@@ -192,7 +193,7 @@ export type SiteConfig = {
 };
 
 export type VoiceAliasGroup = {
-    id: string; // The canonical key, e.g., 'tomatoes'
+    id: string;
     en: string[];
     te: string[];
     hi: string[];

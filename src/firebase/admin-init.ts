@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, App, cert, type AppOptions } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
@@ -18,7 +19,6 @@ function getAppOptions(): AppOptions {
     let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
-        // Fallback for development if secret is missing
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
             storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
@@ -27,7 +27,6 @@ function getAppOptions(): AppOptions {
 
     try {
         serviceAccountString = serviceAccountString.trim();
-        // Remove quotes if the string is wrapped in them (common in some env providers)
         if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
             serviceAccountString = serviceAccountString.slice(1, -1);
         }
@@ -47,10 +46,6 @@ function getAppOptions(): AppOptions {
     }
 }
 
-/**
- * Returns the initialized Firebase Admin services.
- * Utility function (not a Server Action).
- */
 export function getAdminServices(): AdminServices {
   if (typeof window !== 'undefined') {
     throw new Error('getAdminServices can only be called on the server.');
