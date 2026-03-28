@@ -15,8 +15,11 @@ export function FirebaseErrorListener() {
   useEffect(() => {
     // The callback now expects a strongly-typed error, matching the event payload.
     const handleError = (error: FirestorePermissionError) => {
-      // Set error in state to trigger a re-render.
-      setError(error);
+      // DEFER state update to avoid React's "set state in render" warning
+      // when errors are emitted during snapshot initialization.
+      setTimeout(() => {
+        setError(error);
+      }, 0);
     };
 
     // The typed emitter will enforce that the callback for 'permission-error'

@@ -12,7 +12,6 @@ service cloud.firestore {
 
     /**
      * @description System Admin check.
-     * Triggers rule redeploy on comment change.
      */
     function isAdmin() {
       return isSignedIn() && (
@@ -67,7 +66,7 @@ service cloud.firestore {
        ====================== */
     
     match /chats/{chatId} {
-      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow list: if isSignedIn();
       allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
       allow create: if isSignedIn();
       allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
