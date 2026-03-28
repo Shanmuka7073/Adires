@@ -205,7 +205,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v19', 
+      name: 'adires-ops-v20', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,

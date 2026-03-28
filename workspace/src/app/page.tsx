@@ -123,7 +123,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { loading: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
+  const { isFetchingStores: isAppLoading, isInitialized, fetchInitialData } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
