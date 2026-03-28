@@ -342,6 +342,32 @@ export interface GetIngredientsOutput {
     };
 }
 
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
+};
+
+export type MonthlyPackage = {
+    id: string;
+    storeId: string;
+    name: string;
+    memberCount: number;
+    price: number;
+    items: {
+        name: string;
+        quantity: string;
+    }[];
+    schedule?: DayPlan[];
+};
+
+export type ReportData = {
+    totalSales: number;
+    totalOrders: number;
+    topProducts: { name: string; count: number }[];
+    ingredientCost?: number;
+};
+
 declare global {
   interface Window {
       SpeechRecognition: any;
