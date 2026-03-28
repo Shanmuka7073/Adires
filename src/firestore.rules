@@ -83,9 +83,7 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
     match /chats/{chatId} {
