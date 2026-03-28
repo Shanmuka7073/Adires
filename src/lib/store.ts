@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -138,6 +139,7 @@ export const useAppStore = create<AppState>()(
       }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
+        if (get().isFetchingStores) return;
         set({ isFetchingStores: true, error: null });
         
         try {
@@ -168,7 +170,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
-        if (!userId) return;
+        if (!userId || get().isFetchingUserStore) return;
         
         set({ isFetchingUserStore: true, error: null });
 

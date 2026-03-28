@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -25,6 +26,7 @@ import Image from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useVoiceCommanderContext } from './voice-commander-context';
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -152,12 +154,20 @@ function UserMenu() {
 export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
-  const { isRestaurantOwner, isAdmin } = useAdminAuth();
+  const { isAdmin, isRestaurantOwner, user } = useAdminAuth();
   const { onToggleVoice, voiceEnabled, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
 
   const isMenuPage = pathname.startsWith('/menu/');
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
+
+  // LOGO DESTINATION LOGIC
+  const logoHref = useMemo(() => {
+    if (!user) return "/";
+    if (isAdmin) return "/dashboard/admin";
+    if (isRestaurantOwner) return "/dashboard/restaurant";
+    return "/dashboard";
+  }, [user, isAdmin, isRestaurantOwner]);
 
   const handleMicClick = () => {
       if (isMenuPage) {
@@ -170,7 +180,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
 
-      <Link href="/" className="flex items-center gap-1 min-w-0">
+      <Link href={logoHref} className="flex items-center gap-1 min-w-0">
 
         <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
           <Image 
