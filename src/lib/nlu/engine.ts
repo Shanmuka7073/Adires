@@ -114,16 +114,30 @@ export function recognizeIntent(text: string, lang: string = "en"): Intent {
 }
 
 /**
- * Legacy stubs kept for compatibility
+ * Runs the NLU process. Updated to populate items for test script compatibility.
  */
 export function runNLU(text: string, lang: string = "en"): NLUResult {
+  const cleaned = text.trim();
+  // Pass an empty menu for generic parsing (name/qty extraction only)
+  const items = parseOrder(cleaned, []);
+  
   return { 
-    cleanedText: text.trim(), 
+    cleanedText: cleaned, 
     language: lang,
-    items: []
+    items: items
   };
 }
 
-export function extractQuantityAndProduct(nlu: any) {
-    return { qty: 1, productPhrase: nlu.cleanedText };
+/**
+ * Extracts quantity and product details.
+ * Optimized to satisfy the return type expected by scripts/test-voice-commands.ts.
+ */
+export function extractQuantityAndProduct(nlu: NLUResult) {
+    const firstItem = nlu.items[0];
+    return { 
+        qty: firstItem?.quantity ?? 1, 
+        productPhrase: firstItem?.name ?? nlu.cleanedText,
+        unit: null as string | null,
+        money: null as number | null
+    };
 }
