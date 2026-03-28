@@ -220,6 +220,18 @@ export type VoiceAliasGroup = {
     [key: string]: any;
 };
 
+export type CommandGroup = {
+  display: string;
+  reply: {
+    en: string;
+    te?: string;
+    hi?: string;
+    en_audio?: string;
+    te_audio?: string;
+    hi_audio?: string;
+  };
+};
+
 export type CallSession = {
     id: string;
     callerId: string;
