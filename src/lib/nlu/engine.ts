@@ -112,23 +112,48 @@ export function cleanText(input: string): string {
    🔢 QUANTITY
 ========================= */
 
+/* =========================
+   🔢 QUANTITY
+========================= */
+
 function extractQuantity(tokens: string[]) {
   let qty = 1;
-  let index = -1;
+  let usedIndexes: number[] = [];
 
-  tokens.forEach((t, i) => {
-    // Direct digit check
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+
     const num = parseFloat(t);
     if (!isNaN(num)) {
       qty = num;
-      index = i;
-    } else if (NUMBER_MAP[t]) {
-      qty = NUMBER_MAP[t];
-      index = i;
+      usedIndexes.push(i);
+      break;
     }
-  });
 
-  const remaining = tokens.filter((_, i) => i !== index);
+    if (NUMBER_MAP[t]) {
+      qty = NUMBER_MAP[t];
+      usedIndexes.push(i);
+      break;
+    }
+
+    const xMatch = t.match(/^x?(\d+)x?$/);
+    if (xMatch) {
+      qty = parseInt(xMatch[1]);
+      usedIndexes.push(i);
+      break;
+    }
+
+    if (t === "for" && tokens[i + 1]) {
+      const next = tokens[i + 1];
+      if (NUMBER_MAP[next]) {
+        qty = NUMBER_MAP[next];
+        usedIndexes.push(i, i + 1);
+        break;
+      }
+    }
+  }
+
+  const remaining = tokens.filter((_, i) => !usedIndexes.includes(i));
 
   return { qty, remaining };
 }
