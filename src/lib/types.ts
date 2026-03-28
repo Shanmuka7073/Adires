@@ -1,6 +1,5 @@
 
 import { Timestamp } from "firebase/firestore";
-import { z } from 'zod';
 
 export type ProductVariant = {
   sku: string;
@@ -28,52 +27,17 @@ export type Product = {
 export type CanonicalProduct = {
   id: string;
   name: string;
-  category: string;
   imageUrl?: string;
-  description?: string;
-};
-
-export type MenuTheme = {
-    backgroundColor: string;
-    primaryColor: string;
-    textColor: string;
-};
-
-export type CustomizationOption = {
-    name: string;
-    price: number;
-};
-
-export type CustomizationGroup = {
-    title: string;
-    required?: boolean;
-    multiSelect?: boolean;
-    options: CustomizationOption[];
-};
-
-export type MenuItem = {
-    id: string;
-    name: string;
-    description?: string;
-    price: number;
-    category: string;
-    dietary?: 'veg' | 'non-veg' | '';
-    imageUrl?: string;
-    isAvailable?: boolean;
-    duration?: number;
-    customizations?: CustomizationGroup[];
-};
-
-export type Menu = {
-    id: string;
-    storeId: string;
-    items: MenuItem[];
-    theme?: MenuTheme;
+  category?: string;
+  businessType?: string;
+  discoveredAt?: any;
+  discoveredInStoreId?: string;
+  updatedAt?: any;
 };
 
 export type Store = {
   id: string;
-  name:string;
+  name: string;
   teluguName?: string;
   description: string;
   address: string;
@@ -124,6 +88,44 @@ export type UnidentifiedCartItem = {
     status: 'pending' | 'failed' | 'identified';
 };
 
+export type CustomizationOption = {
+    name: string;
+    price: number;
+};
+
+export type CustomizationGroup = {
+    title: string;
+    required?: boolean;
+    multiSelect?: boolean;
+    options: CustomizationOption[];
+};
+
+export type MenuItem = {
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    category: string;
+    dietary?: 'veg' | 'non-veg' | '';
+    imageUrl?: string;
+    isAvailable?: boolean;
+    duration?: number;
+    customizations?: CustomizationGroup[];
+};
+
+export type MenuTheme = {
+    backgroundColor: string;
+    primaryColor: string;
+    textColor: string;
+};
+
+export type Menu = {
+    id: string;
+    storeId: string;
+    items: MenuItem[];
+    theme?: MenuTheme;
+};
+
 export type Booking = {
     id: string;
     storeId: string;
@@ -144,44 +146,77 @@ export type Booking = {
     store?: Store;
 };
 
-/* ---------------- CHAT & CALL TYPES ---------------- */
-
-export type CallSession = {
-    id: string;
-    callerId: string;
-    callerName: string;
-    callerImageUrl?: string;
-    type: 'audio' | 'video';
-    status: 'ringing' | 'accepted' | 'active' | 'ended';
-    offer?: any;
-    answer?: any;
-    startedAt: any;
-};
-
-export type Chat = {
-    id: string;
-    participants: string[]; 
-    customerUid: string;
-    lastMessage: string;
-    lastSenderId: string;
-    updatedAt: any;
+export type EmployeeProfile = {
+    userId: string;
     storeId: string;
-    storeName: string;
-    customerName: string;
-    customerImageUrl?: string;
-    unreadCount: Record<string, number>;
-    activeCallId?: string | null;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    address: string;
+    employeeId: string;
+    role: string;
+    hireDate: string;
+    salaryRate: number;
+    salaryType: 'hourly' | 'monthly';
+    payoutMethod: 'bank' | 'upi';
+    reportingTo?: string;
+    upiId?: string | null;
+    bankDetails?: {
+        accountHolderName: string;
+        accountNumber: string;
+        ifscCode: string;
+    } | null;
 };
 
-export type Message = {
-    id: string;
-    chatId: string;
-    senderId: string;
+export type ReasonEntry = {
     text: string;
-    type: 'text' | 'voice' | 'system';
-    audioUrl?: string;
-    duration?: number;
-    createdAt: any;
+    timestamp: Date | Timestamp;
+    status: 'submitted' | 'approved' | 'rejected';
+    rejectionReason?: string;
+};
+
+export type AttendanceRecord = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    workDate: Timestamp;
+    workDateStr: string;
+    punchInTime: Timestamp | null;
+    punchOutTime: Timestamp | null;
+    status: 'present' | 'partially_present' | 'pending_approval' | 'approved' | 'rejected';
+    workHours: number;
+    rejectionCount?: number;
+    reasonHistory?: ReasonEntry[];
+};
+
+export type SalarySlip = {
+    id: string;
+    employeeId: string;
+    storeId: string;
+    periodStart: string;
+    periodEnd: string;
+    baseSalary: number;
+    netPay: number;
+    generatedAt: Timestamp;
+    attendance?: any;
+};
+
+export type SiteConfig = {
+    liveVideoUrl?: string;
+    isPackGeneratorEnabled?: boolean;
+    isRecipeApiEnabled?: boolean;
+    isGeneralQuestionApiEnabled?: boolean;
+    isAliasSuggesterEnabled?: boolean;
+};
+
+export type VoiceAliasGroup = {
+    id: string;
+    en: string[];
+    te: string[];
+    hi: string[];
+    updatedAt: any;
+    [key: string]: any;
 };
 
 export type CommandGroup = {
@@ -196,149 +231,105 @@ export type CommandGroup = {
   };
 };
 
-/* ---------------- VOICE INTELLIGENCE TYPES ---------------- */
-
-export type FailedVoiceCommand = {
+export type CallSession = {
     id: string;
-    text: string;
-    lang: string;
-    timestamp: any;
-    storeId?: string;
-    userId?: string;
-    status: 'new' | 'resolved' | 'ignored';
-    suggestion?: string;
-};
+    callerId: string;
+    callerName: string;
+    callerImageUrl?: string;
+    type: 'audio';
+    status: 'ringing' | 'active' | 'ended' | 'missed';
+    startedAt: any;
+    offer?: any;
+    answer?: any;
+}
 
-export type VoiceAliasGroup = {
-    id: string; // The canonical name (e.g. "Chicken Biryani")
-    en: string[];
-    te: string[];
-    hi: string[];
-    category?: string;
+export type Chat = {
+    id: string;
+    participants: string[];
+    customerUid: string;
+    customerName: string;
+    customerImageUrl: string;
+    storeId: string;
+    storeName: string;
+    lastMessage: string;
+    lastSenderId: string;
     updatedAt: any;
-};
+    unreadCount: Record<string, number>;
+    activeCallId?: string | null;
+}
 
-/* ---------------- REST OF TYPES ---------------- */
+export type Message = {
+    id: string;
+    chatId: string;
+    senderId: string;
+    text: string;
+    type: 'text' | 'voice' | 'image';
+    audioUrl?: string;
+    imageUrl?: string;
+    createdAt: any;
+}
 
 export type OrderItem = {
   id: string;
   orderId: string;
   productId: string;
-  menuItemId: string;
+  menuItemId?: string;
   productName: string;
   variantSku: string;
   variantWeight: string;
   quantity: number;
   price: number;
-}
+};
 
 export type Order = {
-  id:string;
+  id: string;
   userId: string;
   storeId: string;
-  customerName: string;
-  deliveryAddress: string;
+  customerName?: string;
+  phone?: string;
+  email?: string;
+  deliveryAddress?: string;
   deliveryLat: number;
   deliveryLng: number;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed' | 'Draft';
-  orderType: 'dine-in' | 'takeaway' | 'delivery' | 'counter';
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
   orderDate: any;
-  phone: string;
-  email: string;
-  store?: Store; 
-  deliveryPartnerId?: string | null;
-  tableNumber?: string | null;
-  sessionId?: string;
   updatedAt?: any;
   isActive?: boolean;
+  orderType?: 'delivery' | 'dine-in' | 'takeaway' | 'counter';
+  sessionId?: string;
+  tableNumber?: string | null;
   needsService?: boolean;
-  serviceType?: string;
-  deviceId?: string;
-};
-
-export type EmployeeProfile = {
-    userId: string;
-    storeId: string;
-    employeeId: string;
-    role: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
-    hireDate: string;
-    salaryRate: number;
-    salaryType: 'monthly' | 'hourly';
-    payoutMethod: 'bank' | 'upi';
-    upiId?: string | null;
-    bankDetails?: {
-        accountHolderName: string;
-        accountNumber: string;
-        ifscCode: string;
-    } | null;
-    reportingTo?: string;
-};
-
-export type ReasonEntry = {
-    text: string;
-    timestamp: any;
-    status: 'submitted' | 'approved' | 'rejected';
-    rejectionReason?: string;
-};
-
-export type AttendanceRecord = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    workDate: any;
-    workDateStr: string;
-    punchInTime: any;
-    punchOutTime: any;
-    status: 'present' | 'partially_present' | 'approved' | 'pending_approval' | 'rejected';
-    workHours: number;
-    rejectionCount?: number;
-    reasonHistory?: ReasonEntry[];
-};
-
-export type SalarySlip = {
-    id: string;
-    employeeId: string;
-    storeId: string;
-    periodStart: string;
-    periodEnd: string;
-    baseSalary: number;
-    overtimeHours: number;
-    overtimePay: number;
-    deductions: number;
-    netPay: number;
-    generatedAt: any;
-    attendance?: any;
-};
-
-export type DeliveryPartner = {
-  userId: string; 
-  totalEarnings: number;
-  payoutsEnabled: boolean;
-  payoutMethod?: 'bank' | 'upi';
-  upiId?: string;
-  bankDetails?: {
-    accountHolderName: string;
-    accountNumber: string;
-    ifscCode: string;
-  };
-  zoneId?: string;
+  serviceType?: string | null;
+  store?: Store;
+  deliveryPartnerId?: string | null;
 };
 
 export type Payout = {
   id: string;
   partnerId: string;
   amount: number;
-  requestDate: any;
+  requestDate: Timestamp | Date | string;
+  completionDate?: Timestamp;
   status: 'pending' | 'completed' | 'failed';
   payoutMethod: 'bank' | 'upi';
   payoutDetails: any;
+};
+
+export type DeliveryPartner = {
+  userId: string;
+  totalEarnings: number;
+  lastPayoutDate?: Timestamp;
+  payoutsEnabled: boolean;
+  payoutMethod?: 'bank' | 'upi';
+  upiId?: string;
+  zoneId?: string;
+  bankDetails?: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
 };
 
 export type ProductPrice = {
@@ -346,11 +337,32 @@ export type ProductPrice = {
     variants: ProductVariant[];
 }
 
+export type FailedVoiceCommand = {
+    id: string;
+    userId: string;
+    text: string;
+    lang: string;
+    timestamp: any;
+    storeId?: string;
+    status: 'new' | 'resolved' | 'ignored';
+    suggestion?: string;
+}
+
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
+
+export interface Ingredient {
+    name: string;
+    quantity: string;
+}
+
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     itemType: 'food' | 'service' | 'product';
     title: string;
-    components: any[];
+    components: Ingredient[];
     steps: InstructionStep[];
     nutrition?: {
         calories: number;
@@ -362,20 +374,26 @@ export type CachedRecipe = {
     id: string;
     name: string;
     itemType: 'food' | 'service' | 'product';
-    components: any[];
+    components: Ingredient[];
     steps: InstructionStep[];
     nutrition?: {
         calories: number;
         protein: number;
     };
-    createdAt: any;
-};
+    createdAt: any; 
+}
 
-export type ReportData = {
-  totalSales: number;
-  totalOrders: number;
-  topProducts: { name: string; count: number }[];
-  ingredientCost?: number;
+export type CachedAIResponse = {
+    id: string;
+    question: string;
+    answer: string;
+    createdAt: any;
+}
+
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
 };
 
 export type MonthlyPackage = {
@@ -388,23 +406,15 @@ export type MonthlyPackage = {
         name: string;
         quantity: string;
     }[];
-    schedule?: {
-        day: number;
-        mainItem: string;
-        sideItem: string;
-    }[];
+    schedule?: DayPlan[];
 };
 
-export type SiteConfig = {
-    liveVideoUrl?: string;
-    isPackGeneratorEnabled?: boolean;
-    isMaintenance?: boolean;
+export type ReportData = {
+    totalSales: number;
+    totalOrders: number;
+    topProducts: { name: string; count: number }[];
+    ingredientCost?: number;
 };
-
-export interface InstructionStep {
-    title: string;
-    actions: string[];
-}
 
 declare global {
   interface Window {

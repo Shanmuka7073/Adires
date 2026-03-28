@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getAdminServices } from '@/firebase/admin-init';
@@ -29,7 +28,7 @@ function sanitizeForClient(data: any): any {
 
 export async function getFirebaseConfig() {
   try {
-    const { app } = await getAdminServices();
+    const { app } = getAdminServices();
     const options = app.options as any;
     return {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -45,7 +44,7 @@ export async function getFirebaseConfig() {
 
 export async function getSystemStatus() {
   try {
-    const { db, app } = await getAdminServices();
+    const { db, app } = getAdminServices();
     const [usersCount, storesCount] = await Promise.all([
         db.collection('users').count().get(),
         db.collection('stores').count().get()
@@ -69,17 +68,13 @@ export async function getSystemStatus() {
   }
 }
 
-/* ---------------- AI ACTIONS ---------------- */
-
 export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
     return getIngredientsForDishFlow(input);
 }
 
-/* ---------------- NOTIFICATION ACTIONS ---------------- */
-
 export async function sendChatNotification(recipientId: string, senderName: string, message: string) {
     try {
-        const { db, messaging } = await getAdminServices();
+        const { db, messaging } = getAdminServices();
         const userDoc = await db.collection('users').doc(recipientId).get();
         const fcmToken = userDoc.data()?.fcmToken;
 
@@ -113,7 +108,7 @@ export async function sendChatNotification(recipientId: string, senderName: stri
 
 export async function sendBroadcastNotification(title: string, body: string) {
     try {
-        const { db, messaging } = await getAdminServices();
+        const { db, messaging } = getAdminServices();
         
         const usersSnap = await db.collection('users').where('fcmToken', '!=', '').get();
         const tokens = usersSnap.docs.map(doc => doc.data().fcmToken).filter(Boolean);
@@ -127,7 +122,7 @@ export async function sendBroadcastNotification(title: string, body: string) {
             tokens: tokens,
         };
 
-        const response = await messaging.sendEachForMulticast(message);
+        const response = await (messaging as any).sendEachForMulticast(message);
         return {
             success: true,
             results: {
@@ -141,11 +136,9 @@ export async function sendBroadcastNotification(title: string, body: string) {
     }
 }
 
-/* ---------------- BOOKING ACTIONS ---------------- */
-
 export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'updatedAt' | 'status'>) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         
         if (!data.userId || data.userId === 'guest') {
             throw new Error('Authentication required to book a service.');
@@ -195,7 +188,7 @@ export async function createBooking(data: Omit<Booking, 'id' | 'createdAt' | 'up
 
 export async function getAvailableSlots(storeId: string, date: string, duration: number) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const storeSnap = await db.collection('stores').doc(storeId).get();
         const storeData = storeSnap.data();
         
@@ -246,7 +239,7 @@ export async function getAvailableSlots(storeId: string, date: string, duration:
 
 export async function updateBookingStatus(bookingId: string, status: Booking['status']) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         await db.collection('bookings').doc(bookingId).update({
             status,
             updatedAt: FieldValue.serverTimestamp()
@@ -259,7 +252,7 @@ export async function updateBookingStatus(bookingId: string, status: Booking['st
 
 export async function getPlatformAnalytics() {
     try {
-        const { db, app } = await getAdminServices();
+        const { db, app } = getAdminServices();
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfTodayTs = Timestamp.fromDate(startOfToday);
@@ -304,7 +297,7 @@ export async function getPlatformAnalytics() {
 
 export async function getSiteConfig(configId: string): Promise<SiteConfig | null> {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const docSnap = await db.collection('siteConfig').doc(configId).get();
         return docSnap.exists ? docSnap.data() as SiteConfig : null;
     } catch (error) {
@@ -314,7 +307,7 @@ export async function getSiteConfig(configId: string): Promise<SiteConfig | null
 
 export async function updateSiteConfig(configId: string, data: Partial<SiteConfig>) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         await db.collection('siteConfig').doc(configId).set(data, { merge: true });
         return { success: true };
     } catch (error: any) {
@@ -322,11 +315,9 @@ export async function updateSiteConfig(configId: string, data: Partial<SiteConfi
     }
 }
 
-/* ---------------- EMPLOYEE ACTIONS ---------------- */
-
 export async function updateEmployee(userId: string, data: any) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const batch = db.batch();
 
         const userRef = db.collection('users').doc(userId);
@@ -367,7 +358,7 @@ export async function updateEmployee(userId: string, data: any) {
 
 export async function approveRegularization(recordId: string, storeId: string, isApproved: boolean) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const recordRef = db.collection(`stores/${storeId}/attendance`).doc(recordId);
         
         await recordRef.update({
@@ -383,7 +374,7 @@ export async function approveRegularization(recordId: string, storeId: string, i
 
 export async function rejectRegularization(recordId: string, storeId: string, reason: string) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const recordRef = db.collection(`stores/${storeId}/attendance`).doc(recordId);
         
         await recordRef.update({
@@ -399,11 +390,9 @@ export async function rejectRegularization(recordId: string, storeId: string, re
     }
 }
 
-/* ---------------- SALES REPORT ACTIONS ---------------- */
-
 export async function getStoreSalesReport({ storeId, period }: { storeId: string, period: 'daily' | 'weekly' | 'monthly' }) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const now = new Date();
         let startDate: Date;
 
@@ -456,11 +445,9 @@ export async function getStoreSalesReport({ storeId, period }: { storeId: string
     }
 }
 
-/* ---------------- RESTAURANT ORDER ACTIONS ---------------- */
-
 export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, item, quantity }: { storeId: string, sessionId: string, tableNumber: string | null, item: MenuItem, quantity: number }) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const orderId = `${storeId}_${sessionId}`;
         const orderRef = db.collection('orders').doc(orderId);
 
@@ -499,7 +486,7 @@ export async function addRestaurantOrderItem({ storeId, sessionId, tableNumber, 
 
 export async function placeRestaurantOrder(cartItems: CartItem[], total: number, guestInfo: any, idToken: string, sessionId?: string, deviceId?: string) {
     try {
-        const { db } = await getAdminServices();
+        const { db } = getAdminServices();
         const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         const orderRef = db.collection('orders').doc(orderId);
 
@@ -536,11 +523,9 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
     }
 }
 
-/* ---------------- STORAGE ACTIONS ---------------- */
-
 export async function uploadStoreImage(storeId: string, base64Image: string) {
     try {
-        const { storage, db } = await getAdminServices();
+        const { storage, db } = getAdminServices();
         const bucket = storage.bucket();
         const fileName = `stores/${storeId}/logo-${Date.now()}.jpg`;
         const file = bucket.file(fileName);
@@ -567,7 +552,7 @@ export async function uploadStoreImage(storeId: string, base64Image: string) {
 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
-    const { db } = await getAdminServices();
+    const { db } = getAdminServices();
     const slipDocActual = await db.collection("stores").doc(storeId!).collection("salarySlips").doc(slipId).get();
     if (!slipDocActual.exists) return null;
     const slip = slipDocActual.data();

@@ -27,7 +27,7 @@ const prompt = ai.definePrompt({
   name: 'suggestProductAliasesPrompt',
   input: { schema: SuggestProductAliasesInputSchema },
   output: { schema: SuggestProductAliasesOutputSchema },
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are a linguistic expert for an Indian hyperlocal marketplace.
 For the product: "{{productName}}"
 

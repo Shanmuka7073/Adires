@@ -5,11 +5,10 @@ import StoreCard from '@/components/store-card';
 import { useFirebase } from '@/firebase';
 import type { Store } from '@/lib/types';
 import { useEffect, useState, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/lib/store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, MapPin, Loader2, Info, Building2 } from 'lucide-react';
+import { Search, Building2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useSearchParams } from 'next/navigation';
 

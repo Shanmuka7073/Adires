@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Order } from '@/lib/types';
@@ -22,18 +21,17 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp, getDocs
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useEffect, useTransition } from 'react';
+import { useMemo, useState, useEffect, useTransition, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { getStoreSalesReport } from '@/app/actions';
+import { format, startOfDay } from 'date-fns';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +57,7 @@ interface Session {
   orderType: Order['orderType'];
   lastActivity: Date;
   needsService: boolean;
-  serviceType?: string;
+  serviceType?: string | null;
 }
 
 function toDateSafe(d: any): Date {
@@ -131,7 +129,7 @@ function SessionDetailsDialog({
     const isDelivery = session.orderType === 'delivery';
 
     const handleUpdateStatus = (status: string) => {
-        session.orders.forEach(o => onStatusUpdate(o.id, status));
+        session.orders.forEach(o => onStatusUpdate(o.id, status as any));
         onOpenChange(false);
     };
 
@@ -154,7 +152,7 @@ function SessionDetailsDialog({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md rounded-[2.5rem] p-0 border-0 shadow-2xl h-[85vh] flex flex-col">
-                <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center">
+                <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center text-left">
                     <div>
                         <DialogTitle className="text-sm font-black uppercase tracking-tight">Order #{session.id.slice(-6)}</DialogTitle>
                         <p className="text-[10px] font-bold opacity-40 uppercase">{session.orderType} • {format(session.lastActivity, 'p')}</p>
@@ -169,7 +167,7 @@ function SessionDetailsDialog({
                     <div className="space-y-8 pb-10">
                         {session.needsService && (
                             <section className="animate-in zoom-in-95 duration-300">
-                                <Alert className="rounded-2xl border-2 border-red-200 bg-red-50 text-red-900 shadow-lg">
+                                <Alert className="rounded-2xl border-2 border-red-200 bg-red-50 text-red-900 shadow-lg text-left">
                                     <BellRing className="h-5 w-5 text-red-600" />
                                     <AlertTitle className="font-black uppercase text-xs tracking-widest">Active Call</AlertTitle>
                                     <AlertDescription className="mt-2 space-y-4">
@@ -187,8 +185,8 @@ function SessionDetailsDialog({
                             </section>
                         )}
 
-                        <section className="space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Customer Details</h4>
+                        <section className="space-y-3 text-left">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Customer Details</h4>
                             <Card className="rounded-2xl border-2 p-4 bg-muted/30 shadow-none">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -215,8 +213,8 @@ function SessionDetailsDialog({
                             </Card>
                         </section>
 
-                        <section className="space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Item Manifest</h4>
+                        <section className="space-y-3 text-left">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Item Manifest</h4>
                             <div className="space-y-2">
                                 {items.map((it, idx) => (
                                     <div key={idx} className="flex justify-between items-center p-3 rounded-xl border-2 bg-white text-xs font-bold uppercase tracking-tight">
@@ -251,52 +249,59 @@ function SessionDetailsDialog({
 }
 
 function InsightsTab({ storeId }: { storeId: string }) {
+    const { firestore } = useFirebase();
     const [report, setReport] = useState<any>(null);
-    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchReport = async () => {
-        if (!storeId) return;
+    const fetchReportClientSide = useCallback(async () => {
+        if (!firestore || !storeId) return;
         setIsLoading(true);
-        setError(null);
         try {
-            const res = await getStoreSalesReport({ storeId, period: 'daily' });
-            if (res.success) {
-                setReport(res.report);
-            } else {
-                setError(res.error || "Failed to fetch analytical data.");
-            }
-        } catch (e: any) {
-            setError(e.message);
+            const startOfToday = startOfDay(new Date());
+            const q = query(
+                collection(firestore, 'orders'),
+                where('storeId', '==', storeId),
+                where('status', 'in', ['Delivered', 'Completed', 'Billed']),
+                where('orderDate', '>=', startOfToday)
+            );
+            const snap = await getDocs(q);
+            const orders = snap.docs.map(d => d.data() as Order);
+            
+            let totalSales = 0;
+            const productMap = new Map<string, number>();
+
+            orders.forEach(o => {
+                totalSales += o.totalAmount;
+                o.items.forEach(it => {
+                    const count = productMap.get(it.productName) || 0;
+                    productMap.set(it.productName, count + it.quantity);
+                });
+            });
+
+            const topProducts = Array.from(productMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([name, count]) => ({ name, count }));
+
+            setReport({ totalSales, totalOrders: orders.length, topProducts });
+        } catch (e) {
+            console.error("Insights fetch failed", e);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [firestore, storeId]);
 
     useEffect(() => {
-        fetchReport();
-    }, [storeId]);
+        fetchReportClientSide();
+    }, [fetchReportClientSide]);
 
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-
-    if (error) return (
-        <div className="p-4 space-y-4">
-            <Alert variant="destructive" className="rounded-2xl border-2">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle className="font-black uppercase text-xs">Analytics Sync Failed</AlertTitle>
-                <AlertDescription className="text-xs font-bold opacity-60 uppercase">{error}</AlertDescription>
-            </Alert>
-            <Button onClick={fetchReport} variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2">
-                <RefreshCw className="mr-2 h-4 w-4" /> Retry Sync
-            </Button>
-        </div>
-    );
 
     const totalSales = report?.totalSales || 0;
     const totalOrders = report?.totalOrders || 0;
 
     return (
-        <div className="p-4 space-y-6 animate-in fade-in duration-500">
+        <div className="p-4 space-y-6 animate-in fade-in duration-500 text-left">
             <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-3xl bg-primary/5 border-2 border-primary/10">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Today Revenue</p>
@@ -375,7 +380,8 @@ export default function StoreOrdersPage() {
                 status: o.status, 
                 orderType: o.orderType, 
                 lastActivity: toDateSafe(o.orderDate),
-                needsService: false
+                needsService: false,
+                serviceType: null
             };
         }
         tableSessions[o.sessionId!].orders.push(o);
@@ -406,7 +412,7 @@ export default function StoreOrdersPage() {
   if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24 text-left">
         <SessionDetailsDialog 
             session={selectedSession} 
             isOpen={!!selectedSession} 

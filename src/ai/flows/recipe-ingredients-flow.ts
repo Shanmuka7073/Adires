@@ -1,5 +1,7 @@
 
-'use server';
+/**
+ * @fileOverview An AI flow to provide detailed information about a product or service.
+ */
 
 import { getAdminServices } from '@/firebase/admin-init';
 import { ai } from '@/ai/genkit';
@@ -7,8 +9,19 @@ import { GetIngredientsInputSchema, GetIngredientsOutputSchema } from './recipe-
 import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import type { GetIngredientsOutput } from './recipe-ingredients-types';
 
-const prompt = ai.definePrompt(
-  {
+export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
+  const { db } = getAdminServices();
+  
+  const language = input.language || 'en';
+
+  // 1. Check cache first
+  const cachedData = await getCachedRecipe(db, input.dishName, language);
+  if (cachedData) {
+    return cachedData as any;
+  }
+  
+  // 2. Define and run the prompt
+  const prompt = ai.definePrompt({
     name: 'recipeIngredientsPrompt',
     input: { schema: GetIngredientsInputSchema },
     output: { schema: GetIngredientsOutputSchema },
@@ -42,32 +55,16 @@ const prompt = ai.definePrompt(
 
         If the item name is ambiguous or unknown, try your best to describe it based on common knowledge.
         `,
-  }
-);
+  });
 
-
-// This function is the AI flow that follows a cache-first strategy.
-export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  const { db } = await getAdminServices();
-  
-  const language = input.language || 'en';
-
-  // 1. Check catalogue first (Directly fetch from Firestore)
-  const cachedData = await getCachedRecipe(db, input.dishName, language);
-  if (cachedData) {
-    return cachedData as any;
-  }
-  
-  // 2. If not in catalogue, ask AI to generate new details
   const { output } = await prompt({ ...input, language });
   
-  // 3. If AI call is successful, add same details to catalogue for next time (Teaching the system)
+  // 3. Cache result
   if (output && output.isSuccess) {
     await cacheRecipe(db, input.dishName, language, output as any);
     return output;
   }
   
-  // Fallback return if AI failed or is not successful
   return {
       isSuccess: false,
       itemType: 'product',

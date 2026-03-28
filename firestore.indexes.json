@@ -59,6 +59,31 @@
         { "fieldPath": "deviceId", "order": "ASCENDING" },
         { "fieldPath": "orderDate", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "workDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "canonicalCatalog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "businessType", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "canonicalCatalog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "businessType", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -1,3 +1,4 @@
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false, // Handled manually in ServiceWorkerRegister.tsx
@@ -10,6 +11,11 @@ const withPWA = require('next-pwa')({
   ],
   
   runtimeCaching: [
+    {
+      // EXCLUDE AUTH: Ensure identity requests never get stuck in Service Worker
+      urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
+      handler: 'NetworkOnly',
+    },
     {
       urlPattern: /\.(?:js|css|json|html)$/i,
       handler: 'StaleWhileRevalidate',
@@ -77,6 +83,7 @@ const nextConfig = {
             tls: false,
             fs: false,
             child_process: false,
+            http2: false,
         };
     }
     

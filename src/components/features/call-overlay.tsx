@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -28,7 +29,7 @@ export function CallOverlay({ call, onAccept, onDecline }: CallOverlayProps) {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        if (call.status === 'active' || call.status === 'accepted') {
+        if (call.status === 'active') {
             setStatus('active');
             timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
         }

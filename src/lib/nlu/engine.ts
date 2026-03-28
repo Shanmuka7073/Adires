@@ -1,11 +1,6 @@
-
 /**
- * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (FINAL)
- * Fully optimized for:
- * - messy speech text
- * - multilingual input
- * - fuzzy matching
- * - mobile performance
+ * 🚀 ENHANCED NLU ENGINE (PHONETIC & FUZZY)
+ * Optimized for Indian English, Telugu, and Hindi speech.
  */
 
 import { calculateSimilarity } from "../calculate-similarity";
@@ -15,188 +10,105 @@ import type { MenuItem } from "../types";
    🔧 CONFIG
 ========================= */
 
-const CORRECTIONS_DICT: Record<string, string> = {
-  beast: "piece",
-  chiken: "chicken",
-  stik: "stick",
-  bistic: "stick",
-  nastic: "stick",
-  bryani: "biryani",
-  biriyani: "biryani",
-  briyani: "biryani",
-  coc: "coke",
-  kok: "coke",
-  thumsup: "thums up",
-  "b stick": "stick",
-  "b1": "1"
-};
-
 const NOISE_WORDS = [
   "please", "give", "add", "i", "want", "me", "needed", "need",
-  "kavali", "ivvandi", "petandi",
-  "chahiye", "lelo", "mangao",
-  "b", "the", "of", "also"
+  "kavali", "ivvandi", "petandi", "chahiye", "lelo", "mangao",
+  "b", "the", "of", "also", "and", "next", "then", "pettandi", "tesko"
 ];
 
 const NUMBER_MAP: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5,
   six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  a: 1, an: 1, half: 0.5,
-
-  // Telugu
+  a: 1, an: 1, half: 0.5, "one and half": 1.5,
   okati: 1, rendu: 2, moodu: 3, nalugu: 4,
   aidu: 5, aaru: 6, yedu: 7, enimidi: 8,
   tommidi: 9, padi: 10, oka: 1, ara: 0.5,
-
-  // Hindi
   ek: 1, do: 2, teen: 3, chaar: 4, paanch: 5, adha: 0.5
 };
 
 /* =========================
-   🔥 UTILS
+   🔥 PHONETIC HASHING
 ========================= */
 
-function removeRepetition(words: string[]): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < words.length; i++) {
-    // Only remove if it's an exact repetition of the previous word
-    if (i > 0 && words[i] === words[i - 1]) continue;
-    result.push(words[i]);
-  }
-  return result;
+/**
+ * Sounds-Like Key Generator
+ * Strips vowels and reduces double consonants to find matches despite spelling differences.
+ */
+function getPhoneticKey(str: string): string {
+  return str.toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/[aeiouyhw]/g, '') 
+    .replace(/(.)\1+/g, '$1'); 
 }
 
 /**
- * Calculates word-based overlap similarity.
+ * Calculates word-overlap similarity.
  */
 function wordSimilarity(a: string, b: string): number {
-  const aWords = a.toLowerCase().split(" ").filter(Boolean);
-  const bWords = b.toLowerCase().split(" ").filter(Boolean);
+  const aWords = a.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const bWords = b.toLowerCase().split(/\s+/).filter(w => w.length > 1);
 
   if (aWords.length === 0) return 0;
 
-  let match = 0;
+  let matches = 0;
   aWords.forEach(w => {
-    if (bWords.includes(w)) match++;
+    if (bWords.includes(w)) matches++;
   });
 
-  const score = (match / aWords.length) * (match / bWords.length);
-  if (aWords.length === 1 && bWords.length > 1) return score * 0.5;
-  return score;
+  return matches / Math.max(aWords.length, bWords.length);
 }
 
 /* =========================
-   🧹 CLEAN TEXT
-========================= */
-
-export function cleanText(input: string): string {
-  let cleaned = input.toLowerCase()
-    .replace(/[,.]/g, " ") 
-    .replace(/\bb\s+/g, "") 
-    .replace(/\bb(\d+)/g, "$1"); 
-
-  let words = cleaned.split(/\s+/)
-    .filter(Boolean);
-
-  words = words.map(w => CORRECTIONS_DICT[w] || w);
-  words = words.filter(w => !NOISE_WORDS.includes(w));
-  words = removeRepetition(words);
-
-  if (words.length > 15) {
-    words = words.slice(-10);
-  }
-
-  return words.join(" ");
-}
-
-/* =========================
-   🔢 QUANTITY
-========================= */
-
-function extractQuantity(tokens: string[]) {
-  let qty = 1;
-  let usedIndexes: number[] = [];
-
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    const num = parseFloat(t);
-    if (!isNaN(num)) {
-      qty = num;
-      usedIndexes.push(i);
-      break;
-    }
-    if (NUMBER_MAP[t]) {
-      qty = NUMBER_MAP[t];
-      usedIndexes.push(i);
-      break;
-    }
-    const xMatch = t.match(/^x?(\d+)x?$/);
-    if (xMatch) {
-      qty = parseInt(xMatch[1]);
-      usedIndexes.push(i);
-      break;
-    }
-    if (t === "for" && tokens[i + 1]) {
-      const next = tokens[i + 1];
-      if (NUMBER_MAP[next] || !isNaN(Number(next))) {
-        qty = NUMBER_MAP[next] || Number(next);
-        usedIndexes.push(i, i + 1);
-        break;
-      }
-    }
-  }
-
-  const remaining = tokens.filter((_, i) => !usedIndexes.includes(i));
-  return { qty, remaining };
-}
-
-/* =========================
-   🧠 PRODUCT EXTRACTION
-========================= */
-
-function extractProductPhrase(tokens: string[]): string {
-  const filtered = tokens.filter(t =>
-    !NUMBER_MAP[t] && isNaN(Number(t))
-  );
-  return filtered.join(" ");
-}
-
-/* =========================
-   🔍 MATCHING
+   🧠 MATCHING ENGINE
 ========================= */
 
 function findBestMatch(input: string, menu: MenuItem[]) {
   let best: MenuItem | undefined;
-  let score = 0;
+  let maxScore = 0;
 
   const inputLower = input.toLowerCase().trim();
-  if (!inputLower) return { best: undefined, confidence: 0 };
+  const inputPhonetic = getPhoneticKey(inputLower);
+  const inputWordsCount = inputLower.split(/\s+/).filter(Boolean).length;
 
-  for (let item of menu) {
+  for (const item of menu) {
     const name = item.name.toLowerCase();
+    const namePhonetic = getPhoneticKey(name);
+    const nameWordsCount = name.split(/\s+/).filter(Boolean).length;
+    
+    // 1. Exact Match (Perfect)
     if (name === inputLower) return { best: item, confidence: 1.0 };
 
-    let s = wordSimilarity(inputLower, name);
-    const inputWords = inputLower.split(" ").filter(Boolean);
-    if (name.includes(inputLower)) {
-        if (inputWords.length > 1) s += 0.3;
-        else if (inputLower.length > 4) s += 0.1;
+    // 2. Word Overlap Score
+    let score = wordSimilarity(inputLower, name);
+
+    // 3. Phonetic Match Boost
+    if (inputPhonetic && namePhonetic) {
+        if (inputPhonetic === namePhonetic) score += 0.5;
+        else if (namePhonetic.includes(inputPhonetic)) score += 0.3;
     }
 
-    const levScore = calculateSimilarity(inputLower, name);
-    s = Math.max(s, levScore);
+    // 4. Fuzzy Levenshtein Score
+    const fuzzy = calculateSimilarity(inputLower, name);
+    score = Math.max(score, fuzzy);
 
-    if (s > score) {
-      score = s;
+    // 5. STRICT PENALTY: Prevent short words matching long names 
+    if (inputWordsCount < nameWordsCount) {
+        const coverage = inputWordsCount / nameWordsCount;
+        if (coverage < 0.7) score *= 0.4; 
+        else score *= coverage;
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
       best = item;
     }
   }
 
-  return { best, confidence: score };
+  return { best, confidence: maxScore };
 }
 
 /* =========================
-   🚀 TYPES & MAIN PARSER
+   🚀 EXPORTS
 ========================= */
 
 export interface NLUResult {
@@ -205,104 +117,64 @@ export interface NLUResult {
   items: any[];
 }
 
-export type Intent =
-  | { type: 'NAVIGATE', destination: string, originalText: string, lang: string }
-  | { type: 'CONVERSATIONAL', commandKey: string, originalText: string, lang: string }
-  | { type: 'ORDER_ITEM', originalText: string, lang: string }
-  | { type: 'UNKNOWN', originalText: string, lang: string };
+export function cleanText(input: string): string {
+  return input.toLowerCase()
+    .replace(/[,.]/g, " ")
+    .split(/\s+/)
+    .filter(w => !NOISE_WORDS.includes(w))
+    .join(" ");
+}
 
-/**
- * Main NLU runner that parses voice text into items.
- */
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
-  const segments = cleaned.split(/ and | also | next /);
-
-  const results: any[] = [];
-  let lastItem: any = null;
+  const segments = cleaned.split(/\s+also\s+|\s+and\s+|\s+next\s+|\s+then\s+/);
+  const items: any[] = [];
 
   segments.forEach(seg => {
-    const tokens = seg.trim().split(" ");
-    if (!tokens.length || (tokens.length === 1 && tokens[0] === "")) return;
+    const tokens = seg.trim().split(/\s+/);
+    if (!tokens.length || tokens[0] === "") return;
 
-    if (seg.includes("more") && lastItem) {
-      lastItem.quantity += 1;
-      return;
-    }
+    let qty = 1;
+    const remainingTokens = tokens.filter(t => {
+        const num = parseFloat(t);
+        if (!isNaN(num)) { qty = num; return false; }
+        if (NUMBER_MAP[t]) { qty = NUMBER_MAP[t]; return false; }
+        return true;
+    });
 
-    const { qty, remaining } = extractQuantity(tokens);
-    const productText = extractProductPhrase(remaining);
+    const productPhrase = remainingTokens.join(" ");
+    if (productPhrase.length < 2) return;
 
-    if (!productText || productText.length < 2) return;
+    const { best, confidence } = findBestMatch(productPhrase, menu);
 
-    const { best, confidence } = findBestMatch(productText, menu);
-
-    // LOG FAILURE TO DB IF NO GOOD MATCH FOUND
-    if (confidence < 0.65) {
-        // This is handled by the calling component to have access to Firestore
-        return; 
-    }
-
-    const item = {
-      name: best?.name || productText,
-      quantity: qty,
-      originalText: seg,
-      match: best,
-      confidence
-    };
-
-    results.push(item);
-    lastItem = item;
-  });
-
-  const merged: Record<string, any> = {};
-  results.forEach(item => {
-    if (merged[item.name]) {
-      merged[item.name].quantity += item.quantity;
-    } else {
-      merged[item.name] = item;
+    // Increased threshold for better accuracy
+    if (confidence >= 0.75) {
+        items.push({
+            name: best?.name || productPhrase,
+            quantity: qty,
+            match: best,
+            confidence
+        });
     }
   });
 
-  return {
-    cleanedText: cleaned,
-    language: lang,
-    items: Object.values(merged)
-  };
+  return { cleanedText: cleaned, language: lang, items };
 }
 
-/**
- * Classifies the user's spoken text into a specific intent.
- */
-export function recognizeIntent(text: string, lang: string = "en"): Intent {
-  const lower = text.toLowerCase().trim();
-  
-  if (lower.includes('home') || lower.includes('start')) {
-    return { type: 'NAVIGATE', destination: 'home', originalText: text, lang };
-  }
-  if (lower.includes('cart') || lower.includes('basket')) {
-    return { type: 'NAVIGATE', destination: 'cart', originalText: text, lang };
-  }
-  if (lower.includes('order') && (lower.includes('my') || lower.includes('history'))) {
-    return { type: 'NAVIGATE', destination: 'orders', originalText: text, lang };
-  }
-
-  if (lower.includes('order') || lower.includes('buy') || lower.includes('get') || lower.includes('add')) {
-    return { type: 'ORDER_ITEM', originalText: text, lang };
-  }
-
-  return { type: 'UNKNOWN', originalText: text, lang };
-}
-
-/**
- * Extracts quantity and product details from the NLU result.
- */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-    const firstItem = nlu.items[0];
+    const first = nlu.items[0];
     return { 
-        qty: firstItem?.quantity ?? 1, 
-        productPhrase: firstItem?.name ?? nlu.cleanedText,
-        unit: null as string | null,
-        money: null as number | null
+        qty: first?.quantity ?? 1, 
+        productPhrase: first?.name ?? nlu.cleanedText,
+        unit: null,
+        money: null
     };
+}
+
+export function recognizeIntent(text: string, lang: string = "en"): any {
+    const lower = text.toLowerCase().trim();
+    if (lower.includes('home')) return { type: 'NAVIGATE', destination: 'home' };
+    if (lower.includes('cart')) return { type: 'NAVIGATE', destination: 'cart' };
+    if (lower.includes('order') || lower.includes('buy')) return { type: 'ORDER_ITEM' };
+    return { type: 'UNKNOWN' };
 }

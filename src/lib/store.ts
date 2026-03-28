@@ -147,22 +147,22 @@ export const useAppStore = create<AppState>()(
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          let userStore = null;
-          if (userId) {
+          let userStore = get().userStore;
+          if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
           const id = getOrGenerateDeviceId();
 
-          set(state => ({
+          set({
             stores,
             isInitialized: true,
             isFetchingStores: false,
             userStore,
             deviceId: id,
             appReady: true,
-            readCount: state.readCount + storesSnap.docs.length
-          }));
+            readCount: get().readCount + storesSnap.docs.length
+          });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
@@ -180,13 +180,13 @@ export const useAppStore = create<AppState>()(
                 ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
                 : null;
 
-            set(state => ({
+            set({
                 userStore,
                 isInitialized: true,
                 isFetchingUserStore: false,
                 appReady: true,
-                readCount: state.readCount + 1
-            }));
+                readCount: get().readCount + 1
+            });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
             set({ error: error as Error, isFetchingUserStore: false, isInitialized: true, appReady: true });
@@ -207,7 +207,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v14', 
+      name: 'adires-ops-v16', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
@@ -231,12 +231,14 @@ export const useInitializeApp = () => {
         const bootstrap = async () => {
             if (!isInitialized) {
                 await fetchInitialData(firestore, user?.uid);
-            } else if (user?.uid && !userStore) {
+            } else if (user?.uid && (!userStore || userStore.ownerId !== user.uid)) {
                 await fetchUserStore(firestore, user.uid);
             }
             setAppReady(true);
         };
 
         bootstrap();
-    }, [firestore, isUserLoading, user?.uid]); // Minimal stable dependencies to prevent blinking loops
+    }, [firestore, isUserLoading, user?.uid]); 
+
+    return { isLoading: isUserLoading };
 };

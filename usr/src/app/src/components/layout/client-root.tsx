@@ -1,26 +1,22 @@
-
 'use client';
 
 import React, { ReactNode } from 'react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
-import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * Standard provider wrapper. self-import loop resolved.
+ * Wraps the application in all necessary client-side providers.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
     <FirebaseClientProvider>
-      <InstallProvider>
-        <CartProvider>
-          <MainLayout>
-            {children}
-          </MainLayout>
-        </CartProvider>
-      </InstallProvider>
+      <CartProvider>
+        <MainLayout>
+          {children}
+        </MainLayout>
+      </CartProvider>
     </FirebaseClientProvider>
   );
 }
