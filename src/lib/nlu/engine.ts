@@ -78,7 +78,7 @@ export type Intent =
 function removeRepetition(words: string[]): string[] {
   const result: string[] = [];
   for (let i = 0; i < words.length; i++) {
-    if (words[i] === words[i - 1] && words[i] === words[i - 2]) continue;
+    if (i > 0 && words[i] === words[i - 1]) continue;
     result.push(words[i]);
   }
   return result;
@@ -170,7 +170,7 @@ function findBestMatch(input: string, menu: MenuItem[]) {
   let history: string[] = [];
   if (typeof window !== 'undefined') {
     try {
-        history = JSON.parse(localStorage.getItem("orderHistory") || "[]");
+      history = JSON.parse(localStorage.getItem("orderHistory") || "[]");
     } catch(e) {}
   }
 
@@ -280,11 +280,11 @@ export function recognizeIntent(text: string, lang: string = "en"): Intent {
  * Helper for test scripts.
  */
 export function extractQuantityAndProduct(nlu: NLUResult) {
-    const firstItem = nlu.items[0];
-    return { 
-        qty: firstItem?.quantity ?? 1, 
-        productPhrase: firstItem?.name ?? nlu.cleanedText,
-        unit: null,
-        money: null
-    };
+  const firstItem = nlu.items[0];
+  return { 
+    qty: firstItem?.quantity ?? 1, 
+    productPhrase: firstItem?.name ?? nlu.cleanedText,
+    unit: null,
+    money: null
+  };
 }
