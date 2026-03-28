@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, Loader2, CheckCircle2, Trash2, AlertCircle, List, RotateCcw, X } from 'lucide-react';
-import { parseOrder, type ParsedOrderItem } from '@/lib/nlu/engine';
+import { Mic, Loader2, CheckCircle2, Trash2, List, RotateCcw, X, Sparkles } from 'lucide-react';
+import { runNLU, type ParsedOrderItem } from '@/lib/nlu/engine';
 import type { MenuItem } from '@/lib/types';
 import { useCart } from '@/lib/cart';
 import { useToast } from '@/hooks/use-toast';
@@ -30,22 +30,28 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
   
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [cleanedTranscript, setCleanedTranscript] = useState('');
   const [parsedItems, setParsedItems] = useState<ParsedOrderItem[]>([]);
   const [activeLang, setActiveLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
 
   const processTranscript = useCallback((text: string) => {
-    if (!text) return;
-    const results = parseOrder(text, menu);
-    setParsedItems(results);
-  }, [menu]);
+    if (!text) {
+        setParsedItems([]);
+        setCleanedTranscript('');
+        return;
+    }
+    const result = runNLU(text, activeLang, menu);
+    setParsedItems(result.items);
+    setCleanedTranscript(result.cleanedText);
+  }, [menu, activeLang]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true; // Stay on for natural multi-item flow
+      recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = activeLang;
 
@@ -74,7 +80,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
     }
   }, [activeLang, toast]);
 
-  // Real-time parsing when transcript updates
   useEffect(() => {
       processTranscript(transcript);
   }, [transcript, processTranscript]);
@@ -119,7 +124,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       }
     });
 
-    toast({ title: "Order Synced!", description: `Added ${validItems.length} items to your cart.` });
+    toast({ title: "Order manifest successful!" });
     onClose();
   };
 
@@ -129,9 +134,9 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
         <DialogHeader className="p-6 bg-white border-b shrink-0">
           <div className="flex justify-between items-start">
               <div>
-                <DialogTitle className="text-xl font-black uppercase tracking-tight">Voice Order</DialogTitle>
+                <DialogTitle className="text-xl font-black uppercase tracking-tight">Voice Hub</DialogTitle>
                 <DialogDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                    Multilingual Advanced NLU
+                    Local Intelligence Powered
                 </DialogDescription>
               </div>
               <div className="flex gap-1 bg-black/5 p-1 rounded-xl">
@@ -142,7 +147,10 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                             "px-2 py-1 text-[8px] font-black uppercase rounded-lg transition-all",
                             activeLang === l.code ? "bg-white shadow-sm text-primary" : "text-gray-400"
                         )}
-                        onClick={() => setActiveLang(l.code)}
+                        onClick={() => {
+                            setActiveLang(l.code);
+                            setTranscript('');
+                        }}
                       >
                           {l.label}
                       </button>
@@ -166,41 +174,61 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                         {isListening ? <X className="h-8 w-8 text-white" /> : <Mic className="h-8 w-8 text-white" />}
                     </button>
                     <p className="text-xs font-black uppercase tracking-widest text-gray-400 animate-pulse">
-                        {isListening ? 'Listening...' : 'Tap to speak'}
+                        {isListening ? 'System Listening...' : 'Tap to command'}
                     </p>
                 </div>
 
-                {/* Live Transcript */}
-                {transcript && (
-                    <div className="bg-white p-4 rounded-2xl border-2 border-black/5 shadow-sm relative">
-                        <button onClick={() => setTranscript('')} className="absolute -top-2 -right-2 h-6 w-6 bg-white border shadow-sm rounded-full flex items-center justify-center text-gray-400">
-                            <RotateCcw className="h-3 w-3" />
-                        </button>
-                        <p className="text-sm font-bold text-gray-800 italic leading-relaxed">
-                            "{transcript}"
-                        </p>
+                {/* Transcripts Area */}
+                {(transcript || cleanedTranscript) && (
+                    <div className="space-y-4">
+                        {transcript && (
+                            <div className="bg-white p-4 rounded-2xl border-2 border-black/5 shadow-sm relative group">
+                                <button onClick={() => setTranscript('')} className="absolute -top-2 -right-2 h-6 w-6 bg-white border shadow-sm rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
+                                    <RotateCcw className="h-3 w-3" />
+                                </button>
+                                <p className="text-[8px] font-black uppercase text-gray-400 mb-1">Raw Input</p>
+                                <p className="text-xs font-bold text-gray-400 italic leading-relaxed">
+                                    "{transcript}"
+                                </p>
+                            </div>
+                        )}
+                        
+                        {cleanedTranscript && (
+                            <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 shadow-sm relative animate-in slide-in-from-bottom-2">
+                                <p className="text-[8px] font-black uppercase text-primary mb-1 flex items-center gap-1">
+                                    <Sparkles className="h-2 w-2" /> Cleaned Interpretation
+                                </p>
+                                <p className="text-sm font-black text-gray-900 leading-relaxed uppercase tracking-tight">
+                                    {cleanedTranscript}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {/* Detected Items List */}
                 {parsedItems.length > 0 && (
                     <div className="space-y-3">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-1">Detected Order</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-1">Order Manifest</h3>
                         {parsedItems.map((item, idx) => (
                             <div key={idx} className={cn(
-                                "flex justify-between items-center p-4 rounded-2xl border-2 transition-all bg-white shadow-sm",
+                                "flex justify-between items-center p-4 rounded-[2rem] border-2 transition-all bg-white shadow-md",
                                 item.match ? "border-green-500/20" : "border-red-500/20"
                             )}>
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-black text-sm text-primary">{item.quantity}x</span>
-                                        <span className="font-black text-xs uppercase truncate text-gray-950">{item.match?.name || item.name}</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                                            {item.quantity}
+                                        </div>
+                                        <span className="font-black text-xs uppercase truncate text-gray-950">
+                                            {item.match?.name || item.name}
+                                        </span>
                                     </div>
-                                    {!item.match && <p className="text-[8px] font-black text-red-600 uppercase mt-1">Item not in menu</p>}
+                                    {!item.match && <p className="text-[8px] font-black text-red-600 uppercase mt-1 ml-11">Unrecognized product</p>}
                                 </div>
                                 <button 
                                     onClick={() => removeItem(idx)}
-                                    className="h-8 w-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                                    className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors shadow-sm"
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </button>
@@ -209,17 +237,17 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                     </div>
                 )}
 
-                {/* Menu Reference (Static List) */}
+                {/* Menu Reference */}
                 <div className="pt-6 border-t border-black/5">
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-4 px-1">
                         <List className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Available Menu</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Available Catalog</span>
                     </div>
-                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-2 no-scrollbar">
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-2 no-scrollbar">
                         {menu.map(item => (
-                            <div key={item.id} className="p-3 bg-white rounded-xl border border-black/5 flex justify-between items-center text-[10px] font-bold uppercase">
-                                <span className="text-gray-700">{item.name}</span>
-                                <span className="text-primary font-black">₹{item.price}</span>
+                            <div key={item.id} className="p-3 bg-white rounded-2xl border border-black/5 flex justify-between items-center text-[10px] font-bold uppercase group hover:border-primary/30 transition-colors">
+                                <span className="text-gray-700 truncate">{item.name}</span>
+                                <span className="text-primary font-black ml-4 shrink-0">₹{item.price}</span>
                             </div>
                         ))}
                     </div>
@@ -227,14 +255,14 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
             </div>
         </div>
 
-        <div className="p-6 border-t bg-white shrink-0 pb-10">
+        <div className="p-6 border-t bg-white shrink-0 pb-10 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
             <Button 
                 onClick={handleConfirm} 
                 disabled={parsedItems.filter(i => i.match).length === 0}
-                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20"
+                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all active:scale-95"
             >
                 <CheckCircle2 className="mr-2 h-5 w-5" />
-                Manifest Order
+                Synchronize to Cart
             </Button>
         </div>
       </DialogContent>
