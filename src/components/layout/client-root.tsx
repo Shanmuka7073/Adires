@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { ReactNode } from 'react';
@@ -7,8 +6,8 @@ import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 
 /**
- * CLIENT ROOT
- * Wraps the application in all necessary client-side providers.
+ * STRATEGIC CLIENT ROOT
+ * Prevents circular dependency by directly implementing the provider wrapper.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
