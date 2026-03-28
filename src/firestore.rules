@@ -118,7 +118,7 @@ service cloud.firestore {
 
     match /chats/{chatId} {
       allow list: if isSignedIn();
-      allow get, update: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow get, update: if isSignedIn() && (request.auth.uid in resource.data.participants);
       allow create: if isSignedIn();
 
       match /messages/{messageId} {

@@ -21,7 +21,7 @@ export default function StoreDetailPage() {
 
   const { 
     stores,
-    loading: appLoading, 
+    isFetchingStores: appLoading, 
     isInitialized,
     fetchInitialData
   } = useAppStore();
