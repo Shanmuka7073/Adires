@@ -187,7 +187,7 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 ========================= */
 
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
-  const cleaned = cleanText(text);
+  const cleaned = text.trim();
   const segments = cleaned.split(/ and | , | also /);
 
   const results: ParsedOrderItem[] = [];
