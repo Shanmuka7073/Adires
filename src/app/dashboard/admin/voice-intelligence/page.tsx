@@ -268,6 +268,7 @@ export default function VoiceIntelligencePage() {
     }, [firestore]);
 
     const handleSuggest = (cmd: FailedVoiceCommand) => {
+        if (!firestore) return;
         startSuggest(async () => {
             try {
                 const result = await suggestAlias({
@@ -277,13 +278,13 @@ export default function VoiceIntelligencePage() {
                 });
 
                 if (result.isSuggestionAvailable) {
-                    await updateDoc(doc(firestore!, 'failedCommands', cmd.id), {
+                    await updateDoc(doc(firestore, 'failedCommands', cmd.id), {
                         suggestion: result.suggestedKey,
                         status: 'resolved'
                     });
                     toast({ title: "Fix Suggested", description: `Matched to: ${result.suggestedKey}` });
                 } else {
-                    await updateDoc(doc(firestore!, 'failedCommands', cmd.id), { status: 'ignored' });
+                    await updateDoc(doc(firestore, 'failedCommands', cmd.id), { status: 'ignored' });
                     toast({ variant: 'destructive', title: "No Match", description: "AI couldn't find a confident link." });
                 }
             } catch (e) {
@@ -293,10 +294,11 @@ export default function VoiceIntelligencePage() {
     };
 
     const handleGenerateGroup = (productName: string) => {
+        if (!firestore) return;
         startGenAliases(async () => {
             try {
                 const result = await suggestProductAliases({ productName });
-                const groupRef = doc(firestore!, 'voiceAliasGroups', productName);
+                const groupRef = doc(firestore, 'voiceAliasGroups', productName);
                 await setDoc(groupRef, {
                     id: productName,
                     en: result.aliases.en,
@@ -321,7 +323,7 @@ export default function VoiceIntelligencePage() {
                 behavior: 'smooth'
             });
         }
-    }
+    };
 
     const filteredAliases = useMemo(() => {
         if (!aliasGroups) return [];
@@ -337,6 +339,13 @@ export default function VoiceIntelligencePage() {
 
     return (
         <div className="container mx-auto py-6 sm:py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500 text-left">
+            {selectedGroupForEdit && (
+                <ManageAliasDialog 
+                    group={selectedGroupForEdit}
+                    isOpen={!!selectedGroupForEdit}
+                    onOpenChange={(o) => !o && setSelectedGroupForEdit(null)}
+                />
+            )}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-4xl sm:text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950 text-left">Voice Intel</h1>
@@ -365,7 +374,7 @@ export default function VoiceIntelligencePage() {
                                     </CardTitle>
                                     <CardDescription className="hidden sm:block text-[10px] font-bold text-red-700/60 uppercase">Commands the system failed to parse</CardDescription>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={refetchFailed} className="rounded-full h-8 px-3 text-red-900 hover:bg-red-100">
+                                <Button variant="ghost" size="sm" onClick={() => refetchFailed && refetchFailed()} className="rounded-full h-8 px-3 text-red-900 hover:bg-red-100">
                                     <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", failedLoading && "animate-spin")} />
                                 </Button>
                             </div>
@@ -415,7 +424,6 @@ export default function VoiceIntelligencePage() {
 
                 <TabsContent value="aliases" className="animate-in slide-in-from-bottom-2 duration-500 space-y-8">
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        {/* LEFT: PLATFORM INVENTORY */}
                         <Card className="lg:col-span-1 rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white h-fit">
                             <CardHeader className="bg-black/5 pb-4 border-b border-black/5 text-left">
                                 <div className="flex justify-between items-center">
@@ -474,7 +482,6 @@ export default function VoiceIntelligencePage() {
                             </ScrollArea>
                         </Card>
 
-                        {/* RIGHT: ALIAS MANAGEMENT */}
                         <div className="lg:col-span-3 space-y-6">
                             <div className="flex flex-col sm:flex-row gap-4 items-end">
                                 <div className="flex-1 w-full relative">
@@ -533,7 +540,7 @@ export default function VoiceIntelligencePage() {
                                                         <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950 truncate max-w-[220px]">{group.id}</CardTitle>
                                                         <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Click to Manage</p>
                                                     </div>
-                                                    <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(firestore!, 'voiceAliasGroups', group.id)); }} className="text-red-500 sm:opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
+                                                    <button onClick={(e) => { e.stopPropagation(); if (firestore) deleteDoc(doc(firestore, 'voiceAliasGroups', group.id)); }} className="text-red-500 sm:opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
                                                 </div>
@@ -574,191 +581,3 @@ export default function VoiceIntelligencePage() {
         </div>
     );
 }
-
-```
-- workspace/src/lib/nlu/engine.ts:
-```ts
-/**
- * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (PHONETIC & FUZZY)
- * Optimized for Indian English, Telugu, and Hindi speech fragments.
- */
-
-import { calculateSimilarity } from "../calculate-similarity";
-import type { MenuItem } from "../types";
-
-/* =========================
-   🔧 CONFIG
-========================= */
-
-const NOISE_WORDS = [
-  "please", "give", "add", "i", "want", "me", "needed", "need",
-  "kavali", "ivvandi", "petandi", "chahiye", "lelo", "mangao",
-  "b", "the", "of", "also", "and", "plus"
-];
-
-const NUMBER_MAP: Record<string, number> = {
-  one: 1, two: 2, three: 3, four: 4, five: 5,
-  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  a: 1, an: 1, half: 0.5,
-  okati: 1, rendu: 2, moodu: 3, nalugu: 4,
-  aidu: 5, aaru: 6, yedu: 7, enimidi: 8,
-  tommidi: 9, padi: 10, oka: 1, ara: 0.5,
-  ek: 1, do: 2, teen: 3, chaar: 4, paanch: 5, adha: 0.5
-};
-
-/* =========================
-   🔥 PHONETIC HASHING
-========================= */
-
-/**
- * Sounds-Like Key Generator (Simplified Double Metaphone approach)
- * Strips vowels and reduces double consonants to find matches despite spelling differences.
- */
-function getPhoneticKey(str: string): string {
-  return str.toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/[aeiouyhw]/g, '') // remove vowels and quiet letters
-    .replace(/(.)\1+/g, '$1'); // deduplicate (e.g. "kk" -> "k")
-}
-
-/**
- * Calculates word-overlap similarity.
- */
-function wordSimilarity(a: string, b: string): number {
-  const aWords = a.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-  const bWords = b.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-
-  if (aWords.length === 0) return 0;
-
-  let matches = 0;
-  aWords.forEach(w => {
-    if (bWords.includes(w)) matches++;
-  });
-
-  return matches / Math.max(aWords.length, bWords.length);
-}
-
-/* =========================
-   🧠 MATCHING ENGINE
-========================= */
-
-function findBestMatch(input: string, menu: MenuItem[]) {
-  let best: MenuItem | undefined;
-  let maxScore = 0;
-
-  const inputLower = input.toLowerCase().trim();
-  const inputPhonetic = getPhoneticKey(inputLower);
-  const inputWordsCount = inputLower.split(/\s+/).filter(Boolean).length;
-
-  for (const item of menu) {
-    const name = item.name.toLowerCase();
-    const namePhonetic = getPhoneticKey(name);
-    const nameWordsCount = name.split(/\s+/).filter(Boolean).length;
-    
-    // 1. Exact Match (Perfect)
-    if (name === inputLower) return { best: item, confidence: 1.0 };
-
-    // 2. Word Overlap Score
-    let score = wordSimilarity(inputLower, name);
-
-    // 3. Phonetic Match Boost
-    if (inputPhonetic && namePhonetic) {
-        if (inputPhonetic === namePhonetic) score += 0.4;
-        else if (namePhonetic.includes(inputPhonetic)) score += 0.2;
-    }
-
-    // 4. Fuzzy Lev Score
-    const fuzzy = calculateSimilarity(inputLower, name);
-    score = Math.max(score, fuzzy);
-
-    // 5. STRICT PENALTY: Prevent short words matching long names 
-    // (e.g. "Chicken" should NOT match "Chicken Biryani" unless biryani is the only option)
-    if (inputWordsCount < nameWordsCount) {
-        const coverage = inputWordsCount / nameWordsCount;
-        if (coverage < 0.6) score *= 0.5; // Severe penalty for low coverage
-        else score *= coverage;
-    }
-
-    if (score > maxScore) {
-      maxScore = score;
-      best = item;
-    }
-  }
-
-  return { best, confidence: maxScore };
-}
-
-/* =========================
-   🚀 EXPORTS
-========================= */
-
-export interface NLUResult {
-  cleanedText: string;
-  language: string;
-  items: any[];
-}
-
-export function cleanText(input: string): string {
-  return input.toLowerCase()
-    .replace(/[,.]/g, " ")
-    .split(/\s+/)
-    .filter(w => !NOISE_WORDS.includes(w))
-    .join(" ");
-}
-
-export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
-  const cleaned = cleanText(text);
-  // Split by common segment delimiters but ensure we don't break multi-word products
-  const segments = cleaned.split(/\s+also\s+|\s+and\s+|\s+next\s+|\s+then\s+/);
-  const items: any[] = [];
-
-  segments.forEach(seg => {
-    const tokens = seg.trim().split(/\s+/);
-    if (!tokens.length || tokens[0] === "") return;
-
-    // Extract quantity
-    let qty = 1;
-    const remainingTokens = tokens.filter(t => {
-        const num = parseFloat(t);
-        if (!isNaN(num)) { qty = num; return false; }
-        if (NUMBER_MAP[t]) { qty = NUMBER_MAP[t]; return false; }
-        return true;
-    });
-
-    const productPhrase = remainingTokens.join(" ");
-    if (productPhrase.length < 2) return;
-
-    const { best, confidence } = findBestMatch(productPhrase, menu);
-
-    // Only accept highly confident matches (Threshold 0.7)
-    if (confidence >= 0.7) {
-        items.push({
-            name: best?.name || productPhrase,
-            quantity: qty,
-            match: best,
-            confidence
-        });
-    }
-  });
-
-  return { cleanedText: cleaned, language: lang, items };
-}
-
-export function extractQuantityAndProduct(nlu: NLUResult) {
-    const first = nlu.items[0];
-    return { 
-        qty: first?.quantity ?? 1, 
-        productPhrase: first?.name ?? nlu.cleanedText,
-        unit: null,
-        money: null
-    };
-}
-
-export function recognizeIntent(text: string, lang: string = "en"): any {
-    const lower = text.toLowerCase().trim();
-    if (lower.includes('home')) return { type: 'NAVIGATE', destination: 'home' };
-    if (lower.includes('cart')) return { type: 'NAVIGATE', destination: 'cart' };
-    return { type: 'ORDER_ITEM' };
-}
-
-```
