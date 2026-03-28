@@ -89,14 +89,14 @@ export function MainLayout({
   const hidePriceCheck = useCallback(() => setPriceCheckInfo(null), []);
   const onCartOpenChange = useCallback((open: boolean) => setIsCartOpen(open), []);
 
-  // ARCHITECTURE FIX: Maintenance Listener must wait for user context to avoid "auth: null" permission errors
+  // SAFE MAINTENANCE CHECK: Check document existence before applying overlay
   const statusRef = useMemoFirebase(() => {
       if (!firestore || isUserLoading) return null;
       return doc(firestore, 'siteConfig', 'appStatus');
   }, [firestore, isUserLoading]);
   
-  const { data: appStatus } = useDoc<any>(statusRef);
-  const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
+  const { data: appStatus, isLoading: statusLoading } = useDoc<any>(statusRef);
+  const isMaintenanceActive = !statusLoading && appStatus?.isMaintenance && !isAdmin;
 
   // Real-time Incoming Call Listener
   useEffect(() => {
