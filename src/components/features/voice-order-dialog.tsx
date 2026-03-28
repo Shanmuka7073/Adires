@@ -29,12 +29,13 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
   const { toast } = useToast();
   
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState(''); // Current segment
+  const [transcript, setTranscript] = useState(''); // Current interim segment
   const [parsedItems, setParsedItems] = useState<any[]>([]); // Committed items
   const [activeLang, setActiveLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to merge items into existing list
   const mergeItems = useCallback((newItems: any[]) => {
@@ -57,6 +58,15 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       });
   }, []);
 
+  const commitSpeech = useCallback((text: string) => {
+      if (!text.trim()) return;
+      const result = runNLU(text, activeLang, menu);
+      if (result.items.length > 0) {
+          mergeItems(result.items);
+      }
+      setTranscript('');
+  }, [activeLang, menu, mergeItems]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -66,24 +76,31 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       recognitionRef.current.lang = activeLang;
 
       recognitionRef.current.onresult = (event: any) => {
+        let finalSegment = '';
         let interimTranscript = '';
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcriptSegment = event.results[i][0].transcript;
+          const text = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            // Process and commit final segments immediately
-            const result = runNLU(transcriptSegment, activeLang, menu);
-            if (result.items.length > 0) {
-                mergeItems(result.items);
-            }
+            finalSegment += text;
           } else {
-            interimTranscript += transcriptSegment;
+            interimTranscript += text;
           }
         }
+
+        if (finalSegment) {
+            // Browser decided a segment is final. 
+            // We debounce the commit to ensure we get the full sentence if the user pauses briefly.
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => {
+                commitSpeech(finalSegment);
+            }, 500);
+        }
+
         setTranscript(interimTranscript);
       };
 
       recognitionRef.current.onend = () => {
-        // AUTO-RESTART LOGIC: If we should still be listening, start again
         if (isListeningRef.current) {
             try {
                 recognitionRef.current.start();
@@ -98,7 +115,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       recognitionRef.current.onerror = (event: any) => {
         if (event.error !== 'no-speech') {
             console.error("Speech Recognition Error:", event.error);
-            // Don't toast 'no-speech' errors as they are common during pauses
             if (event.error === 'network') {
                 toast({ variant: 'destructive', title: "Network Error", description: "Speech recognition interrupted." });
             }
@@ -110,8 +126,9 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
         if (recognitionRef.current) {
             recognitionRef.current.stop();
         }
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [activeLang, toast, menu, mergeItems]);
+  }, [activeLang, toast, menu, commitSpeech]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -221,9 +238,11 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                             {isListening ? 'System Listening...' : 'Tap to command'}
                         </p>
                         {isListening && transcript && (
-                            <p className="text-[10px] font-bold text-primary italic animate-in fade-in slide-in-from-top-1">
-                                "{transcript}..."
-                            </p>
+                            <div className="p-3 bg-primary/10 rounded-2xl border-2 border-primary/20 animate-in zoom-in-95">
+                                <p className="text-[10px] font-bold text-primary italic">
+                                    "{transcript}..."
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>
