@@ -123,7 +123,7 @@ service cloud.firestore {
 
     match /canonicalCatalog/{productId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isSignedIn();
     }
 
     /* ======================
