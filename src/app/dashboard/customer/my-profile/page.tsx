@@ -16,7 +16,7 @@ import type { User as AppUser } from '@/lib/types';
 import { Loader2, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useProfileFormStore, type ProfileFormValues, useAppStore } from '@/lib/store';
-import Link from 'link';
+import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { signOut } from 'firebase/auth';
 import { useAdminAuth } from '@/hooks/use-admin-auth';

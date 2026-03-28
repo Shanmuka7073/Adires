@@ -45,10 +45,10 @@ export default function StoreDetailPage() {
   }, [store, router]);
 
   useEffect(() => {
-    if (firestore && !isInitialized) {
+    if (firestore && !isInitialized && !isFetchingStores) {
       fetchInitialData(firestore);
     }
-  }, [firestore, isInitialized, fetchInitialData]);
+  }, [firestore, isInitialized, fetchInitialData, isFetchingStores]);
 
   const isLoading = isFetchingStores || !isInitialized;
 

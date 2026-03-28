@@ -5,11 +5,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { useEffect, useCallback, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
+import { Locales, getAllAliases as getAliasesFromLocales, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
-import { useFirebase } from '@/firebase';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -65,8 +63,8 @@ export const useProfileFormStore = create<ProfileFormState>((set) => ({
 }));
 
 interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+  saveInventoryBtnRef: React.RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: React.RefObject<HTMLButtonElement> | null) => void;
 }
 
 export const useMyStorePageStore = create<MyStorePageState>((set) => ({
@@ -147,8 +145,8 @@ export const useAppStore = create<AppState>()(
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          let userStore = get().userStore;
-          if (userId && (!userStore || userStore.ownerId !== userId)) {
+          let userStore = null;
+          if (userId) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
 
@@ -193,9 +191,7 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          return Promise.resolve();
-      },
+      fetchProductPrices: async () => Promise.resolve(),
 
       getProductName: (product: Product) => {
         const lang = get().language;
@@ -207,7 +203,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v17', 
+      name: 'adires-ops-v18', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
@@ -222,19 +218,19 @@ export const useInitializeApp = () => {
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
     const isInitialized = useAppStore(state => state.isInitialized);
-    const setAppReady = useAppStore(state => state.setAppReady);
+    const isFetchingStores = useAppStore(state => state.isFetchingStores);
+    const isFetchingUserStore = useAppStore(state => state.isFetchingUserStore);
     const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
         if (!firestore || isUserLoading) return;
 
         const bootstrap = async () => {
-            if (!isInitialized) {
+            if (!isInitialized && !isFetchingStores) {
                 await fetchInitialData(firestore, user?.uid);
-            } else if (user?.uid && (!userStore || userStore.ownerId !== user.uid)) {
+            } else if (user?.uid && !isFetchingUserStore && (!userStore || userStore.ownerId !== user.uid)) {
                 await fetchUserStore(firestore, user.uid);
             }
-            setAppReady(true);
         };
 
         bootstrap();

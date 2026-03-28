@@ -9,7 +9,7 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * Standard provider wrapper. self-import loop resolved.
+ * Standard provider wrapper. Circular dependency resolved by removing self-import.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (

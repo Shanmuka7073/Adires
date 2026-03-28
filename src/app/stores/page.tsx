@@ -42,8 +42,8 @@ export default function StoresPage() {
   const [sortedStores, setSortedStores] = useState<Store[]>([]);
 
   useEffect(() => {
-    if (firestore && !isInitialized) fetchInitialData(firestore);
-  }, [firestore, fetchInitialData, isInitialized]);
+    if (firestore && !isInitialized && !isFetching) fetchInitialData(firestore);
+  }, [firestore, fetchInitialData, isInitialized, isFetching]);
 
   useEffect(() => {
     if (categoryParam) {
