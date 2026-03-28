@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -22,7 +23,8 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   userStore: Store | null; 
-  loading: boolean;
+  isFetchingStores: boolean;
+  isFetchingUserStore: boolean;
   isInitialized: boolean;
   appReady: boolean;
   error: Error | null;
@@ -97,7 +99,8 @@ export const useAppStore = create<AppState>()(
       userStore: null,
       locales: {},
       commands: defaultGeneralCommands,
-      loading: false,
+      isFetchingStores: false,
+      isFetchingUserStore: false,
       isInitialized: false,
       appReady: false,
       error: null,
@@ -125,16 +128,13 @@ export const useAppStore = create<AppState>()(
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
-        const state = get();
-        if (state.loading) return;
-        
-        set({ loading: true, error: null });
+        set({ isFetchingStores: true, error: null });
         
         try {
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          let userStore = state.userStore;
+          let userStore = get().userStore;
           if (userId && (!userStore || userStore.ownerId !== userId)) {
               userStore = stores.find((s: Store) => s.ownerId === userId) || null;
           }
@@ -144,24 +144,21 @@ export const useAppStore = create<AppState>()(
           set({
             stores,
             isInitialized: true,
-            loading: false,
+            isFetchingStores: false,
             userStore,
             deviceId: id,
             appReady: true,
-            readCount: state.readCount + storesSnap.docs.length
+            readCount: get().readCount + storesSnap.docs.length
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+          set({ error: error as Error, isFetchingStores: false, isInitialized: true, appReady: true });
         }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
-        const state = get();
-        if (state.loading) return;
-
-        set({ loading: true, error: null });
+        set({ isFetchingUserStore: true, error: null });
 
         try {
             const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
@@ -173,13 +170,13 @@ export const useAppStore = create<AppState>()(
             set({
                 userStore,
                 isInitialized: true,
-                loading: false,
+                isFetchingUserStore: false,
                 appReady: true,
-                readCount: state.readCount + 1
+                readCount: get().readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+            set({ error: error as Error, isFetchingUserStore: false, isInitialized: true, appReady: true });
         }
       },
 
@@ -197,7 +194,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v14', 
+      name: 'adires-ops-v15', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           userStore: state.userStore,
@@ -213,13 +210,12 @@ export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
-    const loading = useAppStore(state => state.loading);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
     const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        if (!firestore || isUserLoading || loading) return;
+        if (!firestore || isUserLoading) return;
 
         const bootstrap = async () => {
             if (!isInitialized) {
@@ -231,7 +227,7 @@ export const useInitializeApp = () => {
         };
 
         bootstrap();
-    }, [firestore, isUserLoading, isInitialized, loading, fetchInitialData, fetchUserStore, user?.uid, userStore, setAppReady]);
+    }, [firestore, isUserLoading, user?.uid]); // Reduced dependencies to break loop
 
-    return { isLoading: loading };
+    return { isLoading: isUserLoading };
 };

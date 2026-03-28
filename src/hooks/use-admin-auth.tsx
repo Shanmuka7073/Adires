@@ -4,12 +4,13 @@
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
-const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com'];
+const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
 
 /**
  * A hook to determine the current user's role and authorization status.
+ * Standardized to ensure consistent Merchant/Restaurant role detection.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -38,6 +39,13 @@ export function useAdminAuth() {
   }, [isAdmin, isRestaurantOwner]);
 
   const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
+
+  // TELEMETRY FOR DEBUGGING
+  useEffect(() => {
+      if (!loading && user) {
+          console.log(`[AUTH_LOG] Identity: ${user.email}, AccountType: ${userData?.accountType || 'none'}, IsMerchant: ${isMerchant}`);
+      }
+  }, [loading, user, userData, isMerchant]);
 
   return {
     isAdmin,

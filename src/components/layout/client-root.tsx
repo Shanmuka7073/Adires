@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { ReactNode } from 'react';
@@ -7,9 +8,9 @@ import { MainLayout } from '@/components/layout/main-layout';
 import { InstallProvider } from '@/components/install-provider';
 
 /**
- * STRATEGIC CLIENT ROOT
- * Corrected to prevent circular self-import. 
- * Wraps the app in the essential providers for Auth, Cart, and PWA Install logic.
+ * CLIENT ROOT
+ * Corrected to prevent self-import and ensure all providers are in the correct order.
+ * This file is the primary entry point for the client-side application structure.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
