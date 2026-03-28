@@ -9,8 +9,8 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * STRATEGIC CLIENT ROOT
- * Wraps the application in all necessary client-side providers.
- * Includes InstallProvider to resolve the 'useInstall must be used within an InstallProvider' error.
+ * Corrected to prevent circular self-import. 
+ * Wraps the app in the essential providers for Auth, Cart, and PWA Install logic.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (

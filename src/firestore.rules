@@ -3,17 +3,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /* ======================
-       COMMON HELPER FUNCTIONS
-       ====================== */
+    /**
+     * LOCALBASKET SECURITY RULES
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset implements a multi-tenant security model for a grocery marketplace. It prioritizes
+     * authorization independence, meaning each document contains the necessary IDs (denormalized) 
+     * to make access decisions without expensive cross-collection lookups.
+     */
+
+    // --- HELPER FUNCTIONS ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description System Admin check.
-     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -24,20 +28,24 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    function storeExists(storeId) {
-      return exists(/databases/$(database)/documents/stores/$(storeId));
+
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
     }
 
     function isStoreOwner(storeId) {
-      return isSignedIn() &&
-        storeExists(storeId) &&
-        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid;
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_storeOwners/$(request.auth.uid));
     }
 
-    /* ======================
-       COLLECTIONS
-       ====================== */
+    function isDocumentOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function documentExists() {
+      return resource != null;
+    }
+
+    // --- COLLECTION RULES ---
 
     match /siteConfig/{configId} {
       allow read: if true;
@@ -45,23 +53,52 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId);
-      allow create: if isSignedIn();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId) || isAdmin();
+
+      match /addresses/{addressId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if isExistingOwner(userId);
+      }
+
+      match /cart {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+
+        match /items/{cartItemId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update, delete: if isExistingOwner(userId);
+        }
+      }
+    }
+
+    match /roles_storeOwners/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isStoreOwner(storeId);
+      allow update: if isStoreOwner(storeId) || isAdmin();
+      allow delete: if isAdmin();
 
       match /products/{productId} {
         allow get, list: if true;
-        allow write: if isStoreOwner(storeId);
+        allow write: if isStoreOwner(storeId) || isAdmin();
       }
       
       match /menus/{menuId} {
         allow read: if true;
-        allow write: if isStoreOwner(storeId);
+        allow write: if isStoreOwner(storeId) || isAdmin();
       }
 
       match /attendance/{recordId} {
@@ -71,12 +108,26 @@ service cloud.firestore {
       match /salarySlips/{slipId} {
         allow read, write: if isSignedIn();
       }
+      
+      match /packages/{packageId} {
+        allow read: if true;
+        allow write: if isStoreOwner(storeId) || isAdmin();
+      }
     }
 
     match /orders/{orderId} {
-      allow read: if true; 
-      allow create: if isSignedIn() || request.resource.data.userId == 'guest';
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if true; 
       allow update: if isSignedIn();
+      allow delete: if isAdmin();
+
+      match /items/{orderItemId} {
+        allow get, list: if true;
+        allow create: if true;
+        allow update: if isSignedIn();
+        allow delete: if isAdmin();
+      }
     }
 
     match /bookings/{bookingId} {
@@ -95,19 +146,12 @@ service cloud.firestore {
 
     match /calls/{callId} {
       allow read, write: if isSignedIn();
-      match /{allPaths=**} {
-        allow read, write: if isSignedIn();
-      }
     }
 
     match /deliveryPartners/{partnerId} {
-      allow get, update, create: if isOwner(partnerId);
+      allow get, update, create: if isOwner(partnerId) || isAdmin();
     }
 
-    match /diagnostic_logs/{logId} {
-      allow read, write: if isSignedIn();
-    }
-    
     match /failedCommands/{commandId} {
       allow create: if true;
       allow read, write: if isAdmin();
@@ -118,16 +162,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /canonicalCatalog/{productId} {
+    match /canonicalCatalog/{doc} {
       allow read: if true;
       allow write: if isSignedIn();
     }
 
-    /* ======================
-       ADMIN OVERRIDE (GLOBAL)
-       ===================== */
-    match /{document=**} {
-      allow read, write: if isAdmin();
+    match /diagnostic_logs/{logId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

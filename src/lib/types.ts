@@ -208,6 +208,7 @@ export type SiteConfig = {
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
+    isMaintenance?: boolean;
 };
 
 export type VoiceAliasGroup = {
