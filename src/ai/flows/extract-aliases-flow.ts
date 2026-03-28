@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to extract synonyms and aliases for a product from a block of text.
@@ -27,7 +26,7 @@ const aliasPrompt = ai.definePrompt({
   name: 'extractAliasesPrompt',
   input: { schema: ExtractAliasesInputSchema },
   output: { schema: ExtractAliasesOutputSchema },
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are an expert linguist for an Indian marketplace.
 Extract every possible nickname, slang term, misspelling, or synonym for the product "{{targetProduct}}" from the text below.
 

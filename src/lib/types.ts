@@ -1,4 +1,3 @@
-
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -300,6 +299,7 @@ export type DeliveryPartner = {
   payoutsEnabled: boolean;
   payoutMethod?: 'bank' | 'upi';
   upiId?: string;
+  zoneId?: string;
   bankDetails?: {
     accountHolderName: string;
     accountNumber: string;
