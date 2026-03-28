@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,8 +14,7 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (err: FirestorePermissionError) => {
-      // Use a standard timeout to ensure the state update happens in the next tick
-      // This prevents the "Cannot update a component while rendering a different component" error.
+      // Defer state update to next tick to avoid "update while rendering" warning
       setTimeout(() => {
         setError(err);
       }, 0);
@@ -27,7 +27,7 @@ export function FirebaseErrorListener() {
     };
   }, []);
 
-  // Throw error during render so it's caught by the nearest ErrorBoundary (error.js)
+  // Throw error during render so it's caught by error.js
   if (error) {
     throw error;
   }

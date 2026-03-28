@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order } from '@/lib/types';
@@ -58,7 +59,7 @@ interface Session {
   orderType: Order['orderType'];
   lastActivity: Date;
   needsService: boolean;
-  serviceType?: string | null;
+  serviceType: string | null | undefined;
 }
 
 function toDateSafe(d: any): Date {

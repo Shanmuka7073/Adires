@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 import { z } from 'zod';
 
@@ -29,6 +30,10 @@ export type CanonicalProduct = {
   name: string;
   imageUrl?: string;
   category?: string;
+  businessType?: string;
+  discoveredAt?: any;
+  discoveredInStoreId?: string;
+  updatedAt?: any;
 };
 
 export type Store = {

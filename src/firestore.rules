@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -118,6 +119,11 @@ service cloud.firestore {
     }
     
     match /voiceAliasGroups/{groupId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /canonicalCatalog/{productId} {
       allow read: if true;
       allow write: if isAdmin();
     }
