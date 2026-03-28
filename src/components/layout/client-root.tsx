@@ -7,7 +7,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 
 /**
  * CLIENT ROOT
- * Consolidates layout providers and resolves circular dependencies.
+ * Wraps the application in all necessary client-side providers.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
