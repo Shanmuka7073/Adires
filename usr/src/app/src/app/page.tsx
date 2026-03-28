@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -244,7 +245,7 @@ function HomepageHeader({ onSearchChange, user, onMicClick }: { onSearchChange: 
 /* ---------------- MAIN PAGE ---------------- */
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { masterProducts, productPrices, loading: isAppLoading, fetchInitialData, isInitialized, setActiveStoreId, stores } = useAppStore();
+  const { masterProducts, productPrices, isFetchingStores: isAppLoading, fetchInitialData, isInitialized, setActiveStoreId, stores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const { onToggleVoice } = useVoiceCommanderContext();
   
@@ -276,7 +277,7 @@ export default function LocalBasketHomepage() {
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
-    return masterProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    return (masterProducts || []).filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [searchTerm, masterProducts]);
 
   return (
