@@ -1,6 +1,7 @@
 /**
- * @fileOverview High-efficiency NLU Engine for Voice Ordering.
- * Handles parsing of quantities and fuzzy matching of product names.
+ * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (FINAL)
+ * Handles parsing of quantities, fuzzy matching of product names,
+ * and multi-item sentence structures.
  */
 
 import { calculateSimilarity } from "../calculate-similarity";
@@ -26,77 +27,218 @@ export type Intent =
   | { type: 'ORDER_ITEM'; originalText: string; lang: string }
   | { type: 'UNKNOWN'; originalText: string; lang: string };
 
-const NUMBER_MAP: Record<string, number> = {
-  // English
-  "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-  "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-  "half": 0.5, "quarter": 0.25, "a": 1, "an": 1,
-  // Telugu (Romanized & common)
-  "okati": 1, "rendu": 2, "moodu": 3, "nalugu": 4, "aidu": 5,
-  "aaru": 6, "yedu": 7, "enimidi": 8, "tommidi": 9, "padi": 10,
-  "oka": 1, "ara": 0.5,
-  // Hindi (Romanized & common)
-  "ek": 1, "do": 2, "teen": 3, "chaar": 4, "paanch": 5,
-  "che": 6, "saath": 7, "aath": 8, "nau": 9, "das": 10,
-  "adha": 0.5
+/* =========================
+   🔧 CONFIG
+========================= */
+
+const CORRECTIONS_DICT: Record<string, string> = {
+  beast: "piece",
+  chiken: "chicken",
+  stik: "stick",
+  bistic: "stick",
+  nastic: "stick",
+  bryani: "biryani",
+  biriyani: "biryani",
+  briyani: "biryani",
+  coc: "coke",
+  kok: "coke",
+  thumsup: "thums up"
 };
 
-/**
- * Parses a voice transcript into structured order items.
- * Example: "2 chicken biryani and one coke" -> [{name: "chicken biryani", qty: 2}, {name: "coke", qty: 1}]
- */
-export function parseOrder(text: string, menu: MenuItem[]): ParsedOrderItem[] {
-  const normalized = text.toLowerCase().replace(/,/g, ' and ').trim();
-  const parts = normalized.split(/\s+and\s+|\s+also\s+|\s+plus\s+/);
-  
-  const results: ParsedOrderItem[] = [];
+const NOISE_WORDS = [
+  "please", "give", "add", "i", "want", "me", "needed", "need",
+  "kavali", "ivvandi", "petandi",
+  "chahiye", "lelo", "mangao"
+];
 
-  parts.forEach(part => {
-    const tokens = part.trim().split(/\s+/);
-    if (tokens.length === 0) return;
+const NUMBER_MAP: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  a: 1, an: 1, half: 0.5,
 
-    let qty = 1;
-    let nameStartIndex = 0;
+  // Telugu
+  okati: 1, rendu: 2, moodu: 3, nalugu: 4,
+  aidu: 5, aaru: 6, yedu: 7, enimidi: 8,
+  tommidi: 9, padi: 10, oka: 1, ara: 0.5,
 
-    // 1. Check for numeric quantity
-    const firstToken = tokens[0];
-    if (!isNaN(parseInt(firstToken))) {
-      qty = parseFloat(firstToken);
-      nameStartIndex = 1;
-    } 
-    // 2. Check for word quantity (English, Telugu, Hindi)
-    else if (NUMBER_MAP[firstToken]) {
-      qty = NUMBER_MAP[firstToken];
-      nameStartIndex = 1;
-    }
+  // Hindi
+  ek: 1, do: 2, teen: 3, chaar: 4, paanch: 5, adha: 0.5
+};
 
-    const itemPhrase = tokens.slice(nameStartIndex).join(' ');
-    if (!itemPhrase) return;
+/* =========================
+   🔥 UTILS
+========================= */
 
-    // 3. Find best fuzzy match in menu
-    let bestMatch: MenuItem | undefined;
-    let highestConfidence = 0;
+function removeRepetition(words: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] === words[i - 1] && words[i] === words[i - 2]) continue;
+    result.push(words[i]);
+  }
+  return result;
+}
 
-    if (menu.length > 0) {
-        menu.forEach(menuItem => {
-          const score = calculateSimilarity(itemPhrase, menuItem.name.toLowerCase());
-          if (score > highestConfidence) {
-            highestConfidence = score;
-            bestMatch = menuItem;
-          }
-        });
-    }
+function wordSimilarity(a: string, b: string): number {
+  const aWords = a.toLowerCase().split(" ");
+  const bWords = b.toLowerCase().split(" ");
 
-    results.push({
-      name: itemPhrase,
-      quantity: qty,
-      originalText: part,
-      match: highestConfidence > 0.4 ? bestMatch : undefined,
-      confidence: highestConfidence
-    });
+  let match = 0;
+  aWords.forEach(w => {
+    if (bWords.includes(w)) match++;
   });
 
-  return results;
+  return match / Math.max(aWords.length, bWords.length);
+}
+
+/* =========================
+   🧹 CLEAN TEXT
+========================= */
+
+export function cleanText(input: string): string {
+  let words = input.toLowerCase()
+    .replace(/[,.]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  // Fix words
+  words = words.map(w => CORRECTIONS_DICT[w] || w);
+
+  // Remove noise
+  words = words.filter(w => !NOISE_WORDS.includes(w));
+
+  // Remove repetition
+  words = removeRepetition(words);
+
+  // Cut garbage long sentences
+  if (words.length > 15) {
+    words = words.slice(-10);
+  }
+
+  return words.join(" ");
+}
+
+/* =========================
+   🔢 QUANTITY
+========================= */
+
+function extractQuantity(tokens: string[]) {
+  let qty = 1;
+  let index = -1;
+
+  tokens.forEach((t, i) => {
+    if (!isNaN(Number(t))) {
+      qty = Number(t);
+      index = i;
+    } else if (NUMBER_MAP[t]) {
+      qty = NUMBER_MAP[t];
+      index = i;
+    }
+  });
+
+  const remaining = tokens.filter((_, i) => i !== index);
+
+  return { qty, remaining };
+}
+
+/* =========================
+   🧠 PRODUCT EXTRACTION
+========================= */
+
+function extractProductPhrase(tokens: string[]): string {
+  const filtered = tokens.filter(t =>
+    !NUMBER_MAP[t] && isNaN(Number(t))
+  );
+
+  return filtered.slice(-3).join(" ");
+}
+
+/* =========================
+   🔍 MATCHING
+========================= */
+
+function findBestMatch(input: string, menu: MenuItem[]) {
+  let best: MenuItem | undefined;
+  let score = 0;
+
+  for (let item of menu) {
+    const name = item.name.toLowerCase();
+    
+    // 1. Word overlap similarity
+    let s = wordSimilarity(input, name);
+
+    // 2. Direct match boost
+    if (name.includes(input.toLowerCase())) s += 0.3;
+
+    // 3. Levenshtein check for misspellings
+    const levScore = calculateSimilarity(input, name);
+    s = Math.max(s, levScore);
+
+    if (s > score) {
+      score = s;
+      best = item;
+    }
+  }
+
+  return { best, confidence: score };
+}
+
+/* =========================
+   🚀 MAIN PARSER (runNLU)
+========================= */
+
+export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
+  const cleaned = cleanText(text);
+  const segments = cleaned.split(/ and | , | also /);
+
+  const results: ParsedOrderItem[] = [];
+  let lastItem: ParsedOrderItem | null = null;
+
+  segments.forEach(seg => {
+    const tokens = seg.trim().split(" ");
+    if (!tokens.length) return;
+
+    // CONTEXT: "one more"
+    if (seg.includes("more") && lastItem) {
+      lastItem.quantity += 1;
+      return;
+    }
+
+    const { qty, remaining } = extractQuantity(tokens);
+    const productText = extractProductPhrase(remaining);
+
+    if (!productText) return;
+
+    const { best, confidence } = findBestMatch(productText, menu);
+
+    if (confidence < 0.4) return;
+
+    const item: ParsedOrderItem = {
+      name: best?.name || productText,
+      quantity: qty,
+      originalText: seg,
+      match: best,
+      confidence
+    };
+
+    results.push(item);
+    lastItem = item;
+  });
+
+  // merge duplicates
+  const merged: Record<string, ParsedOrderItem> = {};
+  results.forEach(item => {
+    if (merged[item.name]) {
+      merged[item.name].quantity += item.quantity;
+    } else {
+      merged[item.name] = item;
+    }
+  });
+
+  return {
+    cleanedText: cleaned,
+    language: lang,
+    items: Object.values(merged)
+  };
 }
 
 /**
@@ -105,7 +247,6 @@ export function parseOrder(text: string, menu: MenuItem[]): ParsedOrderItem[] {
 export function recognizeIntent(text: string, lang: string = "en"): Intent {
   const lower = text.toLowerCase().trim();
   
-  // Navigation detection
   if (lower.includes('home') || lower.includes('start')) {
     return { type: 'NAVIGATE', destination: 'home', originalText: text, lang };
   }
@@ -116,27 +257,11 @@ export function recognizeIntent(text: string, lang: string = "en"): Intent {
     return { type: 'NAVIGATE', destination: 'orders', originalText: text, lang };
   }
 
-  // Order detection
   if (lower.includes('order') || lower.includes('buy') || lower.includes('get') || lower.includes('add')) {
     return { type: 'ORDER_ITEM', originalText: text, lang };
   }
 
   return { type: 'UNKNOWN', originalText: text, lang };
-}
-
-/**
- * Runs the NLU process. Updated to populate items for test script compatibility.
- */
-export function runNLU(text: string, lang: string = "en"): NLUResult {
-  const cleaned = text.trim();
-  // Pass an empty menu for generic parsing (name/qty extraction only)
-  const items = parseOrder(cleaned, []);
-  
-  return { 
-    cleanedText: cleaned, 
-    language: lang,
-    items: items
-  };
 }
 
 /**
