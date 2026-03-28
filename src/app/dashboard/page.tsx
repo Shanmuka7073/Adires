@@ -13,6 +13,7 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import GlobalLoader from '@/components/layout/global-loader';
 
 const allRoleCards = [
     {
@@ -72,23 +73,27 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
-    const [loading, setLoading] = useState(true);
-    const { isMerchant, isEmployee, isAdmin, isLoading: isRoleLoading, user, userData } = useAdminAuth();
+    const [loadingImages, setLoadingImages] = useState(true);
+    const { isMerchant, isEmployee, isAdmin, isLoading, user, userData } = useAdminAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (!isRoleLoading && user) {
+        // 1. Wait for ALL loading states to be stable (Auth + Firestore + Store)
+        if (isLoading) return;
+
+        // 2. Redirect logic: Use stable profile data to avoid flipping
+        if (user) {
             if (isAdmin) {
                 router.replace('/dashboard/admin');
             } else if (isMerchant) {
-                console.log("[DASHBOARD] Redirecting Merchant to /dashboard/restaurant");
                 router.replace('/dashboard/restaurant');
             }
         }
-    }, [isRoleLoading, isMerchant, isAdmin, user, router]);
+    }, [isLoading, isMerchant, isAdmin, user, router]);
 
     useEffect(() => {
-        if (!isRoleLoading && !isMerchant && !isAdmin) {
+        // Only load assets if we are actually staying on this page
+        if (!isLoading && !isMerchant && !isAdmin) {
             const fetchImages = async () => {
                 const imagePromises = allRoleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
@@ -97,24 +102,19 @@ export default function DashboardPage() {
                     return acc;
                 }, {} as Record<string, { imageUrl: string; imageHint: string }>);
                 setImages(imageMap);
-                setLoading(false);
+                setLoadingImages(false);
             };
             fetchImages();
         }
-    }, [isRoleLoading, isMerchant, isAdmin]);
+    }, [isLoading, isMerchant, isAdmin]);
     
-    if (isRoleLoading) {
-        return (
-            <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
-                <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Identifying Role...</p>
-            </div>
-        );
+    if (isLoading) {
+        return <GlobalLoader />;
     }
 
     // Don't render generic dashboard content if we are about to redirect
     if (user && (isMerchant || isAdmin)) {
-        return null;
+        return <GlobalLoader />;
     }
 
     return (
@@ -160,7 +160,7 @@ export default function DashboardPage() {
                         key={card.title} 
                         card={card} 
                         image={images[card.imageId]} 
-                        isLoading={loading}
+                        isLoading={loadingImages}
                     />
                 ))}
             </div>

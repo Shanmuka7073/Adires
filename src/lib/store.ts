@@ -24,6 +24,7 @@ export interface AppState {
   isFetchingStores: boolean;
   isFetchingUserStore: boolean;
   isInitialized: boolean;
+  isUserDataLoaded: boolean; // Explicit flag for loading synchronization
   appReady: boolean;
   error: Error | null;
   language: string;
@@ -101,6 +102,7 @@ export const useAppStore = create<AppState>()(
       isFetchingStores: false,
       isFetchingUserStore: false,
       isInitialized: false,
+      isUserDataLoaded: false,
       appReady: false,
       error: null,
       language: getInitialLanguage(),
@@ -130,6 +132,7 @@ export const useAppStore = create<AppState>()(
         stores: [],
         userStore: null,
         isInitialized: false,
+        isUserDataLoaded: false,
         appReady: false,
         error: null,
         isFetchingStores: false,
@@ -160,12 +163,13 @@ export const useAppStore = create<AppState>()(
             userStore: currentUserStore,
             deviceId: id,
             appReady: true,
+            isUserDataLoaded: true,
             readCount: get().readCount + storesSnap.docs.length
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, isFetchingStores: false, isInitialized: true, appReady: true });
+          set({ error: error as Error, isFetchingStores: false, isInitialized: true, appReady: true, isUserDataLoaded: true });
         }
       },
 
@@ -184,11 +188,12 @@ export const useAppStore = create<AppState>()(
             set({
                 userStore: storeData,
                 isFetchingUserStore: false,
+                isUserDataLoaded: true,
                 readCount: get().readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, isFetchingUserStore: false });
+            set({ error: error as Error, isFetchingUserStore: false, isUserDataLoaded: true });
         }
       },
 
@@ -204,7 +209,7 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v22', 
+      name: 'adires-ops-v23', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,

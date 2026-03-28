@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { ReactNode } from 'react';
@@ -8,8 +9,8 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * The definitive entry point for client-side providers.
- * Resolved circular dependency by removing the proxy import.
+ * Definitive entry point for client-side providers.
+ * Fixed circular dependency loop.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (

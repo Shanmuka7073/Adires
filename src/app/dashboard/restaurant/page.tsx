@@ -39,6 +39,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import GlobalLoader from '@/components/layout/global-loader';
 
 const createStoreSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -171,30 +172,37 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
 
 export default function MerchantDashboardPage() {
     const { user, firestore } = useFirebase();
-    const { isMerchant, isAdmin, isLoading } = useAdminAuth();
+    const { isMerchant, isAdmin, isRestaurantOwner, isLoading } = useAdminAuth();
     const router = useRouter();
     const { userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
     
-    // GUARD AGAINST INFINITE LOOPS
+    // Local flag to ensure we only fetch once per component mount
     const [hasFetched, setHasFetched] = useState(false);
 
     useEffect(() => {
-        if (!isLoading && !isMerchant && !isAdmin) {
-            router.replace('/dashboard');
+        // 1. Wait for ALL loading states to be stable
+        if (isLoading) return;
+
+        // 2. Security: If no user, redirect to login
+        if (!user) {
+            router.replace('/login');
+            return;
         }
-    }, [isLoading, isMerchant, isAdmin, router]);
 
-    useEffect(() => {
-        // Only run if we have a user and haven't fetched in this component mount yet
-        if (!firestore || !user?.uid || hasFetched) return;
+        // 3. Authorization: If not a merchant or admin, send back to consumer dashboard
+        // Note: isMerchant now includes isRestaurantOwner check + profile stability check
+        if (!isMerchant && !isAdmin) {
+            router.replace('/dashboard');
+            return;
+        }
 
-        // Condition: Fetch only if we don't have a store or the owner ID mismatch
-        if (!userStore || userStore.ownerId !== user.uid) {
+        // 4. Data Sync: Fetch store if missing
+        if (firestore && !userStore && !hasFetched) {
             setHasFetched(true);
             fetchUserStore(firestore, user.uid);
         }
-    }, [firestore, user?.uid, isInitialized, userStore, fetchUserStore, hasFetched]);
+    }, [isLoading, isMerchant, isAdmin, user, firestore, userStore, hasFetched, fetchUserStore, router]);
 
     const serviceLinks = useMemo(() => {
         const isSalon = userStore?.businessType === 'salon';
@@ -209,7 +217,7 @@ export default function MerchantDashboardPage() {
     }, [userStore]);
 
     if (isLoading) {
-        return <div className="h-[80vh] flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+        return <GlobalLoader />;
     }
 
     if (!user || (!isMerchant && !isAdmin)) return null;
