@@ -8,6 +8,8 @@ import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './t
 import { UseFormReturn } from 'react-hook-form';
 import { Locales, getAllAliases as getAliasesFromLocales, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
+import { useFirebase } from '@/firebase';
+import { useEffect } from 'react';
 
 export interface ProfileFormValues {
   firstName?: string;
@@ -24,7 +26,7 @@ export interface AppState {
   isFetchingStores: boolean;
   isFetchingUserStore: boolean;
   isInitialized: boolean;
-  isUserDataLoaded: boolean; // Explicit flag for loading synchronization
+  isUserDataLoaded: boolean; 
   appReady: boolean;
   error: Error | null;
   language: string;
@@ -53,43 +55,6 @@ export interface AppState {
   getProductName: (product: Product) => string;
 }
 
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: React.RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: React.RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
-
-const getInitialLanguage = (): string => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('app-language') || 'en';
-  }
-  return 'en';
-};
-
-const getOrGenerateDeviceId = () => {
-    if (typeof window === 'undefined') return 'server';
-    let id = localStorage.getItem('adires-device-id');
-    if (!id || id === 'null' || id === 'undefined' || id === 'server') {
-        id = 'dev_' + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem('adires-device-id', id);
-    }
-    return id;
-};
-
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -105,7 +70,7 @@ export const useAppStore = create<AppState>()(
       isUserDataLoaded: false,
       appReady: false,
       error: null,
-      language: getInitialLanguage(),
+      language: 'en',
       activeStoreId: null,
       deviceId: null, 
       isCartOpen: false,
@@ -115,13 +80,7 @@ export const useAppStore = create<AppState>()(
       incrementReadCount: (count = 1) => set(state => ({ readCount: state.readCount + count })),
       incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
-      setLanguage: (lang: string) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('app-language', lang);
-        }
-        set({ language: lang });
-      },
-      
+      setLanguage: (lang: string) => set({ language: lang }),
       setUserStore: (store: Store | null) => set({ userStore: store }),
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
       setDeviceId: (id: string) => set({ deviceId: id }),
@@ -137,8 +96,6 @@ export const useAppStore = create<AppState>()(
         error: null,
         isFetchingStores: false,
         isFetchingUserStore: false,
-        readCount: 0,
-        writeCount: 0,
       }),
 
       fetchInitialData: async (db: Firestore, userId?: string) => {
@@ -154,28 +111,24 @@ export const useAppStore = create<AppState>()(
               currentUserStore = storesList.find((s: Store) => s.ownerId === userId) || null;
           }
 
-          const id = getOrGenerateDeviceId();
-
           set({
             stores: storesList,
             isInitialized: true,
             isFetchingStores: false,
             userStore: currentUserStore,
-            deviceId: id,
-            appReady: true,
             isUserDataLoaded: true,
+            appReady: true,
             readCount: get().readCount + storesSnap.docs.length
           });
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, isFetchingStores: false, isInitialized: true, appReady: true, isUserDataLoaded: true });
+          set({ error: error as Error, isFetchingStores: false, isInitialized: true, isUserDataLoaded: true });
         }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         if (!userId || get().isFetchingUserStore) return;
-        
         set({ isFetchingUserStore: true, error: null });
 
         try {
@@ -198,18 +151,11 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchProductPrices: async () => Promise.resolve(),
-
-      getProductName: (product: Product) => {
-        const lang = get().language;
-        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
-      },
-
-      getAllAliases: (key: string) => {
-        return getAliasesFromLocales(get().locales, key);
-      }
+      getProductName: (product: Product) => translate(product.name.toLowerCase().replace(/ /g, '-'), get().language),
+      getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
-      name: 'adires-ops-v23', 
+      name: 'adires-ops-v30', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
@@ -218,3 +164,43 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export const useInitializeApp = () => {
+    const { firestore, user, isUserLoading } = useFirebase();
+    const { fetchInitialData, isFetchingStores, isUserDataLoaded, setDeviceId } = useAppStore();
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !useAppStore.getState().deviceId) {
+            const id = 'dev_' + Math.random().toString(36).substring(2, 15);
+            setDeviceId(id);
+        }
+    }, [setDeviceId]);
+
+    useEffect(() => {
+        if (firestore && !isUserLoading && !isFetchingStores && !isUserDataLoaded) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, user?.uid, isUserLoading, isFetchingStores, isUserDataLoaded, fetchInitialData]);
+
+    return { isLoading: !isUserDataLoaded };
+};
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: React.RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: React.RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));

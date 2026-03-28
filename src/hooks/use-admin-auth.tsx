@@ -4,15 +4,14 @@
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
 const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
 
 /**
- * A hook to determine the current user's role and authorization status.
- * Unified to ensure consistent Merchant/Restaurant role detection.
- * Optimized to wait for both Auth and Firestore data before reporting stability.
+ * Unified Auth Hook
+ * Now waits for isUserDataLoaded to prevent redirect flips.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -30,34 +29,20 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    // Return false until loading is fully finished to prevent early assumptions
-    if (isUserLoading || !isUserDataLoaded || isProfileLoading) return false;
+    if (!isUserDataLoaded || isProfileLoading) return false;
     return isAdmin || userData?.accountType === 'restaurant';
-  }, [userData, isAdmin, user, isUserLoading, isUserDataLoaded, isProfileLoading]);
-
-  const isEmployee = useMemo(() => {
-    if (isUserLoading || !isUserDataLoaded || isProfileLoading) return false;
-    return userData?.accountType === 'employee';
-  }, [userData, isUserLoading, isUserDataLoaded, isProfileLoading]);
+  }, [userData, isAdmin, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
-      if (isUserLoading || !isUserDataLoaded || isProfileLoading) return false;
+      if (!isUserDataLoaded || isProfileLoading) return false;
       return isAdmin || isRestaurantOwner;
-  }, [isAdmin, isRestaurantOwner, isUserLoading, isUserDataLoaded, isProfileLoading]);
+  }, [isAdmin, isRestaurantOwner, isUserDataLoaded, isProfileLoading]);
 
-  // isLoading is ONLY false when we have both auth state and confirmed Firestore profile data
   const loading = isUserLoading || (!!user && !isUserDataLoaded) || (!!user && isProfileLoading) || !auth;
-
-  useEffect(() => {
-      if (!loading && user) {
-          console.log(`[AUTH_LOG] Identity: ${user.email}, AccountType: ${userData?.accountType || 'none'}, IsMerchant: ${isMerchant}`);
-      }
-  }, [loading, user, userData, isMerchant]);
 
   return {
     isAdmin,
     isRestaurantOwner,
-    isEmployee,
     isMerchant,
     isLoading: loading,
     user,

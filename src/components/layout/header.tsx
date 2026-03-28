@@ -30,56 +30,12 @@ import { useMemo } from 'react';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
-function GlobalInstallButton() {
-    const { canInstall, triggerInstall } = useInstall();
-    if (!canInstall) return null;
-
-    return (
-        <Button 
-            onClick={triggerInstall} 
-            variant="default" 
-            size="sm" 
-            className="rounded-full h-6 px-2 text-[8px] uppercase tracking-widest shadow-md bg-primary text-white border-0 transition-all active:scale-95"
-        >
-            <Download className="h-3 w-3 mr-1.5" />
-            <span className="hidden sm:inline-block">Install</span>
-        </Button>
-    );
-}
-
-function LanguageSwitcher() {
-    const { language, setLanguage } = useAppStore();
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-2">
-                    <Globe className="h-6 w-6" />
-                    <span className="sr-only">Change language</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Select Language</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
-                    <DropdownMenuRadioItem value="en">
-                        English
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="te">
-                        Telugu
-                    </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
 function UserMenu() {
   const { user, isUserLoading, auth } = useFirebase();
   const { isAdmin, isRestaurantOwner } = useAdminAuth();
   const { resetApp } = useAppStore();
   const router = useRouter();
   const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
-  const { canInstall, triggerInstall } = useInstall();
 
   const handleLogout = async () => {
     if (auth) {
@@ -90,9 +46,7 @@ function UserMenu() {
     }
   };
 
-  if (isUserLoading) {
-    return <Skeleton className="h-7 w-7 rounded-full" />;
-  }
+  if (isUserLoading) return <Skeleton className="h-7 w-7 rounded-full" />;
 
   if (!user) {
     return (
@@ -107,41 +61,18 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 border-2 border-primary/10">
           <UserCircle className="h-5 w-5" />
-          <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 rounded-2xl overflow-hidden">
         <DropdownMenuLabel className="font-bold">{t('my-account')}</DropdownMenuLabel>
         <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        
-        {canInstall && (
-          <>
-            <DropdownMenuItem 
-                onClick={triggerInstall} 
-                className="rounded-lg cursor-pointer bg-primary text-white focus:bg-primary/90 focus:text-white font-black uppercase text-[10px] tracking-widest py-3 mb-1 shadow-md flex items-center gap-2"
-            >
-                <Download className="h-4 w-4" />
-                <span>Install Now</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
-
         <Link href={dashboardHref} passHref>
           <DropdownMenuItem className="rounded-lg cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-
-        <Link href="/chat" passHref>
-          <DropdownMenuItem className="rounded-lg cursor-pointer">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              <span>Messages</span>
-          </DropdownMenuItem>
-        </Link>
-        
          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer mt-1">
             <LogOut className="mr-2 h-4 w-4" />
             <span>{t('logout')}</span>
@@ -152,16 +83,13 @@ function UserMenu() {
 }
 
 export function Header() {
-  const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
   const { isAdmin, isRestaurantOwner, user } = useAdminAuth();
-  const { onToggleVoice, voiceEnabled, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
+  const { onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
 
-  const isMenuPage = pathname.startsWith('/menu/');
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
 
-  // LOGO DESTINATION LOGIC
   const logoHref = useMemo(() => {
     if (!user) return "/";
     if (isAdmin) return "/dashboard/admin";
@@ -169,35 +97,14 @@ export function Header() {
     return "/dashboard";
   }, [user, isAdmin, isRestaurantOwner]);
 
-  const handleMicClick = () => {
-      if (isMenuPage) {
-          setIsVoiceOrderDialogOpen(true);
-      } else {
-          onToggleVoice();
-      }
-  };
-
   return (
     <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
-
       <Link href={logoHref} className="flex items-center gap-1 min-w-0">
-
         <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
-          <Image 
-            src={logoUrl} 
-            alt="Logo" 
-            width={24} 
-            height={24} 
-            className="object-cover w-full h-full" 
-            priority 
-          />
+          <Image src={logoUrl} alt="Logo" width={24} height={24} className="object-cover w-full h-full" priority />
         </div>
-
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-          <span className="font-black text-[10px] truncate uppercase">
-            {brandName}
-          </span>
-
+          <span className="font-black text-[10px] truncate uppercase">{brandName}</span>
           {(isAdmin || isRestaurantOwner) && (
             <div className="flex items-center gap-0.5">
               <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
@@ -206,29 +113,14 @@ export function Header() {
           )}
         </div>
       </Link>
-
       <div className="flex-1" />
-
       <div className="flex items-center gap-1">
-        <GlobalInstallButton />
-        
-        <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn(
-                "h-8 w-8 rounded-full transition-all active:scale-90",
-                voiceEnabled ? "bg-primary text-white shadow-lg animate-pulse" : "text-gray-500"
-            )}
-            onClick={handleMicClick}
-        >
+        <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full", voiceEnabled && "bg-primary text-white animate-pulse")} onClick={onToggleVoice}>
             <Mic className="h-4 w-4" />
         </Button>
-
-        {!isAdmin && !isRestaurantOwner && <LanguageSwitcher />}
-        {!isAdmin && !isRestaurantOwner && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
+        <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />
         <UserMenu />
       </div>
-
     </header>
   );
 }
