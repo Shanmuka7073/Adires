@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit, doc, updateDoc, deleteDoc, setDoc, getDocs, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import type { FailedVoiceCommand, VoiceAliasGroup, MenuItem } from '@/lib/types';
@@ -25,7 +25,12 @@ import {
     ArrowRight,
     Edit3,
     FileText,
-    Languages
+    Languages,
+    ArrowUp,
+    ArrowDown,
+    ChevronUp,
+    ChevronDown,
+    Eraser
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -45,10 +50,12 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     const { toast } = useToast();
     const [isSaving, startSave] = useTransition();
     const [isExtracting, startExtract] = useTransition();
+    const [isClearing, startClear] = useTransition();
     
     const [bulkInput, setBulkInput] = useState('');
     const [targetLang, setTargetLang] = useState<'en' | 'te' | 'hi'>('en');
     const [extractionText, setExtractionText] = useState('');
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     const handleBulkAdd = () => {
         if (!bulkInput.trim() || !firestore) return;
@@ -63,6 +70,17 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
             setBulkInput('');
         });
     };
+
+    const handleClearBucket = () => {
+        if (!firestore) return;
+        if (!confirm(`Are you sure you want to clear all ${targetLang.toUpperCase()} aliases for ${group.id}?`)) return;
+        
+        startClear(async () => {
+            const docRef = doc(firestore, 'voiceAliasGroups', group.id);
+            await updateDoc(docRef, { [targetLang]: [], updatedAt: serverTimestamp() });
+            toast({ title: "Bucket Cleared" });
+        });
+    }
 
     const handleAIExtract = () => {
         if (!extractionText.trim()) return;
@@ -85,6 +103,20 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
             }
         });
     };
+
+    const handleScroll = (dir: 'top' | 'bottom') => {
+        const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+            viewport.scrollTo({
+                top: dir === 'top' ? 0 : viewport.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    const currentList = group[targetLang] || [];
+    // Display limit to prevent browser hang with 10,000+ badges
+    const displayList = currentList.slice(0, 500);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -127,19 +159,34 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                                 onChange={e => setBulkInput(e.target.value)}
                                 className="min-h-[150px] rounded-2xl border-2 font-bold bg-white"
                             />
-                            <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                                {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
-                                Sync Bulk List to {targetLang.toUpperCase()}
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
+                                    Sync Bulk List to {targetLang.toUpperCase()}
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={handleClearBucket} disabled={isClearing || currentList.length === 0} className="h-12 w-12 rounded-xl text-red-500 bg-red-50 hover:bg-red-100">
+                                    <Eraser className="h-5 w-5" />
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase opacity-40 px-1">Current Inventory</Label>
-                            <ScrollArea className="h-40 rounded-2xl border-2 bg-white p-4">
+                            <div className="flex justify-between items-center px-1">
+                                <Label className="text-[10px] font-black uppercase opacity-40">
+                                    Current Inventory ({currentList.length})
+                                    {currentList.length > 500 && <span className="ml-2 text-red-500">• Showing first 500</span>}
+                                </Label>
+                                <div className="flex gap-1">
+                                    <button onClick={() => handleScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3.5 w-3.5" /></button>
+                                    <button onClick={() => handleScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3.5 w-3.5" /></button>
+                                </div>
+                            </div>
+                            <ScrollArea ref={scrollRef} className="h-40 rounded-2xl border-2 bg-white p-4">
                                 <div className="flex flex-wrap gap-2">
-                                    {(group[targetLang] || []).map(a => (
+                                    {displayList.map(a => (
                                         <Badge key={a} variant="secondary" className="rounded-lg h-7 font-bold text-[10px] uppercase">{a}</Badge>
                                     ))}
+                                    {currentList.length === 0 && <p className="text-[10px] font-black uppercase opacity-20 py-10 text-center w-full">Empty bucket</p>}
                                 </div>
                             </ScrollArea>
                         </div>
@@ -181,6 +228,7 @@ export default function VoiceIntelligencePage() {
     const [isAddingNew, setIsAddingNew] = useState(false);
     const [prefilledName, setPrefilledName] = useState('');
     const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<VoiceAliasGroup | null>(null);
+    const inventoryScrollRef = useRef<HTMLDivElement>(null);
 
     // --- FAILED COMMANDS LOGIC ---
     const failedQuery = useMemoFirebase(() => 
@@ -271,18 +319,27 @@ export default function VoiceIntelligencePage() {
         });
     };
 
+    const handleInventoryScroll = (dir: 'top' | 'bottom') => {
+        const viewport = inventoryScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+            viewport.scrollTo({
+                top: dir === 'top' ? 0 : viewport.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }
+
     const filteredAliases = useMemo(() => {
         if (!aliasGroups) return [];
         return aliasGroups.filter(g => g.id.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [aliasGroups, searchTerm]);
 
     const itemsNeedingAliases = useMemo(() => {
-        const existingKeys = new Set(aliasGroups?.map(g => g.id.toLowerCase()) || []);
         return masterItems.filter(name => {
             const matchesSearch = name.toLowerCase().includes(inventorySearch.toLowerCase());
             return matchesSearch;
         });
-    }, [masterItems, aliasGroups, inventorySearch]);
+    }, [masterItems, inventorySearch]);
 
     return (
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
@@ -375,10 +432,18 @@ export default function VoiceIntelligencePage() {
                         {/* LEFT: PLATFORM INVENTORY */}
                         <Card className="lg:col-span-1 rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white h-fit">
                             <CardHeader className="bg-black/5 pb-4 border-b border-black/5">
-                                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                                    <ShoppingBag className="h-3.5 w-3.5 text-primary" /> Platform Inventory
-                                </CardTitle>
-                                <CardDescription className="text-[8px] font-bold opacity-40 uppercase">Unique items across all hubs</CardDescription>
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                            <ShoppingBag className="h-3.5 w-3.5 text-primary" /> Platform Inventory
+                                        </CardTitle>
+                                        <CardDescription className="text-[8px] font-bold opacity-40 uppercase">Across all hubs</CardDescription>
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => handleInventoryScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3 w-3" /></button>
+                                        <button onClick={() => handleInventoryScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3 w-3" /></button>
+                                    </div>
+                                </div>
                             </CardHeader>
                             <div className="p-4 border-b border-black/5">
                                 <div className="relative">
@@ -391,7 +456,7 @@ export default function VoiceIntelligencePage() {
                                     />
                                 </div>
                             </div>
-                            <ScrollArea className="h-[500px]">
+                            <ScrollArea ref={inventoryScrollRef} className="h-[500px]">
                                 <div className="divide-y divide-black/5">
                                     {itemsNeedingAliases.map(item => {
                                         const isLinked = aliasGroups?.some(g => g.id.toLowerCase() === item.toLowerCase());
