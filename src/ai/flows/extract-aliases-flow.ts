@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to extract potential product aliases from a block of text.
@@ -10,7 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const ExtractAliasesInputSchema = z.object({
   textBlock: z.string().describe('A block of text to analyze for product aliases (e.g., from a book, article, or recipe).'),
@@ -25,23 +23,20 @@ const ExtractAliasesOutputSchema = z.object({
 });
 export type ExtractAliasesOutput = z.infer<typeof ExtractAliasesOutputSchema>;
 
-export async function extractAliasesFromText(input: ExtractAliasesInput): Promise<ExtractAliasesOutput> {
-  const { output } = await ai.generate({
-    model: googleAI.model('gemini-2.0-flash'),
-    input: {
-      schema: ExtractAliasesInputSchema,
-      data: input,
-    },
-    output: {
-      schema: ExtractAliasesOutputSchema,
-    },
-    prompt: `You are a linguistic expert. Read the following text and find ALL possible synonyms, regional names, slang, or common misspellings used for the product: "{{targetProduct}}".
+const extractAliasesPrompt = ai.definePrompt({
+  name: 'extractAliasesPrompt',
+  input: { schema: ExtractAliasesInputSchema },
+  output: { schema: ExtractAliasesOutputSchema },
+  model: 'googleai/gemini-2.5-flash',
+  prompt: `You are a linguistic expert. Read the following text and find ALL possible synonyms, regional names, slang, or common misspellings used for the product: "{{targetProduct}}".
     
     Text to analyze:
     "{{textBlock}}"
     
     Return the unique aliases grouped by English, Telugu, and Hindi. Include both native scripts and Roman transliterations.`,
-  });
+});
 
+export async function extractAliasesFromText(input: ExtractAliasesInput): Promise<ExtractAliasesOutput> {
+  const { output } = await extractAliasesPrompt(input);
   return output || { en: [], te: [], hi: [] };
 }
