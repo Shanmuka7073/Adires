@@ -59,7 +59,7 @@ interface Session {
   orderType: Order['orderType'];
   lastActivity: Date;
   needsService: boolean;
-  serviceType: string | null | undefined;
+  serviceType?: string | null;
 }
 
 function toDateSafe(d: any): Date {
