@@ -54,6 +54,7 @@ import { BookingSheet } from '@/components/features/booking-sheet';
 import { VoiceOrderDialog } from '@/components/features/voice-order-dialog';
 import Link from 'next/link';
 import { getOrCreateChat } from '@/lib/chat-service';
+import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -234,7 +235,7 @@ function MenuContent() {
   const [searchTerm, setSearchTerm] = useState(''); 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
-  const [isVoiceOrderOpen, setIsVoiceOrderOpen] = useState(false);
+  const { isVoiceOrderDialogOpen, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
   const [tableNumber, setTableNumber] = useState<string | null>(null); 
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
@@ -359,10 +360,10 @@ function MenuContent() {
           </Sheet>
       )}
 
-      {isVoiceOrderOpen && menu && (
+      {isVoiceOrderDialogOpen && menu && (
         <VoiceOrderDialog 
-          open={isVoiceOrderOpen} 
-          onClose={() => setIsVoiceOrderOpen(false)} 
+          open={isVoiceOrderDialogOpen} 
+          onClose={() => setIsVoiceOrderDialogOpen(false)} 
           menu={menu.items} 
           storeId={storeId} 
         />
@@ -388,7 +389,7 @@ function MenuContent() {
                       </div>
                       <div className="flex gap-2">
                         {!isSalon && (
-                          <button onClick={() => setIsVoiceOrderOpen(true)} className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
+                          <button onClick={() => setIsVoiceOrderDialogOpen(true)} className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
                             <Mic className="h-4 w-4" />
                           </button>
                         )}

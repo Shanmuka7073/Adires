@@ -1,8 +1,7 @@
-
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2, MessageSquare } from 'lucide-react';
+import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2, MessageSquare, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
 import { usePathname } from 'next/navigation';
@@ -24,6 +23,8 @@ import { useAppStore } from '@/lib/store';
 import { useInstall } from '../install-provider';
 import Image from 'next/image';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useVoiceCommanderContext } from './voice-commander-context';
+import { cn } from '@/lib/utils';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -147,15 +148,25 @@ export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
   const { isRestaurantOwner, isAdmin } = useAdminAuth();
+  const { onToggleVoice, voiceEnabled, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
 
   // Show the header globally EXCEPT on the homepage
   if (pathname === '/') return null;
 
   const showShoppingControls = !isRestaurantOwner && !isAdmin;
+  const isMenuPage = pathname.startsWith('/menu/');
   const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
 
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
+
+  const handleMicClick = () => {
+      if (isMenuPage) {
+          setIsVoiceOrderDialogOpen(true);
+      } else {
+          onToggleVoice();
+      }
+  };
 
   return (
     <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
@@ -193,6 +204,19 @@ export function Header() {
 
       <div className="flex items-center gap-1">
         <GlobalInstallButton />
+        
+        <Button 
+            variant="ghost" 
+            size="icon" 
+            className={cn(
+                "h-8 w-8 rounded-full transition-all active:scale-90",
+                voiceEnabled ? "bg-primary text-white shadow-lg animate-pulse" : "text-gray-500"
+            )}
+            onClick={handleMicClick}
+        >
+            <Mic className="h-4 w-4" />
+        </Button>
+
         {showShoppingControls && <LanguageSwitcher />}
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
