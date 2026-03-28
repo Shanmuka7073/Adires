@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -11,7 +10,7 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail
 
 /**
  * Unified Auth Hook
- * Now waits for isUserDataLoaded to prevent redirect flips.
+ * Synchronizes Firebase Auth with Firestore Profile data to prevent redirection loops.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -30,19 +29,24 @@ export function useAdminAuth() {
 
   const isRestaurantOwner = useMemo(() => {
     if (!isUserDataLoaded || isProfileLoading) return false;
-    return isAdmin || userData?.accountType === 'restaurant';
-  }, [userData, isAdmin, isUserDataLoaded, isProfileLoading]);
+    return userData?.accountType === 'restaurant';
+  }, [userData, isUserDataLoaded, isProfileLoading]);
+
+  const isEmployee = useMemo(() => {
+    if (!isUserDataLoaded || isProfileLoading) return false;
+    return userData?.accountType === 'employee';
+  }, [userData, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
-      if (!isUserDataLoaded || isProfileLoading) return false;
       return isAdmin || isRestaurantOwner;
-  }, [isAdmin, isRestaurantOwner, isUserDataLoaded, isProfileLoading]);
+  }, [isAdmin, isRestaurantOwner]);
 
   const loading = isUserLoading || (!!user && !isUserDataLoaded) || (!!user && isProfileLoading) || !auth;
 
   return {
     isAdmin,
     isRestaurantOwner,
+    isEmployee,
     isMerchant,
     isLoading: loading,
     user,

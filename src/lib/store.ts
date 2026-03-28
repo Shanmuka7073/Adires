@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -155,7 +154,7 @@ export const useAppStore = create<AppState>()(
       getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
-      name: 'adires-ops-v30', 
+      name: 'adires-identity-storage-v1', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,

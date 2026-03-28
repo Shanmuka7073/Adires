@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -14,8 +13,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -83,7 +80,7 @@ function UserMenu() {
 }
 
 export function Header() {
-  const { isCartOpen, setCartOpen, userStore } = useAppStore();
+  const { setCartOpen, isCartOpen, userStore } = useAppStore();
   const { isAdmin, isRestaurantOwner, user } = useAdminAuth();
   const { onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
 

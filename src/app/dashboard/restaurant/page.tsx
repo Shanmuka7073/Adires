@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -172,32 +171,26 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
 
 export default function MerchantDashboardPage() {
     const { user, firestore } = useFirebase();
-    const { isMerchant, isAdmin, isRestaurantOwner, isLoading } = useAdminAuth();
+    const { isMerchant, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
     const { userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
     
-    // Local flag to ensure we only fetch once per component mount
     const [hasFetched, setHasFetched] = useState(false);
 
     useEffect(() => {
-        // 1. Wait for ALL loading states to be stable
         if (isLoading) return;
 
-        // 2. Security: If no user, redirect to login
         if (!user) {
             router.replace('/login');
             return;
         }
 
-        // 3. Authorization: If not a merchant or admin, send back to consumer dashboard
-        // Note: isMerchant now includes isRestaurantOwner check + profile stability check
         if (!isMerchant && !isAdmin) {
             router.replace('/dashboard');
             return;
         }
 
-        // 4. Data Sync: Fetch store if missing
         if (firestore && !userStore && !hasFetched) {
             setHasFetched(true);
             fetchUserStore(firestore, user.uid);

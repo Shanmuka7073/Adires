@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card } from '@/components/ui/card';
@@ -78,10 +77,8 @@ export default function DashboardPage() {
     const router = useRouter();
 
     useEffect(() => {
-        // 1. Wait for ALL loading states to be stable (Auth + Firestore + Store)
         if (isLoading) return;
 
-        // 2. Redirect logic: Use stable profile data to avoid flipping
         if (user) {
             if (isAdmin) {
                 router.replace('/dashboard/admin');
@@ -92,7 +89,6 @@ export default function DashboardPage() {
     }, [isLoading, isMerchant, isAdmin, user, router]);
 
     useEffect(() => {
-        // Only load assets if we are actually staying on this page
         if (!isLoading && !isMerchant && !isAdmin) {
             const fetchImages = async () => {
                 const imagePromises = allRoleCards.map(card => getProductImage(card.imageId));
@@ -112,7 +108,6 @@ export default function DashboardPage() {
         return <GlobalLoader />;
     }
 
-    // Don't render generic dashboard content if we are about to redirect
     if (user && (isMerchant || isAdmin)) {
         return <GlobalLoader />;
     }

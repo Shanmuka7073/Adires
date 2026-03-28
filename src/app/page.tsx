@@ -74,7 +74,6 @@ function HubNavigation() {
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { isMerchant, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
   const { stores, fetchInitialData, isInitialized, isFetchingStores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -86,14 +85,6 @@ export default function LocalBasketHomepage() {
   }, [firestore, isInitialized, fetchInitialData, user?.uid, isFetchingStores]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
-
-  if (isRoleLoading) {
-    return (
-        <div className="flex h-screen items-center justify-center bg-background">
-            <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-        </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">

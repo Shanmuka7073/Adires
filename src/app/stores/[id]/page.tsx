@@ -1,4 +1,3 @@
-
 'use client';
 import { Store } from '@/lib/types';
 import { useParams, notFound, useRouter } from 'next/navigation';
