@@ -239,6 +239,85 @@ export type Message = {
     createdAt: any;
 }
 
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  productId: string;
+  menuItemId?: string;
+  productName: string;
+  variantSku: string;
+  variantWeight: string;
+  quantity: number;
+  price: number;
+};
+
+export type Order = {
+  id: string;
+  userId: string;
+  storeId: string;
+  customerName?: string;
+  phone?: string;
+  email?: string;
+  deliveryAddress?: string;
+  deliveryLat: number;
+  deliveryLng: number;
+  items: OrderItem[];
+  totalAmount: number;
+  status: 'Pending' | 'Processing' | 'Out for Delivery' | 'Delivered' | 'Cancelled' | 'Completed' | 'Billed';
+  orderDate: any;
+  updatedAt?: any;
+  isActive?: boolean;
+  orderType?: 'delivery' | 'dine-in' | 'takeaway' | 'counter';
+  sessionId?: string;
+  tableNumber?: string | null;
+  needsService?: boolean;
+  serviceType?: string | null;
+  store?: Store;
+  deliveryPartnerId?: string | null;
+};
+
+export type Payout = {
+  id: string;
+  partnerId: string;
+  amount: number;
+  requestDate: Timestamp | Date | string;
+  completionDate?: Timestamp;
+  status: 'pending' | 'completed' | 'failed';
+  payoutMethod: 'bank' | 'upi';
+  payoutDetails: any;
+};
+
+export type DeliveryPartner = {
+  userId: string;
+  totalEarnings: number;
+  lastPayoutDate?: Timestamp;
+  payoutsEnabled: boolean;
+  payoutMethod?: 'bank' | 'upi';
+  upiId?: string;
+  bankDetails?: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+  };
+};
+
+// Represents the canonical pricing for a product, managed by the admin.
+export type ProductPrice = {
+    productName: string;
+    variants: ProductVariant[];
+}
+
+export type FailedVoiceCommand = {
+    id: string;
+    userId: string;
+    text: string;
+    lang: string;
+    timestamp: any;
+    storeId?: string;
+    status: 'new' | 'resolved' | 'ignored';
+    suggestion?: string;
+}
+
 declare global {
   interface Window {
       SpeechRecognition: any;
