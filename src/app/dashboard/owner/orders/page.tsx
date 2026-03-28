@@ -374,7 +374,8 @@ export default function StoreOrdersPage() {
                 status: o.status, 
                 orderType: o.orderType, 
                 lastActivity: toDateSafe(o.orderDate),
-                needsService: false
+                needsService: false,
+                serviceType: null
             };
         }
         tableSessions[o.sessionId!].orders.push(o);
