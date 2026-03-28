@@ -34,7 +34,7 @@ export default function StoresPage() {
   const categoryParam = searchParams.get('category');
   
   const allStores = useAppStore((state) => state.stores);
-  const loading = useAppStore((state) => state.loading);
+  const isFetching = useAppStore((state) => state.isFetchingStores);
   const isInitialized = useAppStore((state) => state.isInitialized);
   const fetchInitialData = useAppStore((state) => state.fetchInitialData);
 
@@ -142,7 +142,7 @@ export default function StoresPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-0">
-            {loading && !isInitialized ? (
+            {isFetching && !isInitialized ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <Skeleton className="h-64 w-full rounded-3xl" />
                     <Skeleton className="h-64 w-full rounded-3xl" />

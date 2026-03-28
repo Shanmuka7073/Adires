@@ -21,7 +21,7 @@ export default function StoreDetailPage() {
 
   const { 
     stores,
-    loading: appLoading, 
+    isFetchingStores, 
     isInitialized,
     fetchInitialData
   } = useAppStore();
@@ -50,7 +50,7 @@ export default function StoreDetailPage() {
     }
   }, [firestore, isInitialized, fetchInitialData]);
 
-  const isLoading = appLoading || !isInitialized;
+  const isLoading = isFetchingStores || !isInitialized;
 
   if (isLoading) {
     return (
