@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Order } from '@/lib/types';
@@ -22,18 +21,17 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import {
-  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp
+  collection, query, where, orderBy, doc, updateDoc, serverTimestamp, limit, Timestamp, getDocs
 } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { useMemo, useState, useEffect, useTransition } from 'react';
+import { useMemo, useState, useEffect, useTransition, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { getStoreSalesReport } from '@/app/actions';
+import { format, startOfDay } from 'date-fns';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
@@ -251,46 +249,53 @@ function SessionDetailsDialog({
 }
 
 function InsightsTab({ storeId }: { storeId: string }) {
+    const { firestore } = useFirebase();
     const [report, setReport] = useState<any>(null);
-    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchReport = async () => {
-        if (!storeId) return;
+    const fetchReportClientSide = useCallback(async () => {
+        if (!firestore || !storeId) return;
         setIsLoading(true);
-        setError(null);
         try {
-            const res = await getStoreSalesReport({ storeId, period: 'daily' });
-            if (res.success) {
-                setReport(res.report);
-            } else {
-                setError(res.error || "Failed to fetch analytical data.");
-            }
-        } catch (e: any) {
-            setError(e.message);
+            const startOfToday = startOfDay(new Date());
+            const q = query(
+                collection(firestore, 'orders'),
+                where('storeId', '==', storeId),
+                where('status', 'in', ['Delivered', 'Completed', 'Billed']),
+                where('orderDate', '>=', startOfToday)
+            );
+            const snap = await getDocs(q);
+            const orders = snap.docs.map(d => d.data() as Order);
+            
+            let totalSales = 0;
+            const productMap = new Map<string, number>();
+
+            orders.forEach(o => {
+                totalSales += o.totalAmount;
+                o.items.forEach(it => {
+                    const count = productMap.get(it.productName) || 0;
+                    productMap.set(it.productName, count + it.quantity);
+                });
+            });
+
+            const topProducts = Array.from(productMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([name, count]) => ({ name, count }));
+
+            setReport({ totalSales, totalOrders: orders.length, topProducts });
+        } catch (e) {
+            console.error("Insights fetch failed", e);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [firestore, storeId]);
 
     useEffect(() => {
-        fetchReport();
-    }, [storeId]);
+        fetchReportClientSide();
+    }, [fetchReportClientSide]);
 
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-
-    if (error) return (
-        <div className="p-4 space-y-4 text-left">
-            <Alert variant="destructive" className="rounded-2xl border-2">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle className="font-black uppercase text-xs">Analytics Sync Failed</AlertTitle>
-                <AlertDescription className="text-xs font-bold opacity-60 uppercase">{error}</AlertDescription>
-            </Alert>
-            <Button onClick={fetchReport} variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2">
-                <RefreshCw className="mr-2 h-4 w-4" /> Retry Sync
-            </Button>
-        </div>
-    );
 
     const totalSales = report?.totalSales || 0;
     const totalOrders = report?.totalOrders || 0;
