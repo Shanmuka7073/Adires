@@ -10,6 +10,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /**
+     * @description System Admin check.
+     * Triggers rule redeploy on comment change.
+     */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'shanmuka7073@gmail.com' ||
@@ -32,6 +36,14 @@ service cloud.firestore {
     }
 
     /* ======================
+       GLOBAL CONFIG (PUBLIC READ)
+       ====================== */
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    /* ======================
        ADMIN OVERRIDE (GLOBAL)
        ===================== */
     match /{document=**} {
@@ -43,11 +55,9 @@ service cloud.firestore {
        ====================== */
     
     match /calls/{callId} {
-      // Broadened for signaling handshake between authenticated peers
       allow read, write: if isSignedIn();
       
       match /{allPaths=**} {
-        // Ensure subcollections (ICE candidates) are accessible
         allow read, write: if isSignedIn();
       }
     }
@@ -57,28 +67,16 @@ service cloud.firestore {
        ====================== */
     
     match /chats/{chatId} {
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow get: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
 
-  // 🔥 REQUIRED for query (list)
-  allow list: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // 🔥 REQUIRED for single doc
-  allow get: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // Create chat
-  allow create: if isSignedIn();
-
-  // Update chat
-  allow update: if isSignedIn() &&
-    request.auth.uid in resource.data.participants;
-
-  // Messages
-  match /messages/{messageId} {
-    allow read, write: if isSignedIn() &&
-      request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-  }
-}
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
 
     /* ======================
        COLLECTIONS
@@ -122,12 +120,18 @@ service cloud.firestore {
       allow create: if isOwner(partnerId);
     }
 
-    match /siteConfig/{configId} {
-      allow read: if true;
-    }
-
     match /diagnostic_logs/{logId} {
       allow read, write: if isSignedIn();
+    }
+    
+    match /failedCommands/{commandId} {
+      allow create: if true;
+      allow read, write: if isAdmin();
+    }
+    
+    match /voiceAliasGroups/{groupId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

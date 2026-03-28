@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -120,10 +119,10 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-[#FDFCF7] max-h-[90vh] flex flex-col">
-                <DialogHeader className="p-8 bg-white border-b shrink-0">
+                <DialogHeader className="p-6 sm:p-8 bg-white border-b shrink-0">
                     <div className="flex justify-between items-start">
                         <div>
-                            <DialogTitle className="text-2xl font-black uppercase tracking-tight">{group.id}</DialogTitle>
+                            <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight">{group.id}</DialogTitle>
                             <DialogDescription className="font-bold text-[10px] uppercase opacity-40">Comprehensive Alias Suite</DialogDescription>
                         </div>
                         <Badge className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] px-3 h-6 uppercase">Total: {(group.en?.length || 0) + (group.te?.length || 0) + (group.hi?.length || 0)}</Badge>
@@ -132,12 +131,12 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
 
                 <ScrollArea className="flex-1">
                     <Tabs defaultValue="manual" className="w-full">
-                        <TabsList className="bg-black/5 mx-8 mt-6 p-1 rounded-xl border h-10">
-                            <TabsTrigger value="manual" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">Manual & Bulk</TabsTrigger>
-                            <TabsTrigger value="ai" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">AI Text Extractor</TabsTrigger>
+                        <TabsList className="bg-black/5 mx-4 sm:mx-8 mt-6 p-1 rounded-xl border h-10">
+                            <TabsTrigger value="manual" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6">Manual & Bulk</TabsTrigger>
+                            <TabsTrigger value="ai" className="flex-1 rounded-lg font-black text-[10px] uppercase tracking-widest px-2 sm:px-6">AI Extractor</TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="manual" className="p-8 space-y-6">
+                        <TabsContent value="manual" className="p-4 sm:p-8 space-y-6">
                             <div className="space-y-4">
                                 <div className="flex justify-between items-end px-1">
                                     <Label className="text-[10px] font-black uppercase opacity-40">Bulk Import Tool</Label>
@@ -162,7 +161,7 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                                 <div className="flex gap-2">
                                     <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
                                         {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
-                                        Sync Bulk List to {targetLang.toUpperCase()}
+                                        Sync Bulk List
                                     </Button>
                                     <Button variant="ghost" size="icon" onClick={handleClearBucket} disabled={isClearing || currentList.length === 0} className="h-12 w-12 rounded-xl text-red-500 bg-red-50 hover:bg-red-100">
                                         <Eraser className="h-5 w-5" />
@@ -174,7 +173,6 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                                 <div className="flex justify-between items-center px-1">
                                     <Label className="text-[10px] font-black uppercase opacity-40">
                                         Current Inventory ({currentList.length})
-                                        {currentList.length > 500 && <span className="ml-2 text-red-500">• Showing first 500</span>}
                                     </Label>
                                     <div className="flex gap-1">
                                         <button onClick={() => handleScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3.5 w-3.5" /></button>
@@ -192,7 +190,7 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="ai" className="p-8 space-y-6">
+                        <TabsContent value="ai" className="p-4 sm:p-8 space-y-6">
                             <div className="p-6 rounded-[2rem] bg-indigo-50 border-2 border-indigo-100 flex gap-4 items-start">
                                 <div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0"><Bot className="h-5 w-5" /></div>
                                 <div>
@@ -343,7 +341,7 @@ export default function VoiceIntelligencePage() {
     }, [masterItems, inventorySearch]);
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
+        <div className="container mx-auto py-6 sm:py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
             {selectedGroupForEdit && (
                 <ManageAliasDialog 
                     group={selectedGroupForEdit} 
@@ -354,20 +352,20 @@ export default function VoiceIntelligencePage() {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Voice Intel</h1>
+                    <h1 className="text-4xl sm:text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Voice Intel</h1>
                     <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">System-wide NLU Training Center</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={scanPlatformInventory} disabled={isScanningInventory} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm bg-white">
-                        <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isScanningInventory && "animate-spin")} /> Re-Scan All Menus
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={scanPlatformInventory} disabled={isScanningInventory} className="flex-1 sm:flex-none rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm bg-white">
+                        <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isScanningInventory && "animate-spin")} /> Re-Scan
                     </Button>
                 </div>
             </div>
 
             <Tabs defaultValue="failed" className="w-full">
-                <TabsList className="bg-black/5 p-1.5 rounded-[1.5rem] border mb-8 h-12">
-                    <TabsTrigger value="failed" className="rounded-xl font-black text-[10px] uppercase tracking-widest px-8">Failed Commands</TabsTrigger>
-                    <TabsTrigger value="aliases" className="rounded-xl font-black text-[10px] uppercase tracking-widest px-8">Global Aliases</TabsTrigger>
+                <TabsList className="bg-black/5 p-1.5 rounded-[1.5rem] border mb-8 h-12 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                    <TabsTrigger value="failed" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8">Failed Commands</TabsTrigger>
+                    <TabsTrigger value="aliases" className="flex-1 sm:flex-none rounded-xl font-black text-[10px] uppercase tracking-widest px-4 sm:px-8">Global Aliases</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="failed" className="animate-in slide-in-from-bottom-2 duration-500">
@@ -378,53 +376,55 @@ export default function VoiceIntelligencePage() {
                                     <CardTitle className="text-sm font-black uppercase tracking-widest text-red-900 flex items-center gap-2">
                                         <MicOff className="h-4 w-4" /> Error Log
                                     </CardTitle>
-                                    <CardDescription className="text-[10px] font-bold text-red-700/60 uppercase">Commands the system failed to parse</CardDescription>
+                                    <CardDescription className="hidden sm:block text-[10px] font-bold text-red-700/60 uppercase">Commands the system failed to parse</CardDescription>
                                 </div>
                                 <Button variant="ghost" size="sm" onClick={refetchFailed} className="rounded-full h-8 px-3 text-red-900 hover:bg-red-100">
-                                    <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", failedLoading && "animate-spin")} /> Refresh
+                                    <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", failedLoading && "animate-spin")} />
                                 </Button>
                             </div>
                         </CardHeader>
-                        <Table>
-                            <TableHeader className="bg-black/5">
-                                <TableRow>
-                                    <TableHead className="text-[10px] font-black uppercase pl-6">Transcript</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Lang</TableHead>
-                                    <TableHead className="text-[10px] font-black uppercase">Identity</TableHead>
-                                    <TableHead className="text-right text-[10px] font-black uppercase pr-6">AI Fix</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {!failedCommands || failedCommands.length === 0 ? (
-                                    <TableRow><TableCell colSpan={4} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands recorded</TableCell></TableRow>
-                                ) : failedCommands.map(cmd => (
-                                    <TableRow key={cmd.id} className="border-b border-black/5 hover:bg-muted/30">
-                                        <TableCell className="py-6 pl-6">
-                                            <p className="font-black text-sm text-gray-950 italic">"{cmd.text}"</p>
-                                            <p className="text-[8px] font-bold opacity-40 uppercase mt-1">{format(cmd.timestamp?.toDate() || new Date(), 'Pp')}</p>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="text-[8px] font-black uppercase">{cmd.lang}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-[9px] font-bold opacity-40 uppercase truncate max-w-[100px]">{cmd.userId}</TableCell>
-                                        <TableCell className="text-right pr-6">
-                                            {cmd.status === 'resolved' ? (
-                                                <Badge className="bg-green-500 text-white font-black text-[8px] uppercase">LINKED: {cmd.suggestion}</Badge>
-                                            ) : (
-                                                <Button 
-                                                    size="sm" 
-                                                    onClick={() => handleSuggest(cmd)} 
-                                                    disabled={isSuggesting}
-                                                    className="h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase tracking-widest px-4 shadow-lg shadow-indigo-200"
-                                                >
-                                                    <Bot className="h-3 w-3 mr-1.5" /> Suggest
-                                                </Button>
-                                            )}
-                                        </TableCell>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-black/5">
+                                    <TableRow>
+                                        <TableHead className="text-[10px] font-black uppercase pl-6 min-w-[200px]">Transcript</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase">Lang</TableHead>
+                                        <TableHead className="text-[10px] font-black uppercase hidden sm:table-cell">Identity</TableHead>
+                                        <TableHead className="text-right text-[10px] font-black uppercase pr-6">AI Fix</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {!failedCommands || failedCommands.length === 0 ? (
+                                        <TableRow><TableCell colSpan={4} className="py-20 text-center opacity-30 font-black uppercase text-xs">No failed commands</TableCell></TableRow>
+                                    ) : failedCommands.map(cmd => (
+                                        <TableRow key={cmd.id} className="border-b border-black/5 hover:bg-muted/30">
+                                            <TableCell className="py-6 pl-6">
+                                                <p className="font-black text-sm text-gray-950 italic">"{cmd.text}"</p>
+                                                <p className="text-[8px] font-bold opacity-40 uppercase mt-1">{format(cmd.timestamp?.toDate() || new Date(), 'Pp')}</p>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="text-[8px] font-black uppercase">{cmd.lang}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-[9px] font-bold opacity-40 uppercase truncate max-w-[100px] hidden sm:table-cell">{cmd.userId}</TableCell>
+                                            <TableCell className="text-right pr-6">
+                                                {cmd.status === 'resolved' ? (
+                                                    <Badge className="bg-green-500 text-white font-black text-[8px] uppercase">LINKED: {cmd.suggestion}</Badge>
+                                                ) : (
+                                                    <Button 
+                                                        size="sm" 
+                                                        onClick={() => handleSuggest(cmd)} 
+                                                        disabled={isSuggesting}
+                                                        className="h-8 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase tracking-widest px-4 shadow-lg shadow-indigo-200"
+                                                    >
+                                                        <Bot className="h-3 w-3 mr-1.5" /> Fix
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </Card>
                 </TabsContent>
 
@@ -436,9 +436,8 @@ export default function VoiceIntelligencePage() {
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                                            <ShoppingBag className="h-3.5 w-3.5 text-primary" /> Platform Inventory
+                                            <ShoppingBag className="h-3.5 w-3.5 text-primary" /> Inventory
                                         </CardTitle>
-                                        <CardDescription className="text-[8px] font-bold opacity-40 uppercase">Across all hubs</CardDescription>
                                     </div>
                                     <div className="flex gap-1">
                                         <button onClick={() => handleInventoryScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3 w-3" /></button>
@@ -450,14 +449,14 @@ export default function VoiceIntelligencePage() {
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 opacity-20" />
                                     <Input 
-                                        placeholder="Filter products..." 
+                                        placeholder="Filter..." 
                                         value={inventorySearch}
                                         onChange={e => setInventorySearch(e.target.value)}
                                         className="h-9 rounded-xl border-2 pl-8 font-bold uppercase text-[9px]"
                                     />
                                 </div>
                             </div>
-                            <ScrollArea ref={platformInventoryScrollRef} className="h-[500px]">
+                            <ScrollArea ref={platformInventoryScrollRef} className="h-[300px] sm:h-[500px]">
                                 <div className="divide-y divide-black/5">
                                     {itemsNeedingAliases.map(item => {
                                         const isLinked = aliasGroups?.some(g => g.id.toLowerCase() === item.toLowerCase());
@@ -478,7 +477,7 @@ export default function VoiceIntelligencePage() {
                                                         </span>
                                                     ) : (
                                                         <span className="text-[7px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1 mt-1">
-                                                            <AlertCircle className="h-2 w-2" /> Pending Sync
+                                                            <AlertCircle className="h-2 w-2" /> Pending
                                                         </span>
                                                     )}
                                                 </div>
@@ -492,7 +491,7 @@ export default function VoiceIntelligencePage() {
 
                         {/* RIGHT: ALIAS MANAGEMENT */}
                         <div className="lg:col-span-3 space-y-6">
-                            <div className="flex flex-col md:flex-row gap-4 items-end">
+                            <div className="flex flex-col sm:flex-row gap-4 items-end">
                                 <div className="flex-1 w-full relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-20" />
                                     <Input 
@@ -504,11 +503,11 @@ export default function VoiceIntelligencePage() {
                                 </div>
                                 <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
                                     <DialogTrigger asChild>
-                                        <Button className="h-12 rounded-xl font-black uppercase tracking-widest text-[10px] px-6 shadow-xl shadow-primary/20">
-                                            <Plus className="h-4 w-4 mr-2" /> New Canonical Entry
+                                        <Button className="w-full sm:w-auto h-12 rounded-xl font-black uppercase tracking-widest text-[10px] px-6 shadow-xl shadow-primary/20">
+                                            <Plus className="h-4 w-4 mr-2" /> New Entry
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-8">
+                                    <DialogContent className="rounded-[2.5rem] border-0 shadow-2xl p-6 sm:p-8">
                                         <DialogHeader>
                                             <DialogTitle className="font-black uppercase tracking-tight">Add Canonical Product</DialogTitle>
                                             <DialogDescription className="text-xs font-bold uppercase opacity-40">Create a central item for multilingual aliasing</DialogDescription>
@@ -535,22 +534,21 @@ export default function VoiceIntelligencePage() {
                             </div>
 
                             {filteredAliases.length === 0 ? (
-                                <div className="p-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-30">
+                                <div className="p-20 sm:p-32 text-center bg-white rounded-[3rem] border-2 border-dashed border-black/5 opacity-30">
                                     <Bot className="h-16 w-16 mx-auto mb-4 opacity-20" />
                                     <p className="font-black uppercase tracking-widest text-xs">Global Database Empty</p>
-                                    <p className="text-[10px] font-bold opacity-60 uppercase mt-2">Select an item from the inventory list to start</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {filteredAliases.map(group => (
                                         <Card key={group.id} className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white group hover:shadow-2xl transition-all border-2 border-transparent hover:border-primary/10 cursor-pointer" onClick={() => setSelectedGroupForEdit(group)}>
                                             <CardHeader className="bg-primary/5 border-b border-black/5 pb-4">
                                                 <div className="flex justify-between items-start">
                                                     <div className="min-w-0">
                                                         <CardTitle className="text-sm font-black uppercase tracking-tight text-gray-950 truncate max-w-[220px]">{group.id}</CardTitle>
-                                                        <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Canonical Key • Click to Manage</p>
+                                                        <p className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Click to Manage</p>
                                                     </div>
-                                                    <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(firestore!, 'voiceAliasGroups', group.id)); }} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
+                                                    <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(firestore!, 'voiceAliasGroups', group.id)); }} className="text-red-500 sm:opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg">
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>
                                                 </div>
@@ -558,29 +556,27 @@ export default function VoiceIntelligencePage() {
                                             <CardContent className="p-6 space-y-4">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="space-y-1">
-                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu Synonyms</p>
+                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Telugu</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.te?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-primary/20 text-primary">{a}</Badge>)}
                                                             {(group.te?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.te!.length - 3}</span>}
                                                         </div>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi Synonyms</p>
+                                                        <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Hindi</p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {group.hi?.slice(0, 3).map(a => <Badge key={a} variant="outline" className="text-[8px] font-bold uppercase py-0 px-1.5 border-orange-200 text-orange-600">{a}</Badge>)}
                                                             {(group.hi?.length || 0) > 3 && <span className="text-[8px] font-black opacity-20">+{group.hi!.length - 3}</span>}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        className="flex-1 h-8 rounded-xl font-black text-[8px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 border border-black/5 bg-gray-50"
-                                                    >
-                                                        <Edit3 className="h-3 w-3 mr-1.5" /> Advanced Edit
-                                                    </Button>
-                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="w-full h-8 rounded-xl font-black text-[8px] uppercase tracking-[0.2em] opacity-40 hover:opacity-100 border border-black/5 bg-gray-50"
+                                                >
+                                                    <Edit3 className="h-3 w-3 mr-1.5" /> Advanced Edit
+                                                </Button>
                                             </CardContent>
                                         </Card>
                                     ))}

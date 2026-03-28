@@ -1,10 +1,10 @@
-
 /**
  * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (FINAL)
  * Fully optimized for:
  * - messy speech text
  * - multilingual input
  * - fuzzy matching
+ * - phonetic-aware boosting
  * - mobile performance
  */
 
@@ -59,11 +59,21 @@ const NUMBER_MAP: Record<string, number> = {
 function removeRepetition(words: string[]): string[] {
   const result: string[] = [];
   for (let i = 0; i < words.length; i++) {
-    // Only remove if it's an exact repetition of the previous word
     if (i > 0 && words[i] === words[i - 1]) continue;
     result.push(words[i]);
   }
   return result;
+}
+
+/**
+ * Phonetic Key Generator (Soundex-lite)
+ * Removes vowels and double consonants to find sounds-like matches.
+ */
+function getPhoneticKey(str: string): string {
+  return str.toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .replace(/[aeiouyhw]/g, '') // remove vowels and h/w
+    .replace(/(.)\1+/g, '$1'); // remove duplicates
 }
 
 /**
@@ -136,14 +146,6 @@ function extractQuantity(tokens: string[]) {
       usedIndexes.push(i);
       break;
     }
-    if (t === "for" && tokens[i + 1]) {
-      const next = tokens[i + 1];
-      if (NUMBER_MAP[next] || !isNaN(Number(next))) {
-        qty = NUMBER_MAP[next] || Number(next);
-        usedIndexes.push(i, i + 1);
-        break;
-      }
-    }
   }
 
   const remaining = tokens.filter((_, i) => !usedIndexes.includes(i));
@@ -172,19 +174,27 @@ function findBestMatch(input: string, menu: MenuItem[]) {
   const inputLower = input.toLowerCase().trim();
   if (!inputLower) return { best: undefined, confidence: 0 };
 
+  const inputPhonetic = getPhoneticKey(inputLower);
+
   for (let item of menu) {
     const name = item.name.toLowerCase();
     if (name === inputLower) return { best: item, confidence: 1.0 };
 
     let s = wordSimilarity(inputLower, name);
-    const inputWords = inputLower.split(" ").filter(Boolean);
-    if (name.includes(inputLower)) {
-        if (inputWords.length > 1) s += 0.3;
-        else if (inputLower.length > 4) s += 0.1;
+    
+    // PHONETIC BOOST
+    const namePhonetic = getPhoneticKey(name);
+    if (inputPhonetic && namePhonetic && (namePhonetic.includes(inputPhonetic) || inputPhonetic.includes(namePhonetic))) {
+        s += 0.4;
     }
 
     const levScore = calculateSimilarity(inputLower, name);
     s = Math.max(s, levScore);
+
+    // length penalty
+    if (inputLower.split(" ").length === 1 && name.split(" ").length > 1) {
+        s *= 0.7;
+    }
 
     if (s > score) {
       score = s;
@@ -237,11 +247,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productText, menu);
 
-    // LOG FAILURE TO DB IF NO GOOD MATCH FOUND
-    if (confidence < 0.65) {
-        // This is handled by the calling component to have access to Firestore
-        return; 
-    }
+    if (confidence < 0.6) return;
 
     const item = {
       name: best?.name || productText,
