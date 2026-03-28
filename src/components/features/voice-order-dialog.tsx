@@ -1,15 +1,18 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, Loader2, CheckCircle2, Trash2, List, RotateCcw, X, Sparkles, Plus, Minus } from 'lucide-react';
+import { Mic, Loader2, CheckCircle2, Trash2, List, RotateCcw, X, Sparkles, Plus, Minus, Square } from 'lucide-react';
 import { runNLU } from '@/lib/nlu/engine';
-import type { MenuItem } from '@/lib/types';
+import type { MenuItem, FailedVoiceCommand } from '@/lib/types';
 import { useCart } from '@/lib/cart';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface VoiceOrderDialogProps {
   open: boolean;
@@ -27,43 +30,61 @@ const LANGUAGES = [
 export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDialogProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { firestore, user } = useFirebase();
   
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState(''); // Current interim segment
-  const [parsedItems, setParsedItems] = useState<any[]>([]); // Committed items
+  const [transcript, setTranscript] = useState(''); 
+  const [parsedItems, setParsedItems] = useState<any[]>([]); 
   const [activeLang, setActiveLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Helper to merge items into existing list
-  const mergeItems = useCallback((newItems: any[]) => {
+  const logFailure = useCallback(async (text: string) => {
+      if (!firestore || !text.trim()) return;
+      try {
+          const failData: Omit<FailedVoiceCommand, 'id'> = {
+              text,
+              lang: activeLang,
+              timestamp: serverTimestamp(),
+              storeId,
+              userId: user?.uid || 'guest',
+              status: 'new'
+          };
+          await addDoc(collection(firestore, 'failedCommands'), failData);
+      } catch (e) {
+          console.error("Failed to log voice error:", e);
+      }
+  }, [firestore, activeLang, storeId, user]);
+
+  const mergeItems = useCallback((newItems: any[], originalText: string) => {
+      if (newItems.length === 0) {
+          logFailure(originalText);
+          return;
+      }
+
       setParsedItems(current => {
           const newList = [...current];
           newItems.forEach(newItem => {
               const existingIndex = newList.findIndex(item => item.name === newItem.name);
               if (existingIndex !== -1) {
-                  // Increment quantity of existing item
                   newList[existingIndex] = {
                       ...newList[existingIndex],
                       quantity: newList[existingIndex].quantity + newItem.quantity
                   };
               } else {
-                  // Add new item to list
                   newList.push(newItem);
               }
           });
           return newList;
       });
-  }, []);
+  }, [logFailure]);
 
   const commitSpeech = useCallback((text: string) => {
       if (!text.trim()) return;
       const result = runNLU(text, activeLang, menu);
-      if (result.items.length > 0) {
-          mergeItems(result.items);
-      }
+      mergeItems(result.items, text);
       setTranscript('');
   }, [activeLang, menu, mergeItems]);
 
@@ -89,8 +110,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
         }
 
         if (finalSegment) {
-            // Browser decided a segment is final. 
-            // We debounce the commit to ensure we get the full sentence if the user pauses briefly.
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             debounceTimerRef.current = setTimeout(() => {
                 commitSpeech(finalSegment);
@@ -221,7 +240,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
 
         <div className="flex-1 overflow-y-auto">
             <div className="p-6 space-y-8">
-                {/* Listening Control */}
                 <div className="flex flex-col items-center gap-4">
                     <button 
                         onClick={toggleListening}
@@ -231,7 +249,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                         )}
                     >
                         {isListening && <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-20" />}
-                        {isListening ? <X className="h-8 w-8 text-white" /> : <Mic className="h-8 w-8 text-white" />}
+                        {isListening ? <Square className="h-8 w-8 text-white fill-current" /> : <Mic className="h-8 w-8 text-white" />}
                     </button>
                     <div className="text-center space-y-1">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-400">
@@ -247,7 +265,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                     </div>
                 </div>
 
-                {/* Order Manifest */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center px-1">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Order Manifest</h3>
@@ -297,7 +314,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                     )}
                 </div>
 
-                {/* Menu Reference */}
                 <div className="pt-6 border-t border-black/5">
                     <div className="flex items-center gap-2 mb-4 px-1">
                         <List className="h-3.5 w-3.5 text-primary" />

@@ -196,6 +196,28 @@ export type CommandGroup = {
   };
 };
 
+/* ---------------- VOICE INTELLIGENCE TYPES ---------------- */
+
+export type FailedVoiceCommand = {
+    id: string;
+    text: string;
+    lang: string;
+    timestamp: any;
+    storeId?: string;
+    userId?: string;
+    status: 'new' | 'resolved' | 'ignored';
+    suggestion?: string;
+};
+
+export type VoiceAliasGroup = {
+    id: string; // The canonical name (e.g. "Chicken Biryani")
+    en: string[];
+    te: string[];
+    hi: string[];
+    category?: string;
+    updatedAt: any;
+};
+
 /* ---------------- REST OF TYPES ---------------- */
 
 export type OrderItem = {
@@ -324,17 +346,6 @@ export type ProductPrice = {
     variants: ProductVariant[];
 }
 
-export type VoiceAliasGroup = {
-    id: string;
-    type: 'product' | 'store' | 'command';
-    [key: string]: any; 
-};
-
-export type InstructionStep = {
-    title: string;
-    actions: string[];
-};
-
 export interface GetIngredientsOutput {
     isSuccess: boolean;
     itemType: 'food' | 'service' | 'product';
@@ -389,6 +400,11 @@ export type SiteConfig = {
     isPackGeneratorEnabled?: boolean;
     isMaintenance?: boolean;
 };
+
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
 
 declare global {
   interface Window {

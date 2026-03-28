@@ -1,3 +1,4 @@
+
 /**
  * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (FINAL)
  * Fully optimized for:
@@ -79,13 +80,8 @@ function wordSimilarity(a: string, b: string): number {
     if (bWords.includes(w)) match++;
   });
 
-  // Calculate ratio based on both input and target to penalize partial noise
-  // We use Math.max to prevent short inputs from matching long items easily
   const score = (match / aWords.length) * (match / bWords.length);
-  
-  // Strict penalty: if input is 1 word and target is 2+ words, slash the score
   if (aWords.length === 1 && bWords.length > 1) return score * 0.5;
-  
   return score;
 }
 
@@ -95,8 +91,8 @@ function wordSimilarity(a: string, b: string): number {
 
 export function cleanText(input: string): string {
   let cleaned = input.toLowerCase()
-    .replace(/[,.]/g, " ") // Clean punctuation
-    .replace(/\bb\s+/g, "") // Remove stray 'b' prefixes
+    .replace(/[,.]/g, " ") 
+    .replace(/\bb\s+/g, "") 
     .replace(/\bb(\d+)/g, "$1"); 
 
   let words = cleaned.split(/\s+/)
@@ -123,31 +119,23 @@ function extractQuantity(tokens: string[]) {
 
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-
-    // Check for explicit numbers
     const num = parseFloat(t);
     if (!isNaN(num)) {
       qty = num;
       usedIndexes.push(i);
       break;
     }
-
-    // Check for word numbers
     if (NUMBER_MAP[t]) {
       qty = NUMBER_MAP[t];
       usedIndexes.push(i);
       break;
     }
-
-    // Check for "x2" or "2x" patterns
     const xMatch = t.match(/^x?(\d+)x?$/);
     if (xMatch) {
       qty = parseInt(xMatch[1]);
       usedIndexes.push(i);
       break;
     }
-
-    // Check for "for 2"
     if (t === "for" && tokens[i + 1]) {
       const next = tokens[i + 1];
       if (NUMBER_MAP[next] || !isNaN(Number(next))) {
@@ -170,7 +158,6 @@ function extractProductPhrase(tokens: string[]): string {
   const filtered = tokens.filter(t =>
     !NUMBER_MAP[t] && isNaN(Number(t))
   );
-
   return filtered.join(" ");
 }
 
@@ -187,25 +174,15 @@ function findBestMatch(input: string, menu: MenuItem[]) {
 
   for (let item of menu) {
     const name = item.name.toLowerCase();
-    
-    // 1. Exact Match (Highest Priority)
     if (name === inputLower) return { best: item, confidence: 1.0 };
 
-    // 2. Word overlap similarity with strictness
     let s = wordSimilarity(inputLower, name);
-
-    // 3. Substring match boost
-    // Only boost if the input is significant (more than 1 word or long word)
     const inputWords = inputLower.split(" ").filter(Boolean);
     if (name.includes(inputLower)) {
-        if (inputWords.length > 1) {
-            s += 0.3;
-        } else if (inputLower.length > 4) {
-            s += 0.1;
-        }
+        if (inputWords.length > 1) s += 0.3;
+        else if (inputLower.length > 4) s += 0.1;
     }
 
-    // 4. Levenshtein check for misspellings
     const levScore = calculateSimilarity(inputLower, name);
     s = Math.max(s, levScore);
 
@@ -239,8 +216,6 @@ export type Intent =
  */
 export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
   const cleaned = cleanText(text);
-  
-  // Only split by major conjunctions. Don't split by commas because browser STT uses them for pauses.
   const segments = cleaned.split(/ and | also | next /);
 
   const results: any[] = [];
@@ -250,7 +225,6 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
     const tokens = seg.trim().split(" ");
     if (!tokens.length || (tokens.length === 1 && tokens[0] === "")) return;
 
-    // CONTEXT: "one more"
     if (seg.includes("more") && lastItem) {
       lastItem.quantity += 1;
       return;
@@ -263,8 +237,11 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productText, menu);
 
-    // High threshold to ensure we don't add random items from noise
-    if (confidence < 0.65) return; 
+    // LOG FAILURE TO DB IF NO GOOD MATCH FOUND
+    if (confidence < 0.65) {
+        // This is handled by the calling component to have access to Firestore
+        return; 
+    }
 
     const item = {
       name: best?.name || productText,
@@ -278,7 +255,6 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
     lastItem = item;
   });
 
-  // merge duplicates within this single parse call
   const merged: Record<string, any> = {};
   results.forEach(item => {
     if (merged[item.name]) {
