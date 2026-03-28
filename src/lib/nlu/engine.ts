@@ -154,7 +154,8 @@ function extractQuantity(tokens: string[]) {
   }
 
   const remaining = tokens.filter((_, i) => !usedIndexes.includes(i));
-
+  console.log("TOKENS:", tokens);
+console.log("QTY:", qty);
   return { qty, remaining };
 }
 
