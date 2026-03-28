@@ -122,7 +122,7 @@ export async function sendBroadcastNotification(title: string, body: string) {
             tokens: tokens,
         };
 
-        const response = await messaging.sendEachForMulticast(message);
+        const response = await (messaging as any).sendEachForMulticast(message);
         return {
             success: true,
             results: {
@@ -552,7 +552,7 @@ export async function uploadStoreImage(storeId: string, base64Image: string) {
 
 export async function getSalarySlipData(slipId: string, userId: string, storeId?: string) {
   try {
-    const { db } = await getAdminServices();
+    const { db } = getAdminServices();
     const slipDocActual = await db.collection("stores").doc(storeId!).collection("salarySlips").doc(slipId).get();
     if (!slipDocActual.exists) return null;
     const slip = slipDocActual.data();

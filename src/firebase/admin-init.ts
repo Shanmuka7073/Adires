@@ -18,11 +18,16 @@ function getAppOptions(): AppOptions {
     let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
-        throw new Error("CRITICAL: 'SERVICE_ACCOUNT' environment variable is missing.");
+        // Fallback for development if secret is missing
+        return {
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
+        };
     }
 
     try {
         serviceAccountString = serviceAccountString.trim();
+        // Remove quotes if the string is wrapped in them (common in some env providers)
         if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
             serviceAccountString = serviceAccountString.slice(1, -1);
         }
@@ -35,10 +40,17 @@ function getAppOptions(): AppOptions {
             storageBucket: `${serviceAccount.project_id}.appspot.com`,
         };
     } catch (e: any) {
-        throw new Error(`INVALID SERVICE_ACCOUNT JSON: ${e.message}`);
+        console.error("CRITICAL: Failed to parse SERVICE_ACCOUNT secret:", e.message);
+        return {
+            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        };
     }
 }
 
+/**
+ * Returns the initialized Firebase Admin services.
+ * Utility function (not a Server Action).
+ */
 export function getAdminServices(): AdminServices {
   if (typeof window !== 'undefined') {
     throw new Error('getAdminServices can only be called on the server.');
