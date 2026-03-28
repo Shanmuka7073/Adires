@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +13,7 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (err: FirestorePermissionError) => {
-      // Use a timeout to ensure state update is out of the render loop.
+      // Use a timeout to ensure state update happens in next tick to avoid render warnings.
       setTimeout(() => {
         setError(err);
       }, 0);

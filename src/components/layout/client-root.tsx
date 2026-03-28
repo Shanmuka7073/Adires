@@ -7,7 +7,7 @@ import { MainLayout } from '@/components/layout/main-layout';
 
 /**
  * STRATEGIC CLIENT ROOT
- * Prevents circular dependency by directly implementing the provider wrapper.
+ * Resolved circular import by providing actual implementation instead of a redirect.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
