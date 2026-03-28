@@ -26,7 +26,6 @@ const CORRECTIONS_DICT: Record<string, string> = {
   coc: "coke",
   kok: "coke",
   thumsup: "thums up",
-  // Handle messy "b stick" or "b1" variations
   "b stick": "stick",
   "b1": "1"
 };
@@ -66,15 +65,18 @@ function removeRepetition(words: string[]): string[] {
 }
 
 function wordSimilarity(a: string, b: string): number {
-  const aWords = a.toLowerCase().split(" ");
-  const bWords = b.toLowerCase().split(" ");
+  const aWords = a.toLowerCase().split(" ").filter(Boolean);
+  const bWords = b.toLowerCase().split(" ").filter(Boolean);
+
+  if (aWords.length === 0) return 0;
 
   let match = 0;
   aWords.forEach(w => {
     if (bWords.includes(w)) match++;
   });
 
-  return match / Math.max(aWords.length, bWords.length);
+  // Calculate ratio based on both input and target to penalize partial noise
+  return (match / aWords.length) * (match / bWords.length);
 }
 
 /* =========================
@@ -82,35 +84,24 @@ function wordSimilarity(a: string, b: string): number {
 ========================= */
 
 export function cleanText(input: string): string {
-  // First pass: broad replacements for messy prefixes
   let cleaned = input.toLowerCase()
     .replace(/[,.]/g, " ")
-    .replace(/\bb\s+/g, "") // remove stray 'b '
-    .replace(/\bb(\d+)/g, "$1"); // change 'b1' to '1'
+    .replace(/\bb\s+/g, "") 
+    .replace(/\bb(\d+)/g, "$1"); 
 
   let words = cleaned.split(/\s+/)
     .filter(Boolean);
 
-  // Fix words from dictionary
   words = words.map(w => CORRECTIONS_DICT[w] || w);
-
-  // Remove noise
   words = words.filter(w => !NOISE_WORDS.includes(w));
-
-  // Remove repetition
   words = removeRepetition(words);
 
-  // Cut garbage long sentences
   if (words.length > 15) {
     words = words.slice(-10);
   }
 
   return words.join(" ");
 }
-
-/* =========================
-   🔢 QUANTITY
-========================= */
 
 /* =========================
    🔢 QUANTITY
@@ -154,8 +145,6 @@ function extractQuantity(tokens: string[]) {
   }
 
   const remaining = tokens.filter((_, i) => !usedIndexes.includes(i));
-  console.log("TOKENS:", tokens);
-console.log("QTY:", qty);
   return { qty, remaining };
 }
 
@@ -179,17 +168,31 @@ function findBestMatch(input: string, menu: MenuItem[]) {
   let best: MenuItem | undefined;
   let score = 0;
 
+  const inputLower = input.toLowerCase().trim();
+  if (!inputLower) return { best: undefined, confidence: 0 };
+
   for (let item of menu) {
     const name = item.name.toLowerCase();
     
-    // 1. Word overlap similarity
-    let s = wordSimilarity(input, name);
+    // 1. Exact Match (Highest Priority)
+    if (name === inputLower) return { best: item, confidence: 1.0 };
 
-    // 2. Direct match boost
-    if (name.includes(input.toLowerCase())) s += 0.3;
+    // 2. Word overlap similarity
+    let s = wordSimilarity(inputLower, name);
 
-    // 3. Levenshtein check for misspellings
-    const levScore = calculateSimilarity(input, name);
+    // 3. Substring match boost
+    // Only boost if the input is significant (more than 1 word or long word)
+    const inputWords = inputLower.split(" ").filter(Boolean);
+    if (name.includes(inputLower)) {
+        if (inputWords.length > 1) {
+            s += 0.4;
+        } else if (inputLower.length > 4) {
+            s += 0.2;
+        }
+    }
+
+    // 4. Levenshtein check for misspellings
+    const levScore = calculateSimilarity(inputLower, name);
     s = Math.max(s, levScore);
 
     if (s > score) {
@@ -244,7 +247,8 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productText, menu);
 
-    if (confidence < 0.45) return; // Slightly higher threshold to avoid "Beef Steak" for "Stick"
+    // INCREASED THRESHOLD to 0.6 to prevent over-matching common prefixes
+    if (confidence < 0.6) return; 
 
     const item = {
       name: best?.name || productText,
