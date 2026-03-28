@@ -55,7 +55,7 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     const [bulkInput, setBulkInput] = useState('');
     const [targetLang, setTargetLang] = useState<'en' | 'te' | 'hi'>('en');
     const [extractionText, setExtractionText] = useState('');
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const inventoryScrollRef = useRef<HTMLDivElement>(null);
 
     const handleBulkAdd = () => {
         if (!bulkInput.trim() || !firestore) return;
@@ -105,7 +105,7 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     };
 
     const handleScroll = (dir: 'top' | 'bottom') => {
-        const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        const viewport = inventoryScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
         if (viewport) {
             viewport.scrollTo({
                 top: dir === 'top' ? 0 : viewport.scrollHeight,
@@ -115,12 +115,11 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
     };
 
     const currentList = group[targetLang] || [];
-    // Display limit to prevent browser hang with 10,000+ badges
     const displayList = currentList.slice(0, 500);
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-[#FDFCF7]">
+            <DialogContent className="max-w-3xl rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-[#FDFCF7] max-h-[90vh] flex flex-col">
                 <DialogHeader className="p-8 bg-white border-b shrink-0">
                     <div className="flex justify-between items-start">
                         <div>
@@ -131,88 +130,90 @@ function ManageAliasDialog({ group, isOpen, onOpenChange }: { group: VoiceAliasG
                     </div>
                 </DialogHeader>
 
-                <Tabs defaultValue="manual" className="w-full">
-                    <TabsList className="bg-black/5 mx-8 mt-6 p-1 rounded-xl border h-10">
-                        <TabsTrigger value="manual" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">Manual & Bulk</TabsTrigger>
-                        <TabsTrigger value="ai" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">AI Text Extractor</TabsTrigger>
-                    </TabsList>
+                <ScrollArea className="flex-1">
+                    <Tabs defaultValue="manual" className="w-full">
+                        <TabsList className="bg-black/5 mx-8 mt-6 p-1 rounded-xl border h-10">
+                            <TabsTrigger value="manual" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">Manual & Bulk</TabsTrigger>
+                            <TabsTrigger value="ai" className="rounded-lg font-black text-[10px] uppercase tracking-widest px-6">AI Text Extractor</TabsTrigger>
+                        </TabsList>
 
-                    <TabsContent value="manual" className="p-8 space-y-6">
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end px-1">
-                                <Label className="text-[10px] font-black uppercase opacity-40">Bulk Import Tool</Label>
-                                <div className="flex gap-1 bg-black/5 p-1 rounded-lg">
-                                    {(['en', 'te', 'hi'] as const).map(l => (
-                                        <button 
-                                            key={l} 
-                                            onClick={() => setTargetLang(l)}
-                                            className={cn("px-3 h-6 rounded-md text-[9px] font-black uppercase transition-all", targetLang === l ? "bg-white shadow-sm text-primary" : "text-gray-400")}
-                                        >
-                                            {l}
-                                        </button>
-                                    ))}
+                        <TabsContent value="manual" className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-end px-1">
+                                    <Label className="text-[10px] font-black uppercase opacity-40">Bulk Import Tool</Label>
+                                    <div className="flex gap-1 bg-black/5 p-1 rounded-lg">
+                                        {(['en', 'te', 'hi'] as const).map(l => (
+                                            <button 
+                                                key={l} 
+                                                onClick={() => setTargetLang(l)}
+                                                className={cn("px-3 h-6 rounded-md text-[9px] font-black uppercase transition-all", targetLang === l ? "bg-white shadow-sm text-primary" : "text-gray-400")}
+                                            >
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <Textarea 
+                                    placeholder="Paste thousands of aliases here (comma or newline separated)..." 
+                                    value={bulkInput}
+                                    onChange={e => setBulkInput(e.target.value)}
+                                    className="min-h-[150px] rounded-2xl border-2 font-bold bg-white"
+                                />
+                                <div className="flex gap-2">
+                                    <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
+                                        {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
+                                        Sync Bulk List to {targetLang.toUpperCase()}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={handleClearBucket} disabled={isClearing || currentList.length === 0} className="h-12 w-12 rounded-xl text-red-500 bg-red-50 hover:bg-red-100">
+                                        <Eraser className="h-5 w-5" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center px-1">
+                                    <Label className="text-[10px] font-black uppercase opacity-40">
+                                        Current Inventory ({currentList.length})
+                                        {currentList.length > 500 && <span className="ml-2 text-red-500">• Showing first 500</span>}
+                                    </Label>
+                                    <div className="flex gap-1">
+                                        <button onClick={() => handleScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3.5 w-3.5" /></button>
+                                        <button onClick={() => handleScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3.5 w-3.5" /></button>
+                                    </div>
+                                </div>
+                                <ScrollArea ref={inventoryScrollRef} className="h-64 rounded-2xl border-2 bg-white p-4">
+                                    <div className="flex flex-wrap gap-2">
+                                        {displayList.map(a => (
+                                            <Badge key={a} variant="secondary" className="rounded-lg h-7 font-bold text-[10px] uppercase">{a}</Badge>
+                                        ))}
+                                        {currentList.length === 0 && <p className="text-[10px] font-black uppercase opacity-20 py-10 text-center w-full">Empty bucket</p>}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="ai" className="p-8 space-y-6">
+                            <div className="p-6 rounded-[2rem] bg-indigo-50 border-2 border-indigo-100 flex gap-4 items-start">
+                                <div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0"><Bot className="h-5 w-5" /></div>
+                                <div>
+                                    <h4 className="font-black uppercase text-xs text-indigo-900 tracking-tight">Linguistic Deep Scan</h4>
+                                    <p className="text-[10px] font-bold text-indigo-700/60 leading-relaxed uppercase mt-1">Paste a regional recipe or Wikipedia snippet. The AI will extract all nicknames and slang for this product.</p>
                                 </div>
                             </div>
                             <Textarea 
-                                placeholder="Paste thousands of aliases here (comma or newline separated)..." 
-                                value={bulkInput}
-                                onChange={e => setBulkInput(e.target.value)}
-                                className="min-h-[150px] rounded-2xl border-2 font-bold bg-white"
+                                placeholder="Paste text block here..." 
+                                value={extractionText}
+                                onChange={e => setExtractionText(e.target.value)}
+                                className="min-h-[200px] rounded-2xl border-2 font-medium bg-white"
                             />
-                            <div className="flex gap-2">
-                                <Button onClick={handleBulkAdd} disabled={isSaving || !bulkInput.trim()} className="flex-1 h-12 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20">
-                                    {isSaving ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4 mr-2" />}
-                                    Sync Bulk List to {targetLang.toUpperCase()}
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={handleClearBucket} disabled={isClearing || currentList.length === 0} className="h-12 w-12 rounded-xl text-red-500 bg-red-50 hover:bg-red-100">
-                                    <Eraser className="h-5 w-5" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center px-1">
-                                <Label className="text-[10px] font-black uppercase opacity-40">
-                                    Current Inventory ({currentList.length})
-                                    {currentList.length > 500 && <span className="ml-2 text-red-500">• Showing first 500</span>}
-                                </Label>
-                                <div className="flex gap-1">
-                                    <button onClick={() => handleScroll('top')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronUp className="h-3.5 w-3.5" /></button>
-                                    <button onClick={() => handleScroll('bottom')} className="h-6 w-6 rounded-md bg-black/5 flex items-center justify-center hover:bg-black/10"><ChevronDown className="h-3.5 w-3.5" /></button>
-                                </div>
-                            </div>
-                            <ScrollArea ref={scrollRef} className="h-40 rounded-2xl border-2 bg-white p-4">
-                                <div className="flex flex-wrap gap-2">
-                                    {displayList.map(a => (
-                                        <Badge key={a} variant="secondary" className="rounded-lg h-7 font-bold text-[10px] uppercase">{a}</Badge>
-                                    ))}
-                                    {currentList.length === 0 && <p className="text-[10px] font-black uppercase opacity-20 py-10 text-center w-full">Empty bucket</p>}
-                                </div>
-                            </ScrollArea>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="ai" className="p-8 space-y-6">
-                        <div className="p-6 rounded-[2rem] bg-indigo-50 border-2 border-indigo-100 flex gap-4 items-start">
-                            <div className="h-10 w-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0"><Bot className="h-5 w-5" /></div>
-                            <div>
-                                <h4 className="font-black uppercase text-xs text-indigo-900 tracking-tight">Linguistic Deep Scan</h4>
-                                <p className="text-[10px] font-bold text-indigo-700/60 leading-relaxed uppercase mt-1">Paste a regional recipe or Wikipedia snippet. The AI will extract all nicknames and slang for this product.</p>
-                            </div>
-                        </div>
-                        <Textarea 
-                            placeholder="Paste text block here..." 
-                            value={extractionText}
-                            onChange={e => setExtractionText(e.target.value)}
-                            className="min-h-[200px] rounded-2xl border-2 font-medium bg-white"
-                        />
-                        <Button onClick={handleAIExtract} disabled={isExtracting || !extractionText.trim()} className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-200">
-                            {isExtracting ? <Loader2 className="animate-spin h-5 w-5" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                            Extract Aliases with AI
-                        </Button>
-                    </TabsContent>
-                </Tabs>
-                <div className="h-10" />
+                            <Button onClick={handleAIExtract} disabled={isExtracting || !extractionText.trim()} className="w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-200">
+                                {isExtracting ? <Loader2 className="animate-spin h-5 w-5" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                                Extract Aliases with AI
+                            </Button>
+                        </TabsContent>
+                    </Tabs>
+                    <div className="h-10" />
+                </ScrollArea>
             </DialogContent>
         </Dialog>
     );
@@ -228,7 +229,7 @@ export default function VoiceIntelligencePage() {
     const [isAddingNew, setIsAddingNew] = useState(false);
     const [prefilledName, setPrefilledName] = useState('');
     const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<VoiceAliasGroup | null>(null);
-    const inventoryScrollRef = useRef<HTMLDivElement>(null);
+    const platformInventoryScrollRef = useRef<HTMLDivElement>(null);
 
     // --- FAILED COMMANDS LOGIC ---
     const failedQuery = useMemoFirebase(() => 
@@ -320,7 +321,7 @@ export default function VoiceIntelligencePage() {
     };
 
     const handleInventoryScroll = (dir: 'top' | 'bottom') => {
-        const viewport = inventoryScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        const viewport = platformInventoryScrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
         if (viewport) {
             viewport.scrollTo({
                 top: dir === 'top' ? 0 : viewport.scrollHeight,
@@ -456,7 +457,7 @@ export default function VoiceIntelligencePage() {
                                     />
                                 </div>
                             </div>
-                            <ScrollArea ref={inventoryScrollRef} className="h-[500px]">
+                            <ScrollArea ref={platformInventoryScrollRef} className="h-[500px]">
                                 <div className="divide-y divide-black/5">
                                     {itemsNeedingAliases.map(item => {
                                         const isLinked = aliasGroups?.some(g => g.id.toLowerCase() === item.toLowerCase());
