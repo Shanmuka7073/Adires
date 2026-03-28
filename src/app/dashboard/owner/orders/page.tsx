@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Order } from '@/lib/types';
@@ -59,7 +58,7 @@ interface Session {
   orderType: Order['orderType'];
   lastActivity: Date;
   needsService: boolean;
-  serviceType?: string;
+  serviceType?: string | null;
 }
 
 function toDateSafe(d: any): Date {
@@ -131,7 +130,7 @@ function SessionDetailsDialog({
     const isDelivery = session.orderType === 'delivery';
 
     const handleUpdateStatus = (status: string) => {
-        session.orders.forEach(o => onStatusUpdate(o.id, status));
+        session.orders.forEach(o => onStatusUpdate(o.id, status as any));
         onOpenChange(false);
     };
 
@@ -154,7 +153,7 @@ function SessionDetailsDialog({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md rounded-[2.5rem] p-0 border-0 shadow-2xl h-[85vh] flex flex-col">
-                <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center">
+                <div className="p-5 bg-primary/5 border-b border-black/5 flex justify-between items-center text-left">
                     <div>
                         <DialogTitle className="text-sm font-black uppercase tracking-tight">Order #{session.id.slice(-6)}</DialogTitle>
                         <p className="text-[10px] font-bold opacity-40 uppercase">{session.orderType} • {format(session.lastActivity, 'p')}</p>
@@ -169,7 +168,7 @@ function SessionDetailsDialog({
                     <div className="space-y-8 pb-10">
                         {session.needsService && (
                             <section className="animate-in zoom-in-95 duration-300">
-                                <Alert className="rounded-2xl border-2 border-red-200 bg-red-50 text-red-900 shadow-lg">
+                                <Alert className="rounded-2xl border-2 border-red-200 bg-red-50 text-red-900 shadow-lg text-left">
                                     <BellRing className="h-5 w-5 text-red-600" />
                                     <AlertTitle className="font-black uppercase text-xs tracking-widest">Active Call</AlertTitle>
                                     <AlertDescription className="mt-2 space-y-4">
@@ -187,8 +186,8 @@ function SessionDetailsDialog({
                             </section>
                         )}
 
-                        <section className="space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Customer Details</h4>
+                        <section className="space-y-3 text-left">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Customer Details</h4>
                             <Card className="rounded-2xl border-2 p-4 bg-muted/30 shadow-none">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -215,8 +214,8 @@ function SessionDetailsDialog({
                             </Card>
                         </section>
 
-                        <section className="space-y-3">
-                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40">Item Manifest</h4>
+                        <section className="space-y-3 text-left">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Item Manifest</h4>
                             <div className="space-y-2">
                                 {items.map((it, idx) => (
                                     <div key={idx} className="flex justify-between items-center p-3 rounded-xl border-2 bg-white text-xs font-bold uppercase tracking-tight">
@@ -280,7 +279,7 @@ function InsightsTab({ storeId }: { storeId: string }) {
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
     if (error) return (
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 text-left">
             <Alert variant="destructive" className="rounded-2xl border-2">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle className="font-black uppercase text-xs">Analytics Sync Failed</AlertTitle>
@@ -296,7 +295,7 @@ function InsightsTab({ storeId }: { storeId: string }) {
     const totalOrders = report?.totalOrders || 0;
 
     return (
-        <div className="p-4 space-y-6 animate-in fade-in duration-500">
+        <div className="p-4 space-y-6 animate-in fade-in duration-500 text-left">
             <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 rounded-3xl bg-primary/5 border-2 border-primary/10">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Today Revenue</p>
@@ -406,7 +405,7 @@ export default function StoreOrdersPage() {
   if (ordersLoading && !activeOrders) return <div className="p-12 text-center h-screen flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24 text-left">
         <SessionDetailsDialog 
             session={selectedSession} 
             isOpen={!!selectedSession} 
