@@ -208,7 +208,6 @@ export type SiteConfig = {
     isRecipeApiEnabled?: boolean;
     isGeneralQuestionApiEnabled?: boolean;
     isAliasSuggesterEnabled?: boolean;
-    isMaintenance?: boolean;
 };
 
 export type VoiceAliasGroup = {
@@ -337,6 +336,78 @@ export type ProductPrice = {
     productName: string;
     variants: ProductVariant[];
 }
+
+export type FailedVoiceCommand = {
+    id: string;
+    userId: string;
+    text: string;
+    lang: string;
+    timestamp: any;
+    storeId?: string;
+    status: 'new' | 'resolved' | 'ignored';
+    suggestion?: string;
+}
+
+export interface InstructionStep {
+    title: string;
+    actions: string[];
+}
+
+export interface Ingredient {
+    name: string;
+    quantity: string;
+}
+
+export interface GetIngredientsOutput {
+    isSuccess: boolean;
+    itemType: 'food' | 'service' | 'product';
+    title: string;
+    components: Ingredient[];
+    steps: InstructionStep[];
+    nutrition?: {
+        calories: number;
+        protein: number;
+    };
+}
+
+export type CachedRecipe = {
+    id: string;
+    name: string;
+    itemType: 'food' | 'service' | 'product';
+    components: Ingredient[];
+    steps: InstructionStep[];
+    nutrition?: {
+        calories: number;
+        protein: number;
+    };
+    createdAt: any; 
+}
+
+export type CachedAIResponse = {
+    id: string;
+    question: string;
+    answer: string;
+    createdAt: any;
+}
+
+export type DayPlan = {
+  day: number;
+  mainItem: string;
+  sideItem: string;
+};
+
+export type MonthlyPackage = {
+    id: string;
+    storeId: string;
+    name: string;
+    memberCount: number;
+    price: number;
+    items: {
+        name: string;
+        quantity: string;
+    }[];
+    schedule?: DayPlan[];
+};
 
 export type ReportData = {
     totalSales: number;

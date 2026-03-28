@@ -10,7 +10,7 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail
 
 /**
  * A hook to determine the current user's role and authorization status.
- * Standardized to ensure consistent Merchant/Restaurant role detection.
+ * Unified to ensure consistent Merchant/Restaurant role detection.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -38,9 +38,9 @@ export function useAdminAuth() {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
+  // isLoading is ONLY true if we are waiting for user identity or profile confirmation
   const loading = isUserLoading || (!!user && isProfileLoading) || !auth;
 
-  // TELEMETRY FOR DEBUGGING
   useEffect(() => {
       if (!loading && user) {
           console.log(`[AUTH_LOG] Identity: ${user.email}, AccountType: ${userData?.accountType || 'none'}, IsMerchant: ${isMerchant}`);

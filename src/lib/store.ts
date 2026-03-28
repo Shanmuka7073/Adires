@@ -227,7 +227,7 @@ export const useInitializeApp = () => {
         };
 
         bootstrap();
-    }, [firestore, isUserLoading, user?.uid]); // Reduced dependencies to break loop
+    }, [firestore, isUserLoading, user?.uid]); 
 
     return { isLoading: isUserLoading };
 };

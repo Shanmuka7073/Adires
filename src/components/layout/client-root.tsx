@@ -9,8 +9,8 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * Corrected to prevent self-import and ensure all providers are in the correct order.
  * This file is the primary entry point for the client-side application structure.
+ * Corrected to prevent self-import and ensure all providers are in the correct order.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
