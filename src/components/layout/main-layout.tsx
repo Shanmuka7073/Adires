@@ -68,7 +68,7 @@ export function MainLayout({
 }: { 
   children: React.ReactNode;
 }) {
-  const { firestore, user } = useFirebase();
+  const { firestore, user, isUserLoading } = useFirebase();
   const { isAdmin } = useAdminAuth();
   const { isInitialized } = useAppStore();
   const { cartItems } = useCart();
@@ -89,8 +89,12 @@ export function MainLayout({
   const hidePriceCheck = useCallback(() => setPriceCheckInfo(null), []);
   const onCartOpenChange = useCallback((open: boolean) => setIsCartOpen(open), []);
 
-  // Maintenance Listener
-  const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
+  // ARCHITECTURE FIX: Maintenance Listener must wait for user context to avoid "auth: null" permission errors
+  const statusRef = useMemoFirebase(() => {
+      if (!firestore || isUserLoading) return null;
+      return doc(firestore, 'siteConfig', 'appStatus');
+  }, [firestore, isUserLoading]);
+  
   const { data: appStatus } = useDoc<any>(statusRef);
   const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
 

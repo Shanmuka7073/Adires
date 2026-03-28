@@ -13,11 +13,11 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (err: FirestorePermissionError) => {
-      // DEFER state update using a microtask to avoid React's "set state in render" warning
-      // This is crucial when errors are emitted during component mounting/Hot Reloading.
-      Promise.resolve().then(() => {
+      // Use a standard timeout to ensure the state update happens in the next tick
+      // This prevents the "Cannot update a component while rendering a different component" error.
+      setTimeout(() => {
         setError(err);
-      });
+      }, 0);
     };
 
     errorEmitter.on('permission-error', handleError);
