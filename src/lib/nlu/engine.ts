@@ -20,6 +20,12 @@ export interface ParsedOrderItem {
   confidence: number;
 }
 
+export type Intent =
+  | { type: 'NAVIGATE'; destination: string; originalText: string; lang: string }
+  | { type: 'CONVERSATIONAL'; commandKey: string; originalText: string; lang: string }
+  | { type: 'ORDER_ITEM'; originalText: string; lang: string }
+  | { type: 'UNKNOWN'; originalText: string; lang: string };
+
 const NUMBER_MAP: Record<string, number> = {
   "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
   "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
@@ -83,10 +89,39 @@ export function parseOrder(text: string, menu: MenuItem[]): ParsedOrderItem[] {
 }
 
 /**
+ * Classifies the user's spoken text into a specific intent.
+ */
+export function recognizeIntent(text: string, lang: string = "en"): Intent {
+  const lower = text.toLowerCase().trim();
+  
+  // Navigation detection
+  if (lower.includes('home') || lower.includes('start')) {
+    return { type: 'NAVIGATE', destination: 'home', originalText: text, lang };
+  }
+  if (lower.includes('cart') || lower.includes('basket')) {
+    return { type: 'NAVIGATE', destination: 'cart', originalText: text, lang };
+  }
+  if (lower.includes('order') && (lower.includes('my') || lower.includes('history'))) {
+    return { type: 'NAVIGATE', destination: 'orders', originalText: text, lang };
+  }
+
+  // Order detection
+  if (lower.includes('order') || lower.includes('buy') || lower.includes('get') || lower.includes('add')) {
+    return { type: 'ORDER_ITEM', originalText: text, lang };
+  }
+
+  return { type: 'UNKNOWN', originalText: text, lang };
+}
+
+/**
  * Legacy stubs kept for compatibility
  */
-export function runNLU(text: string, lang: string = "en"): any {
-  return { cleanedText: text.trim(), language: lang };
+export function runNLU(text: string, lang: string = "en"): NLUResult {
+  return { 
+    cleanedText: text.trim(), 
+    language: lang,
+    items: []
+  };
 }
 
 export function extractQuantityAndProduct(nlu: any) {
