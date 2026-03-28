@@ -43,13 +43,6 @@ service cloud.firestore {
     }
 
     /* ======================
-       ADMIN OVERRIDE (GLOBAL)
-       ===================== */
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    /* ======================
        CALLS & SIGNALING (RECURSIVE)
        ====================== */
     
@@ -131,6 +124,13 @@ service cloud.firestore {
     match /voiceAliasGroups/{groupId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    /* ======================
+       ADMIN OVERRIDE (GLOBAL)
+       ===================== */
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }
