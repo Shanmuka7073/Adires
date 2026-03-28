@@ -1,31 +1,14 @@
 /**
  * 🚀 ADVANCED VOICE ORDERING NLU ENGINE (FINAL)
- * Handles parsing of quantities, fuzzy matching of product names,
- * and multi-item sentence structures.
+ * Fully optimized for:
+ * - messy speech text
+ * - multilingual input
+ * - fuzzy matching
+ * - mobile performance
  */
 
 import { calculateSimilarity } from "../calculate-similarity";
 import type { MenuItem } from "../types";
-
-export interface NLUResult {
-  cleanedText: string;
-  language: string;
-  items: ParsedOrderItem[];
-}
-
-export interface ParsedOrderItem {
-  name: string;
-  quantity: number;
-  originalText: string;
-  match?: MenuItem;
-  confidence: number;
-}
-
-export type Intent =
-  | { type: 'NAVIGATE'; destination: string; originalText: string; lang: string }
-  | { type: 'CONVERSATIONAL'; commandKey: string; originalText: string; lang: string }
-  | { type: 'ORDER_ITEM'; originalText: string; lang: string }
-  | { type: 'UNKNOWN'; originalText: string; lang: string };
 
 /* =========================
    🔧 CONFIG
@@ -42,13 +25,17 @@ const CORRECTIONS_DICT: Record<string, string> = {
   briyani: "biryani",
   coc: "coke",
   kok: "coke",
-  thumsup: "thums up"
+  thumsup: "thums up",
+  // Handle messy "b stick" or "b1" variations
+  "b stick": "stick",
+  "b1": "1"
 };
 
 const NOISE_WORDS = [
   "please", "give", "add", "i", "want", "me", "needed", "need",
   "kavali", "ivvandi", "petandi",
-  "chahiye", "lelo", "mangao"
+  "chahiye", "lelo", "mangao",
+  "b", "the", "of", "also"
 ];
 
 const NUMBER_MAP: Record<string, number> = {
@@ -95,12 +82,16 @@ function wordSimilarity(a: string, b: string): number {
 ========================= */
 
 export function cleanText(input: string): string {
-  let words = input.toLowerCase()
+  // First pass: broad replacements for messy prefixes
+  let cleaned = input.toLowerCase()
     .replace(/[,.]/g, " ")
-    .split(/\s+/)
+    .replace(/\bb\s+/g, "") // remove stray 'b '
+    .replace(/\bb(\d+)/g, "$1"); // change 'b1' to '1'
+
+  let words = cleaned.split(/\s+/)
     .filter(Boolean);
 
-  // Fix words
+  // Fix words from dictionary
   words = words.map(w => CORRECTIONS_DICT[w] || w);
 
   // Remove noise
@@ -126,8 +117,10 @@ function extractQuantity(tokens: string[]) {
   let index = -1;
 
   tokens.forEach((t, i) => {
-    if (!isNaN(Number(t))) {
-      qty = Number(t);
+    // Direct digit check
+    const num = parseFloat(t);
+    if (!isNaN(num)) {
+      qty = num;
       index = i;
     } else if (NUMBER_MAP[t]) {
       qty = NUMBER_MAP[t];
@@ -186,12 +179,12 @@ function findBestMatch(input: string, menu: MenuItem[]) {
    🚀 MAIN PARSER (runNLU)
 ========================= */
 
-export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []): NLUResult {
-  const cleaned = text.trim();
-  const segments = cleaned.split(/ and | , | also /);
+export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = []) {
+  const cleaned = cleanText(text);
+  const segments = cleaned.split(/ and | , | also | next /);
 
-  const results: ParsedOrderItem[] = [];
-  let lastItem: ParsedOrderItem | null = null;
+  const results: any[] = [];
+  let lastItem: any = null;
 
   segments.forEach(seg => {
     const tokens = seg.trim().split(" ");
@@ -210,9 +203,9 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 
     const { best, confidence } = findBestMatch(productText, menu);
 
-    if (confidence < 0.4) return;
+    if (confidence < 0.45) return; // Slightly higher threshold to avoid "Beef Steak" for "Stick"
 
-    const item: ParsedOrderItem = {
+    const item = {
       name: best?.name || productText,
       quantity: qty,
       originalText: seg,
@@ -225,7 +218,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
   });
 
   // merge duplicates
-  const merged: Record<string, ParsedOrderItem> = {};
+  const merged: Record<string, any> = {};
   results.forEach(item => {
     if (merged[item.name]) {
       merged[item.name].quantity += item.quantity;
@@ -244,7 +237,7 @@ export function runNLU(text: string, lang: string = "en", menu: MenuItem[] = [])
 /**
  * Classifies the user's spoken text into a specific intent.
  */
-export function recognizeIntent(text: string, lang: string = "en"): Intent {
+export function recognizeIntent(text: string, lang: string = "en") {
   const lower = text.toLowerCase().trim();
   
   if (lower.includes('home') || lower.includes('start')) {
@@ -267,7 +260,7 @@ export function recognizeIntent(text: string, lang: string = "en"): Intent {
 /**
  * Extracts quantity and product details.
  */
-export function extractQuantityAndProduct(nlu: NLUResult) {
+export function extractQuantityAndProduct(nlu: any) {
     const firstItem = nlu.items[0];
     return { 
         qty: firstItem?.quantity ?? 1, 

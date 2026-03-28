@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Mic, Loader2, CheckCircle2, Trash2, List, RotateCcw, X, Sparkles } from 'lucide-react';
-import { runNLU, type ParsedOrderItem } from '@/lib/nlu/engine';
+import { Mic, Loader2, CheckCircle2, Trash2, List, RotateCcw, X, Sparkles, Plus, Minus } from 'lucide-react';
+import { runNLU } from '@/lib/nlu/engine';
 import type { MenuItem } from '@/lib/types';
 import { useCart } from '@/lib/cart';
 import { useToast } from '@/hooks/use-toast';
@@ -30,8 +30,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
   
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [cleanedTranscript, setCleanedTranscript] = useState('');
-  const [parsedItems, setParsedItems] = useState<ParsedOrderItem[]>([]);
+  const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [activeLang, setActiveLang] = useState('en-IN');
   
   const recognitionRef = useRef<any>(null);
@@ -39,12 +38,10 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
   const processTranscript = useCallback((text: string) => {
     if (!text) {
         setParsedItems([]);
-        setCleanedTranscript('');
         return;
     }
     const result = runNLU(text, activeLang, menu);
     setParsedItems(result.items);
-    setCleanedTranscript(result.cleanedText);
   }, [menu, activeLang]);
 
   useEffect(() => {
@@ -56,8 +53,6 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       recognitionRef.current.lang = activeLang;
 
       recognitionRef.current.onresult = (event: any) => {
-        // Construct the full transcript from the current result list
-        // This avoids the double-append bug where we add cumulative results to existing state
         let fullTranscript = '';
         for (let i = 0; i < event.results.length; ++i) {
           fullTranscript += event.results[i][0].transcript;
@@ -99,6 +94,16 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       setParsedItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const updateQty = (index: number, delta: number) => {
+      setParsedItems(prev => prev.map((item, i) => {
+          if (i === index) {
+              const newQty = Math.max(1, item.quantity + delta);
+              return { ...item, quantity: newQty };
+          }
+          return item;
+      }));
+  };
+
   const handleConfirm = () => {
     const validItems = parsedItems.filter(item => item.match);
     if (validItems.length === 0) {
@@ -122,7 +127,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
       }
     });
 
-    toast({ title: "Order manifest successful!" });
+    toast({ title: "Synchronized to Cart!" });
     onClose();
   };
 
@@ -176,64 +181,55 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                     </p>
                 </div>
 
-                {/* Transcripts Area */}
-                {(transcript || cleanedTranscript) && (
-                    <div className="space-y-4">
-                        {transcript && (
-                            <div className="bg-white p-4 rounded-2xl border-2 border-black/5 shadow-sm relative group">
-                                <button onClick={() => setTranscript('')} className="absolute -top-2 -right-2 h-6 w-6 bg-white border shadow-sm rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
-                                    <RotateCcw className="h-3 w-3" />
-                                </button>
-                                <p className="text-[8px] font-black uppercase text-gray-400 mb-1">Raw Input</p>
-                                <p className="text-xs font-bold text-gray-400 italic leading-relaxed">
-                                    "{transcript}"
-                                </p>
-                            </div>
-                        )}
-                        
-                        {cleanedTranscript && (
-                            <div className="bg-primary/5 p-4 rounded-2xl border-2 border-primary/10 shadow-sm relative animate-in slide-in-from-bottom-2">
-                                <p className="text-[8px] font-black uppercase text-primary mb-1 flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Cleaned Interpretation
-                                </p>
-                                <p className="text-sm font-black text-gray-900 leading-relaxed uppercase tracking-tight">
-                                    {cleanedTranscript}
-                                </p>
-                            </div>
+                {/* Order Manifest (The only text displayed) */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Order Manifest</h3>
+                        {parsedItems.length > 0 && (
+                            <button onClick={() => { setTranscript(''); setParsedItems([]); }} className="text-[8px] font-black uppercase text-destructive tracking-widest flex items-center gap-1">
+                                <RotateCcw className="h-2 w-2" /> Reset
+                            </button>
                         )}
                     </div>
-                )}
 
-                {/* Detected Items List */}
-                {parsedItems.length > 0 && (
-                    <div className="space-y-3">
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 px-1">Order Manifest</h3>
-                        {parsedItems.map((item, idx) => (
-                            <div key={idx} className={cn(
-                                "flex justify-between items-center p-4 rounded-[2rem] border-2 transition-all bg-white shadow-md",
-                                item.match ? "border-green-500/20" : "border-red-500/20"
-                            )}>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
-                                            {item.quantity}
+                    {parsedItems.length > 0 ? (
+                        <div className="space-y-3">
+                            {parsedItems.map((item, idx) => (
+                                <div key={idx} className={cn(
+                                    "flex justify-between items-center p-4 rounded-[2rem] border-2 transition-all bg-white shadow-md animate-in slide-in-from-bottom-2",
+                                    item.match ? "border-green-500/20" : "border-red-500/20"
+                                )}>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-1 bg-primary/10 rounded-xl px-2 py-1 shrink-0">
+                                                <button onClick={() => updateQty(idx, -1)} className="text-primary hover:scale-125 transition-transform"><Minus className="h-3 w-3" /></button>
+                                                <span className="font-black text-xs text-primary w-4 text-center">{item.quantity}</span>
+                                                <button onClick={() => updateQty(idx, 1)} className="text-primary hover:scale-125 transition-transform"><Plus className="h-3 w-3" /></button>
+                                            </div>
+                                            <span className="font-black text-xs uppercase truncate text-gray-950">
+                                                {item.match?.name || item.name}
+                                            </span>
                                         </div>
-                                        <span className="font-black text-xs uppercase truncate text-gray-950">
-                                            {item.match?.name || item.name}
-                                        </span>
+                                        {!item.match && <p className="text-[8px] font-black text-red-600 uppercase mt-1 ml-14">Unrecognized product</p>}
                                     </div>
-                                    {!item.match && <p className="text-[8px] font-black text-red-600 uppercase mt-1 ml-11">Unrecognized product</p>}
+                                    <button 
+                                        onClick={() => removeItem(idx)}
+                                        className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors shadow-sm ml-2"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={() => removeItem(idx)}
-                                    className="h-9 w-9 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors shadow-sm"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-12 text-center rounded-[2rem] bg-white border-2 border-dashed border-black/5 opacity-30">
+                            <Sparkles className="h-8 w-8 mx-auto mb-3 opacity-20" />
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                                {isListening ? 'Speak your order naturally...' : 'Your manifest is empty'}
+                            </p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Menu Reference */}
                 <div className="pt-6 border-t border-black/5">
@@ -260,7 +256,7 @@ export function VoiceOrderDialog({ open, onClose, menu, storeId }: VoiceOrderDia
                 className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all active:scale-95"
             >
                 <CheckCircle2 className="mr-2 h-5 w-5" />
-                Synchronize to Cart
+                Add {parsedItems.filter(i => i.match).length} items to cart
             </Button>
         </div>
       </DialogContent>
