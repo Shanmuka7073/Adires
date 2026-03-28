@@ -1,20 +1,21 @@
-
 'use client';
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { CartProvider } from '@/lib/cart';
-import { Toaster } from '@/components/ui/toaster';
 import { MainLayout } from '@/components/layout/main-layout';
 
-export function ClientRoot({ children }: { children: React.ReactNode }) {
+/**
+ * CLIENT ROOT
+ * Consolidates layout providers and resolves circular dependencies.
+ */
+export function ClientRoot({ children }: { children: ReactNode }) {
   return (
     <FirebaseClientProvider>
       <CartProvider>
         <MainLayout>
           {children}
         </MainLayout>
-        <Toaster />
       </CartProvider>
     </FirebaseClientProvider>
   );

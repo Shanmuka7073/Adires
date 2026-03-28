@@ -102,15 +102,17 @@ export type MenuItem = {
     customizations?: CustomizationGroup[];
 };
 
+export type MenuTheme = {
+    backgroundColor: string;
+    primaryColor: string;
+    textColor: string;
+};
+
 export type Menu = {
     id: string;
     storeId: string;
     items: MenuItem[];
-    theme?: {
-        backgroundColor: string;
-        primaryColor: string;
-        textColor: string;
-    };
+    theme?: MenuTheme;
 };
 
 export type Booking = {
