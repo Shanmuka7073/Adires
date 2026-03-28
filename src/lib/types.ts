@@ -24,6 +24,13 @@ export type Product = {
   price?: number;
 };
 
+export type CanonicalProduct = {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  category?: string;
+};
+
 export type Store = {
   id: string;
   name: string;
