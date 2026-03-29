@@ -41,6 +41,7 @@ export type Store = {
   teluguName?: string;
   description: string;
   address: string;
+  phone?: string;
   imageId: string;
   imageUrl?: string;
   ownerId: string;

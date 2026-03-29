@@ -5,7 +5,7 @@ import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { SheetHeader, SheetTitle, SheetFooter, SheetClose, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Minus, Loader2, LogIn, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Minus, Loader2, LogIn, ShoppingBag, ArrowRight, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '../ui/input';
 import { useEffect, useState, useTransition } from 'react';
