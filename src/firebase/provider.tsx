@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, DependencyList } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, getDoc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
@@ -91,3 +91,23 @@ export const useFirebase = () => {
   if (!context) throw new Error('useFirebase used outside Provider');
   return context;
 };
+
+export const useUser = () => {
+    const { user, authLoading } = useFirebase();
+    return { user, isUserLoading: authLoading };
+};
+
+export const useFirestore = () => useFirebase().firestore;
+export const useAuth = () => useFirebase().auth;
+export const useFirebaseApp = () => useFirebase().firebaseApp;
+
+type MemoFirebase <T> = T & {__memo?: boolean};
+
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
+  const memoized = useMemo(factory, deps);
+  
+  if(typeof memoized !== 'object' || memoized === null) return memoized;
+  (memoized as MemoFirebase<T>).__memo = true;
+  
+  return memoized;
+}

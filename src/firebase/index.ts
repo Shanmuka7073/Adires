@@ -8,8 +8,6 @@ import { firebaseConfig } from './config';
 
 /**
  * STRATEGIC SDK INITIALIZATION
- * Uses config.ts as a fallback to ensure build-time prerendering doesn't fail
- * due to missing environment variables. This resolves the auth/invalid-api-key error.
  */
 export function initializeFirebase() {
   const finalConfig = {

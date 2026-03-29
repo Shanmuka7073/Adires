@@ -50,9 +50,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return (
           <div className="flex h-screen items-center justify-center p-6 text-center">
               <div className="space-y-4">
-                  <h1 className="text-2xl font-black uppercase">Sync Error</h1>
-                  <p className="text-sm opacity-60">We encountered a problem connecting to the server.</p>
-                  <button onClick={() => window.location.reload()} className="h-12 px-8 bg-primary text-white rounded-xl font-bold uppercase text-xs">Retry Connection</button>
+                  <h1 className="text-2xl font-black uppercase text-red-600">Sync Error</h1>
+                  <p className="text-sm opacity-60">We encountered a problem connecting to your profile.</p>
+                  <button onClick={() => window.location.reload()} className="h-12 px-8 bg-primary text-white rounded-xl font-bold uppercase text-xs shadow-lg">Retry Connection</button>
               </div>
           </div>
       )
