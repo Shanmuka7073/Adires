@@ -9,9 +9,9 @@ import { useAppStore } from '@/lib/store';
 const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
 
 /**
- * Unified Auth Hook
- * Synchronizes Firebase Auth with Firestore Profile data to prevent redirection loops.
- * Explicitly waits for profile data load before determining role.
+ * UNIFIED AUTH GUARD
+ * Synchronizes Firebase Auth with Firestore Profile data.
+ * Crucially waits for isUserDataLoaded to prevent identity flickering and redirect loops.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -42,8 +42,7 @@ export function useAdminAuth() {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // CRITICAL: loading MUST account for isUserDataLoaded to prevent redirect loops where 
-  // the app thinks a merchant is a normal customer for a few milliseconds.
+  // Loading state must persist until identity data is fully synchronized from Firestore
   const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth;
 
   return {

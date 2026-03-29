@@ -14,10 +14,16 @@ interface AdminServices {
 
 let adminServices: AdminServices | null = null;
 
+/**
+ * HARDENED CREDENTIAL LOADER
+ * Resolves "Could not load default credentials" by ensuring the SERVICE_ACCOUNT
+ * environment variable is correctly parsed even if it contains escaped characters.
+ */
 function getAppOptions(): AppOptions {
     let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
+        console.warn("ADMIN_SDK: SERVICE_ACCOUNT missing. Falling back to basic project config. Some features may fail.");
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
             storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
@@ -25,6 +31,7 @@ function getAppOptions(): AppOptions {
     }
 
     try {
+        // Handle cases where the secret might be wrapped in extra quotes from Vercel/Terminal
         serviceAccountString = serviceAccountString.trim();
         if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
             serviceAccountString = serviceAccountString.slice(1, -1);

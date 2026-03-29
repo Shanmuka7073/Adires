@@ -8,8 +8,8 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * Entry point for client-side providers.
- * Corrected: This file no longer imports itself to prevent recursive loops.
+ * Primary entry point for client-side providers.
+ * Isolated from root-level proxy to prevent recursive import loops.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);

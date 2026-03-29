@@ -82,6 +82,8 @@ export default function LocalBasketHomepage() {
 
   useEffect(() => {
     if (isLoading) return;
+    
+    // If identity is confirmed as Merchant, route to appropriate operational hub
     if (isMerchant) {
         router.replace('/dashboard');
     } else {

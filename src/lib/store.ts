@@ -4,9 +4,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
+import { initializeTranslations, Locales, buildLocalesFromAliasGroups } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
-import { useEffect } from 'react';
 
 export interface AppState {
   stores: Store[];
@@ -42,11 +41,8 @@ export interface AppState {
   // Helpers
   locales: Locales;
   commands: Record<string, CommandGroup>;
-  getAllAliases: (key: string) => Record<string, string[]>;
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
-  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
-  getProductName: (product: Product) => string;
 }
 
 export const useAppStore = create<AppState>()(
@@ -81,6 +77,10 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
+      /**
+       * SECURE LOGOUT PROTOCOL
+       * Purges all memory-resident and cached state to prevent session bleeding.
+       */
       resetApp: () => {
           set({
               stores: [],
@@ -115,6 +115,7 @@ export const useAppStore = create<AppState>()(
             readCount: get().readCount + storesSnap.docs.length
           });
 
+          // Trigger nested profile sync if a user is logged in
           if (userId) {
               await get().fetchUserStore(db, userId);
           } else {
@@ -150,15 +151,12 @@ export const useAppStore = create<AppState>()(
             console.error("fetchUserStore failed:", error);
             set({ error: error as Error, isFetchingUserStore: false, isUserDataLoaded: true, appReady: true });
         }
-      },
-
-      fetchProductPrices: async () => Promise.resolve(),
-      getProductName: (product: Product) => product.name || '',
-      getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
+      }
     }),
     {
       name: 'adires-ops-storage', 
       storage: createJSONStorage(() => localStorage),
+      // PERSISTENCE POLICY: Strictly exclude user/business data to ensure clean slate on re-login
       partialize: (state) => ({ 
           language: state.language,
           deviceId: state.deviceId
@@ -167,9 +165,11 @@ export const useAppStore = create<AppState>()(
   )
 );
 
+/**
+ * IDENTITY INITIALIZATION HOOK
+ * Synchronizes operational hubs with authenticated identity.
+ */
 export const useInitializeApp = () => {
     const { fetchInitialData, isInitialized, isFetchingStores } = useAppStore();
-
-    // Note: Initialization is now triggered by the useFirebase/useAdminAuth ecosystem
-    // to ensure user ID is present before fetching business-specific data.
+    // Implementation deferred to turned-level lifecycle managers (e.g. useAdminAuth)
 };
