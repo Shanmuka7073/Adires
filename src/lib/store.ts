@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -7,6 +6,8 @@ import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { initializeTranslations, Locales, buildLocalesFromAliasGroups } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
+import { useEffect } from 'react';
+import { useFirebase } from '@/firebase';
 
 export interface AppState {
   stores: Store[];
@@ -172,3 +173,16 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export const useInitializeApp = () => {
+    const { firestore, user, isUserLoading } = useFirebase();
+    const { fetchInitialData, isFetchingStores, isInitialized } = useAppStore();
+
+    useEffect(() => {
+        if (firestore && !isUserLoading && !isInitialized && !isFetchingStores) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, user?.uid, isUserLoading, isInitialized, isFetchingStores, fetchInitialData]);
+
+    return { isLoading: isFetchingStores };
+};

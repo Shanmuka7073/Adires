@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -12,7 +11,7 @@ const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
 /**
  * UNIFIED AUTH GUARD
  * Synchronizes Firebase Auth with Firestore Profile data.
- * Crucially waits for isUserDataLoaded to prevent identity flickering.
+ * Waits for isUserDataLoaded to prevent identity flickering.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -49,7 +48,7 @@ export function useAdminAuth() {
   }, [isAdmin, isRestaurantOwner]);
 
   // Loading state must persist until identity data is fully synchronized from Firestore
-  const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth;
+  const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth || isProfileLoading;
 
   return {
     isAdmin,

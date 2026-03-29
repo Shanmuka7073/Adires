@@ -1,9 +1,8 @@
-
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false, // Handled manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development', // Critical: Disable SW in dev to prevent NetworkOnly errors
+  disable: process.env.NODE_ENV === 'development', // Disable SW in development to prevent NetworkOnly errors
   buildExcludes: [
     /middleware-manifest\.json$/, 
     /app-build-manifest\.json$/,
