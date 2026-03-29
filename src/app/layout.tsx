@@ -3,7 +3,6 @@ import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { ClientRoot } from "@/components/layout/client-root";
 import ServiceWorkerRegister from "@/components/service-worker-register";
-import { MonitoringInitializer } from "@/components/monitoring/monitoring-initializer";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -70,7 +69,6 @@ export default function RootLayout({
       </head>
       <body>
         <ServiceWorkerRegister />
-        <MonitoringInitializer />
         <ClientRoot>{children}</ClientRoot>
       </body>
     </html>

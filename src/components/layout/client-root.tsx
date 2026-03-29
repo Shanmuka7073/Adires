@@ -1,13 +1,13 @@
-
 'use client';
 
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useState, useMemo } from 'react';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { InstallProvider } from '@/components/install-provider';
 import { AppErrorBoundary } from '@/components/monitoring/error-boundary';
 import { initializeFirebase } from '@/firebase';
+import { MonitoringInitializer } from "@/components/monitoring/monitoring-initializer";
 
 /**
  * CLIENT ROOT
@@ -26,6 +26,7 @@ export function ClientRoot({ children }: { children: ReactNode }) {
 
   return (
     <FirebaseClientProvider>
+      <MonitoringInitializer />
       <AppErrorBoundary db={firebaseServices.firestore}>
         <InstallProvider>
           <CartProvider>
@@ -38,6 +39,3 @@ export function ClientRoot({ children }: { children: ReactNode }) {
     </FirebaseClientProvider>
   );
 }
-
-// Re-import useMemo for the firebaseServices
-import { useMemo } from 'react';
