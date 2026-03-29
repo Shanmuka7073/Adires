@@ -37,7 +37,8 @@ import {
   RefreshCw,
   LogIn,
   MessageCircle,
-  Mic
+  Mic,
+  ShoppingCart
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -76,7 +77,8 @@ function LiveBillSheet({
 }) {
   const { cartItems, removeItem, cartTotal } = useCart();
   
-  if (!user) {
+  // GUEST LOGIC: Only enforce identity for Salons/Services
+  if (!user && isSalon) {
       return (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center space-y-6 bg-[#FDFCF7]">
               <div className="h-20 w-20 rounded-3xl bg-primary/10 flex items-center justify-center text-primary">
@@ -85,16 +87,17 @@ function LiveBillSheet({
               <div className="space-y-2">
                   <h3 className="text-xl font-black uppercase tracking-tight">Identity Required</h3>
                   <div className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed">
-                      Please sign in to view your live orders and active beauty sessions.
+                      To ensure secure appointments and tracking,<br/>please sign in to book a session.
                   </div>
               </div>
               <Button asChild className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl">
-                  <Link href="/login">Log in to Hub</Link>
+                  <Link href="/login">Log in to Book</Link>
               </Button>
           </div>
       );
   }
 
+  // SALON BOOKINGS VIEW
   if (isSalon) {
       return (
           <div className="flex flex-col h-full bg-[#FDFCF7]">
@@ -130,6 +133,7 @@ function LiveBillSheet({
       );
   }
 
+  // RESTAURANT / GUEST ORDER VIEW
   const placedTotal = useMemo(() => placedOrders.reduce((acc, order) => acc + order.totalAmount, 0), [placedOrders]);
   const sessionTotal = placedTotal + cartTotal;
   const isFinalized = placedOrders.length > 0 && placedOrders.every(o => ['Completed', 'Delivered'].includes(o.status));
@@ -138,10 +142,11 @@ function LiveBillSheet({
   
   return (
     <div className="flex flex-col h-full bg-[#FDFCF7]">
-        <div className='p-5 border-b shrink-0 bg-white shadow-sm'>
+        <div className='p-5 border-b shrink-0 bg-white shadow-sm flex justify-between items-center'>
             <h2 className="flex items-center gap-2 text-lg font-black uppercase tracking-tight text-gray-950">
                 <Receipt className="h-5 w-5 text-primary" /> Live Order Progress
             </h2>
+            {!user && <Badge variant="secondary" className="text-[8px] font-black uppercase">Guest Mode</Badge>}
         </div>
         
         <div className="flex-1 overflow-y-auto p-5 space-y-10 min-h-0">
@@ -187,6 +192,13 @@ function LiveBillSheet({
                     </div>
                  </div>
              )}
+
+             {placedOrders.length === 0 && cartItems.length === 0 && (
+                 <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                    <ShoppingCart className="h-12 w-12 mb-4 opacity-20" />
+                    <div className="font-black uppercase text-[10px] tracking-[0.2em]">Your order is empty</div>
+                </div>
+             )}
         </div>
 
         <div className="p-6 border-t space-y-4 bg-white shrink-0 pb-10 shadow-[0_-10px_40_-15px_rgba(0,0,0,0.05)]">
@@ -194,7 +206,7 @@ function LiveBillSheet({
                 <span className="text-xs font-black uppercase tracking-widest opacity-40">Grand Total</span>
                 <span className="text-3xl font-black text-gray-950 tracking-tighter">₹{sessionTotal.toFixed(0)}</span>
             </div>
-            {placedOrders.length > 0 && !isFinalized && (
+            {(cartItems.length > 0 || (placedOrders.length > 0 && !isFinalized)) && (
                 <Button className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20" variant="destructive" onClick={onFinalizeBill}>Finalize & Bill</Button>
             )}
         </div>
@@ -281,11 +293,17 @@ function MenuContent() {
       }
   }, [stableSessionId, setSessionId, isMounted]);
 
-  const ordersQuery = useMemoFirebase(() => 
-    (isMounted && firestore && user && stableSessionId !== 'loading' 
-        ? query(collection(firestore, 'orders'), where('sessionId', '==', stableSessionId), where('isActive', '==', true)) 
-        : null
-    ), [firestore, stableSessionId, isMounted, user]);
+  const ordersQuery = useMemoFirebase(() => {
+    if (!isMounted || !firestore || stableSessionId === 'loading') return null;
+    
+    // FETCH ORDERS BASED ON SESSION ID (Works for both Guests and Logged-in Users)
+    return query(
+        collection(firestore, 'orders'), 
+        where('sessionId', '==', stableSessionId), 
+        where('isActive', '==', true)
+    );
+  }, [firestore, stableSessionId, isMounted]);
+  
   const { data: placedOrders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
   const bookingsQuery = useMemoFirebase(() => {
@@ -466,7 +484,7 @@ function MenuContent() {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="bottom" className="h-[85vh] rounded-t-[3.5rem] p-0 border-0 overflow-hidden shadow-2xl ring-1 ring-black/5">
-                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => {}} customerBookings={customerBookings ?? []} user={user}/>
+                              <LiveBillSheet isSalon={isSalon} placedOrders={placedOrders || []} isLoadingOrders={ordersLoading} onFinalizeBill={() => router.push('/checkout')} customerBookings={customerBookings ?? []} user={user}/>
                           </SheetContent>
                       </Sheet>
                   </div>

@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useCart } from '@/lib/cart';
 import { Button } from '@/components/ui/button';
 import { SheetHeader, SheetTitle, SheetFooter, SheetClose, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Minus, Loader2, LogIn, ShoppingBag } from 'lucide-react';
+import { Trash2, Plus, Minus, Loader2, LogIn, ShoppingBag, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '../ui/input';
 import { useEffect, useState, useTransition } from 'react';
@@ -71,7 +72,7 @@ function CartSheetItem({ item, image }: { item: CartItem, image: { imageUrl: str
 
 export function CartSheetContent() {
   const { cartItems, cartTotal, cartCount, clearCart, sessionId } = useCart();
-  const { deviceId } = useAppStore();
+  const { deviceId, setCartOpen } = useAppStore();
   const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
   const { user, auth, firestore } = useFirebase();
   const { toast } = useToast();
@@ -101,8 +102,10 @@ export function CartSheetContent() {
   }, [cartItems]);
   
   const handlePlaceOrder = () => {
+    // GUEST CHECKOUT: Allow placing orders without login for restaurants/retail
     if (!user) {
-        router.push('/login?redirectTo=/cart');
+        setCartOpen(false);
+        router.push('/checkout');
         return;
     }
 
@@ -122,6 +125,7 @@ export function CartSheetContent() {
             if (result.success && result.orderId) {
                 toast({ title: 'Order Placed!', description: 'Your order has been sent to the kitchen.' });
                 clearCart();
+                setCartOpen(false);
                 router.push(`/order-confirmation?orderId=${result.orderId}`);
             } else {
                 throw new Error(result.error || 'Could not place your order.');
@@ -137,7 +141,7 @@ export function CartSheetContent() {
       <SheetHeader>
         <SheetTitle>{t('shopping-cart')} ({cartCount})</SheetTitle>
         <SheetDescription className="sr-only">
-          A summary of your shopping cart. Authentication is required to complete the purchase.
+          A summary of your shopping cart. Guest checkout available for restaurants.
         </SheetDescription>
       </SheetHeader>
       
@@ -153,29 +157,28 @@ export function CartSheetContent() {
         </ScrollArea>
         <SheetFooter className="pt-4 border-t">
             <div className="w-full space-y-4">
-              <div className="flex justify-between font-bold text-lg">
-                <span>{t('total')}</span>
-                <span>₹{cartTotal.toFixed(2)}</span>
+              <div className="flex justify-between font-black text-lg">
+                <span className="uppercase text-[10px] opacity-40">Total Amount</span>
+                <span className="text-primary">₹{cartTotal.toFixed(2)}</span>
               </div>
               
-              {!user ? (
-                  <Button asChild className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-xl">
-                      <Link href="/login?redirectTo=/cart">
-                          <LogIn className="mr-2 h-4 w-4" /> Sign up to Place Order
-                      </Link>
-                  </Button>
-              ) : (
-                  <Button onClick={handlePlaceOrder} disabled={isPlacingOrder} className="w-full h-12 rounded-xl bg-accent hover:bg-accent/90 text-white font-black uppercase text-xs tracking-widest shadow-xl">
-                    {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ShoppingBag className="mr-2 h-4 w-4" />}
-                    {isPlacingOrder ? 'Processing...' : 'Confirm Order'}
-                  </Button>
+              <Button onClick={handlePlaceOrder} disabled={isPlacingOrder} className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-95">
+                {isPlacingOrder ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <ShoppingBag className="mr-2 h-5 w-5" />}
+                {isPlacingOrder ? 'Processing...' : 'Confirm Order'}
+              </Button>
+
+              {!user && (
+                  <p className="text-[9px] font-bold text-center text-gray-400 uppercase tracking-widest">
+                      Guest Checkout • No Login Required
+                  </p>
               )}
             </div>
           </SheetFooter>
         </div>
       ) : (
-          <div className="flex flex-1 h-full items-center justify-center">
-            <p>{t('your-cart-is-empty')}</p>
+          <div className="flex flex-1 h-full flex-col items-center justify-center opacity-30">
+            <ShoppingCart className="h-16 w-16 mb-4" />
+            <p className="font-black uppercase tracking-widest text-xs">Your cart is empty</p>
           </div>
       )}
     </>
