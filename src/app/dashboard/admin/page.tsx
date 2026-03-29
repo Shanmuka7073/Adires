@@ -67,7 +67,7 @@ function AdminActionCard({ title, description, href, icon: Icon, highlight = fal
     );
 }
 
-export default function AdminDashboardPage() {
+export default function DecisionHubPage() {
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
     const router = useRouter();
     const { toast } = useToast();
@@ -100,7 +100,7 @@ export default function AdminDashboardPage() {
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
                     <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
-                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Command Center</p>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Administrative Operational Intelligence</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => startRefresh(fetchStats)} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
                     <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isRefreshing && "animate-spin")} /> Sync Data

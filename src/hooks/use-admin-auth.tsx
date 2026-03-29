@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -6,12 +7,12 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
-const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
+const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
 
 /**
  * UNIFIED AUTH GUARD
  * Synchronizes Firebase Auth with Firestore Profile data.
- * Crucially waits for isUserDataLoaded to prevent identity flickering and redirect loops.
+ * Crucially waits for isUserDataLoaded to prevent identity flickering.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
@@ -38,6 +39,11 @@ export function useAdminAuth() {
     return userData?.accountType === 'employee';
   }, [userData, isUserDataLoaded]);
 
+  const isCustomer = useMemo(() => {
+    if (!isUserDataLoaded) return false;
+    return userData?.accountType === 'customer' || !userData?.accountType;
+  }, [userData, isUserDataLoaded]);
+
   const isMerchant = useMemo(() => {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
@@ -49,6 +55,7 @@ export function useAdminAuth() {
     isAdmin,
     isRestaurantOwner,
     isEmployee,
+    isCustomer,
     isMerchant,
     isLoading: loading,
     user,

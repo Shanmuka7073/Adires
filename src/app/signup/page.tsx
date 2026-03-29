@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
@@ -24,6 +24,15 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [signupSource, setSignupSource] = useState<'merchant' | 'customer'>('merchant');
+
+  useEffect(() => {
+      // Check if user came from a specific menu/salon flow
+      const context = localStorage.getItem('signup_context');
+      if (context === 'menu_flow') {
+          setSignupSource('customer');
+      }
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,18 +43,29 @@ export default function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // New users from adires.vercel.app directly are Merchants.
+      // New users from a menu flow are Personal Accounts (Customers).
+      const accountType = signupSource === 'customer' ? 'customer' : 'restaurant';
+
       await setDoc(doc(firestore, "users", user.uid), {
+        id: user.uid,
         email: user.email,
         uid: user.uid,
-        accountType: 'customer', // Default account type
+        accountType: accountType,
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        address: ''
       });
 
       toast({
           title: 'Account Created',
-          description: "You have been successfully signed up!",
+          description: `You have successfully joined as a ${accountType === 'restaurant' ? 'Merchant' : 'Member'}!`,
       });
 
-      router.replace('/login');
+      // Clear context
+      localStorage.removeItem('signup_context');
+      router.replace('/dashboard');
 
     } catch (error: any) {
         let message = "Could not create your account. Please try again.";
@@ -68,7 +88,12 @@ export default function SignupPage() {
       <div className="w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white/80 backdrop-blur-xl">
           <CardContent className="p-8 space-y-8">
-            <h2 className="text-2xl font-bold text-center">Create an Account</h2>
+            <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black uppercase tracking-tight italic">Create Account</h2>
+                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                    Joining as: {signupSource === 'merchant' ? 'Business Owner' : 'Personal Member'}
+                </p>
+            </div>
             <form onSubmit={handleSignup} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-1">Email ID</label>

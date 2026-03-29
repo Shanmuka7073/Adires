@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -247,7 +248,11 @@ function MenuContent() {
   const { cartTotal, setSessionId, addItem } = useCart();
   const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => { setIsMounted(true); }, []);
+  useEffect(() => {
+      setIsMounted(true);
+      // Mark this session as a Menu Flow to ensure Personal Account default if they signup
+      localStorage.setItem('signup_context', 'menu_flow');
+  }, []);
 
   const storeRef = useMemoFirebase(() => firestore ? doc(firestore, 'stores', storeId) : null, [firestore, storeId]);
   const { data: store, isLoading: storeLoading } = useDoc<Store>(storeRef);

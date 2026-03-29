@@ -14,13 +14,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Mail, Lock, Chrome } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 /**
  * NON-BLOCKING LOGIN COMPONENT
- * Implements the UI from the screenshot with robust error handling.
+ * Implements Merchant-default logic for new identities.
  */
 export function NonBlockingLogin() {
-  const { auth } = useFirebase();
+  const { auth, firestore } = useFirebase();
   const { toast } = useToast();
   
   const [email, setEmail] = useState('');
@@ -34,16 +35,10 @@ export function NonBlockingLogin() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Success is handled by the global Auth listener in provider.tsx
     } catch (error: any) {
-      console.error("Login Error:", error);
       let message = "Could not connect to Google Services.";
-      
       if (error.code === 'auth/invalid-credential') message = "Invalid email or security key.";
-      if (error.code === 'auth/user-not-found') message = "No account found with this email.";
-      if (error.code === 'auth/wrong-password') message = "Incorrect security key.";
-      if (error.code === 'auth/network-request-failed') message = "Network error. Check your connection.";
-
+      
       toast({
         variant: 'destructive',
         title: 'Authentication Failed',
@@ -55,11 +50,33 @@ export function NonBlockingLogin() {
   };
 
   const handleGoogleLogin = async () => {
-    if (!auth) return;
+    if (!auth || !firestore) return;
     setIsLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      
+      // MERCHANT DEFAULT LOGIC
+      // Check if profile exists, if not create as Merchant (default context)
+      const userRef = doc(firestore, 'users', result.user.uid);
+      const snap = await getDoc(userRef);
+      
+      if (!snap.exists()) {
+          const context = localStorage.getItem('signup_context');
+          const accountType = context === 'menu_flow' ? 'customer' : 'restaurant';
+
+          await setDoc(userRef, {
+              id: result.user.uid,
+              email: result.user.email,
+              accountType: accountType,
+              firstName: result.user.displayName?.split(' ')[0] || '',
+              lastName: result.user.displayName?.split(' ')[1] || '',
+              phoneNumber: '',
+              address: ''
+          }, { merge: true });
+          
+          localStorage.removeItem('signup_context');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -75,6 +92,10 @@ export function NonBlockingLogin() {
     <div className="w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
       <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white/80 backdrop-blur-xl">
         <CardContent className="p-8 space-y-8">
+          <div className="text-center space-y-2">
+              <h2 className="text-2xl font-black uppercase tracking-tight italic">Authorized Access</h2>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Enter secure credentials</p>
+          </div>
           <form onSubmit={handleEmailLogin} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 ml-1">Email ID</label>

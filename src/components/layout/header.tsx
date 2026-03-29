@@ -29,11 +29,15 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 function UserMenu() {
   const { user, isUserLoading, auth } = useFirebase();
-  const { isAdmin, isRestaurantOwner } = useAdminAuth();
+  const { isAdmin, isRestaurantOwner, isCustomer } = useAdminAuth();
   const { resetApp } = useAppStore();
   const router = useRouter();
   
-  const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/owner/my-store' : '/dashboard');
+  const dashboardHref = useMemo(() => {
+      if (isAdmin) return '/dashboard/admin';
+      if (isRestaurantOwner) return '/dashboard/restaurant';
+      return '/'; // Customers go home
+  }, [isAdmin, isRestaurantOwner]);
 
   const handleLogout = async () => {
     if (auth) {
@@ -64,12 +68,24 @@ function UserMenu() {
         <DropdownMenuLabel className="font-bold">{t('my-account')}</DropdownMenuLabel>
         <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <Link href={dashboardHref} passHref>
-          <DropdownMenuItem className="rounded-lg cursor-pointer">
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>{t('dashboard')}</span>
-          </DropdownMenuItem>
+        
+        {/* Only show Dashboard link for Merchants/Admins */}
+        {!isCustomer && (
+            <Link href={dashboardHref} passHref>
+                <DropdownMenuItem className="rounded-lg cursor-pointer">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>{isAdmin ? 'Decision Hub' : 'Merchant Hub'}</span>
+                </DropdownMenuItem>
+            </Link>
+        )}
+
+        <Link href="/dashboard/customer/my-profile" passHref>
+            <DropdownMenuItem className="rounded-lg cursor-pointer">
+                <UserCircle className="mr-2 h-4 w-4" />
+                <span>My Profile</span>
+            </DropdownMenuItem>
         </Link>
+
          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer mt-1">
             <LogOut className="mr-2 h-4 w-4" />
             <span>{t('logout')}</span>
@@ -90,8 +106,8 @@ export function Header() {
   const logoHref = useMemo(() => {
     if (!user) return "/";
     if (isAdmin) return "/dashboard/admin";
-    if (isRestaurantOwner) return "/dashboard/owner/my-store";
-    return "/dashboard";
+    if (isRestaurantOwner) return "/dashboard/restaurant";
+    return "/"; // Default home for all others
   }, [user, isAdmin, isRestaurantOwner]);
 
   return (
