@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCallback, useState } from 'react';
@@ -14,6 +13,7 @@ import { VoiceCommandContext, PriceCheckInfo } from './voice-commander-context';
 import { VoiceCommander } from './voice-commander';
 import { useCart } from '@/lib/cart';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthDebugger } from './auth-debugger';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { cartItems } = useCart();
@@ -47,6 +47,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     >
         <AuthGuard>
             <div className="relative flex min-h-dvh flex-col bg-background">
+                <AuthDebugger />
                 <OfflineStatus />
                 <Header />
                 <main className="flex-1 pb-16 md:pb-0">{children}</main>

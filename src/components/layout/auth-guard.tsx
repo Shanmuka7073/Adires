@@ -1,45 +1,55 @@
-
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import GlobalLoader from './global-loader';
 
 /**
  * CENTRALIZED ROUTING ENGINE
- * The only place in the app where automated redirects occur.
+ * Monitors and enforces access based on user role and session state.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, profile, isAdmin, isMerchant, isLoading, error } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Monitoring Layer: Redirect Tracking
+  const redirectCountRef = useRef(0);
 
   useEffect(() => {
     if (isLoading) return;
 
-    // 1. PUBLIC ROUTES (Login, Signup, Menus)
     const isPublicRoute = ['/login', '/signup', '/'].includes(pathname) || pathname.startsWith('/menu/');
     
-    // 2. AUTHENTICATION REDIRECTS
+    let redirectPath = null;
+
     if (!user && !isPublicRoute) {
-      router.replace(`/login?redirectTo=${pathname}`);
-      return;
-    }
-
-    // 3. LOGGED IN REDIRECTS (Auto-Dashboard)
-    if (user && pathname === '/login') {
-      if (isAdmin) router.replace('/dashboard/admin');
-      else if (isMerchant) router.replace('/dashboard');
-      else router.replace('/');
-      return;
-    }
-
-    // 4. MERCHANT ACCESS RESTRICTION
-    if (user && pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/customer')) {
+      redirectPath = `/login?redirectTo=${pathname}`;
+    } else if (user && pathname === '/login') {
+      if (isAdmin) redirectPath = '/dashboard/admin';
+      else if (isMerchant) redirectPath = '/dashboard';
+      else redirectPath = '/';
+    } else if (user && pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/customer')) {
         if (!isMerchant && !isAdmin) {
-            router.replace('/');
+            redirectPath = '/';
         }
+    }
+
+    // Enforcement & Loop Detection
+    if (redirectPath && redirectPath !== pathname) {
+        if (process.env.NODE_ENV === 'development') {
+            redirectCountRef.current++;
+            console.log(`[AUTH_FLOW] Redirect detected: ${pathname} -> ${redirectPath} (Count: ${redirectCountRef.current})`);
+            
+            if (redirectCountRef.current > 3) {
+                console.error(`[AUTH_FLOW] CRITICAL: Multiple redirects triggered in rapid succession. Investigate dependency loops.`);
+            }
+        }
+        router.replace(redirectPath);
+    } else {
+        // Stabilization
+        redirectCountRef.current = 0;
     }
 
   }, [user, profile, isLoading, pathname, router, isAdmin, isMerchant]);
