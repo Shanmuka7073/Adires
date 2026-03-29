@@ -3,15 +3,18 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, limit } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, CommandGroup } from './types';
 import { Locales } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 
 export interface AppState {
   stores: Store[];
+  userStore: Store | null;
   isFetchingStores: boolean;
+  isFetchingUserStore: boolean;
   isInitialized: boolean;
+  isUserDataLoaded: boolean;
   language: string;
   activeStoreId: string | null;
   deviceId: string | null; 
@@ -24,35 +27,40 @@ export interface AppState {
   incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
   setActiveStoreId: (storeId: string | null) => void;
+  setUserStore: (store: Store | null) => void;
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
   resetApp: () => void;
   
   // Fetching
-  fetchInitialData: (db: Firestore) => Promise<void>;
+  fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
   
   // Helpers
   locales: Locales;
   commands: Record<string, CommandGroup>;
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
 }
 
 /**
  * REFACTORED APP STORE
- * Removed User Profile and Account Type from persistence.
- * LocalStorage is now only used for non-critical UI preferences (Language, DeviceID).
+ * Restored fetchUserStore and userStore state while maintaining secure persistence.
  */
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       stores: [],
+      userStore: null,
       masterProducts: [],
       productPrices: {},
       locales: {},
       commands: defaultGeneralCommands,
       isFetchingStores: false,
+      isFetchingUserStore: false,
       isInitialized: false,
+      isUserDataLoaded: false,
       language: 'en',
       activeStoreId: null,
       deviceId: null, 
@@ -67,14 +75,18 @@ export const useAppStore = create<AppState>()(
       setDeviceId: (id: string) => set({ deviceId: id }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
+      setUserStore: (store: Store | null) => set({ userStore: store }),
 
       resetApp: () => {
           set({
               stores: [],
+              userStore: null,
               isInitialized: false,
+              isUserDataLoaded: false,
               activeStoreId: null,
               isCartOpen: false,
               isFetchingStores: false,
+              isFetchingUserStore: false,
               readCount: 0,
               writeCount: 0,
           });
@@ -83,7 +95,7 @@ export const useAppStore = create<AppState>()(
           }
       },
 
-      fetchInitialData: async (db: Firestore) => {
+      fetchInitialData: async (db: Firestore, userId?: string) => {
         if (get().isFetchingStores) return;
         set({ isFetchingStores: true });
         
@@ -97,9 +109,39 @@ export const useAppStore = create<AppState>()(
             isFetchingStores: false,
             readCount: get().readCount + storesSnap.docs.length
           });
+
+          if (userId) {
+            await get().fetchUserStore(db, userId);
+          } else {
+            set({ isUserDataLoaded: true });
+          }
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ isFetchingStores: false, isInitialized: true });
+          set({ isFetchingStores: false, isInitialized: true, isUserDataLoaded: true });
+        }
+      },
+
+      fetchUserStore: async (db: Firestore, userId: string) => {
+        if (!userId || get().isFetchingUserStore) return;
+        set({ isFetchingUserStore: true });
+
+        try {
+          const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+          const snap = await getDocs(q);
+          
+          const storeData = snap.docs.length > 0 
+              ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
+              : null;
+
+          set({
+              userStore: storeData,
+              isFetchingUserStore: false,
+              isUserDataLoaded: true,
+              readCount: get().readCount + 1
+          });
+        } catch (error) {
+          console.error("fetchUserStore failed:", error);
+          set({ isFetchingUserStore: false, isUserDataLoaded: true });
         }
       },
 
