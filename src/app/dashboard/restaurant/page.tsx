@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,11 +19,14 @@ import {
     Monitor,
     RefreshCw,
     CheckCircle2,
-    MapPin
+    MapPin,
+    Camera,
+    Upload as UploadIcon,
+    Sparkles
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,25 +34,167 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useAppStore } from '@/lib/store';
-import { cn } from '@/lib/utils';
+import { cn, createSlug } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import GlobalLoader from '@/components/layout/global-loader';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
+import type { MenuItem, MenuTheme } from '@/lib/types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const createStoreSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
-  businessType: z.enum(['restaurant', 'salon', 'grocery']),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
   latitude: z.coerce.number(),
   longitude: z.coerce.number(),
 });
 
 type CreateStoreFormValues = z.infer<typeof createStoreSchema>;
+
+function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
+    const { toast } = useToast();
+    const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
+    const [isProcessing, startProcessing] = useTransition();
+    const [isSaving, startSave] = useTransition();
+    const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        startProcessing(async () => {
+            try {
+                const reader = new FileReader();
+                const imageData = await new Promise<string>((resolve) => {
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                });
+                const result = await extractMenuItems({ menuImage: imageData });
+                if (result && result.items) {
+                    setExtractedData({
+                        items: result.items.map(i => ({ ...i, id: createSlug(i.name), isAvailable: true })),
+                        theme: result.theme,
+                        businessType: result.businessType
+                    });
+                    toast({ title: "Intelligence Locked", description: `Detected: ${result.businessType.toUpperCase()}` });
+                }
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'AI Extraction Failed' });
+            }
+        });
+    };
+
+    const handleSaveMenu = () => {
+        if (!firestore || !extractedData) return;
+        startSave(async () => {
+            const batch = writeBatch(firestore);
+            const menuRef = doc(collection(firestore, `stores/${storeId}/menus`));
+            
+            // 1. Create the digital menu
+            batch.set(menuRef, { 
+                id: menuRef.id, 
+                storeId, 
+                items: extractedData.items, 
+                theme: extractedData.theme,
+                createdAt: serverTimestamp()
+            });
+
+            // 2. Update the store with the AI-determined vertical
+            batch.update(doc(firestore, 'stores', storeId), { 
+                businessType: extractedData.businessType,
+                updatedAt: serverTimestamp()
+            });
+
+            await batch.commit();
+            toast({ title: "Configuration Complete!", description: `Your ${extractedData.businessType} is now live.` });
+            incrementWriteCount(2);
+            onComplete();
+        });
+    };
+
+    return (
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
+                <div className="h-16 w-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary mb-4 shadow-inner">
+                    <Camera className="h-8 w-8" />
+                </div>
+                <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Finalize Identity</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">AI will determine your business vertical from your menu</CardDescription>
+            </CardHeader>
+
+            <CardContent className="p-8">
+                {extractedData ? (
+                    <div className="space-y-6">
+                        <div className="p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-100 flex items-center justify-between">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">AI Classification</p>
+                                <p className="text-xl font-black uppercase tracking-tight text-indigo-900 italic">{extractedData.businessType}</p>
+                            </div>
+                            <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                                {extractedData.businessType === 'restaurant' && <Utensils className="h-5 w-5 text-indigo-600" />}
+                                {extractedData.businessType === 'salon' && <Scissors className="h-5 w-5 text-indigo-600" />}
+                                {extractedData.businessType === 'grocery' && <ShoppingBag className="h-5 w-5 text-indigo-600" />}
+                            </div>
+                        </div>
+
+                        <ScrollArea className="h-64 rounded-2xl border-2 shadow-inner bg-gray-50">
+                            <Table>
+                                <TableHeader className="bg-black/5">
+                                    <TableRow>
+                                        <TableHead className="text-[9px] font-black uppercase">Item Detected</TableHead>
+                                        <TableHead className="text-right text-[9px] font-black uppercase">Price</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {extractedData.items.map((i, idx) => (
+                                        <TableRow key={idx} className="border-b last:border-0 border-black/5">
+                                            <TableCell className="font-bold text-xs uppercase">{i.name}</TableCell>
+                                            <TableCell className="text-right font-black text-primary">₹{i.price}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center py-10">
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                        <Button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            disabled={isProcessing} 
+                            className="w-full h-20 rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/20 text-sm"
+                        >
+                            {isProcessing ? (
+                                <><Loader2 className="mr-3 h-6 w-6 animate-spin" /> AI is Reading Menu...</>
+                            ) : (
+                                <><UploadIcon className="mr-3 h-6 w-6" /> Upload Menu / Price List</>
+                            )}
+                        </Button>
+                        <p className="text-[9px] font-bold opacity-40 uppercase mt-8 text-center leading-relaxed max-w-sm">
+                            Take a clear photo of your paper menu or service list.<br/>Our AI will automatically set up your digital hub and catalog.
+                        </p>
+                    </div>
+                )}
+            </CardContent>
+
+            {extractedData && (
+                <div className="p-8 bg-gray-50 border-t border-black/5 sticky bottom-0">
+                    <div className="flex gap-2">
+                        <Button onClick={handleSaveMenu} disabled={isSaving} className="flex-1 h-16 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20">
+                            {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : <><CheckCircle2 className="h-6 w-6 mr-2" /> Confirm & Launch Hub</>}
+                        </Button>
+                        <Button variant="ghost" onClick={() => setExtractedData(null)} className="h-16 rounded-[2rem] font-black text-[10px] uppercase tracking-widest px-6">Retry</Button>
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+}
 
 function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void }) {
     const { user, firestore } = useFirebase();
@@ -60,8 +206,6 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
         resolver: zodResolver(createStoreSchema),
         defaultValues: {
             name: '',
-            businessType: 'restaurant',
-            description: '',
             address: '',
             latitude: 0,
             longitude: 0,
@@ -97,8 +241,6 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 id: storeId,
                 ownerId: user.uid,
                 name: data.name,
-                businessType: data.businessType,
-                description: data.description,
                 address: data.address,
                 latitude: data.latitude,
                 longitude: data.longitude,
@@ -113,7 +255,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 setDoc(userRef, { accountType: 'restaurant' }, { merge: true })
             ]);
 
-            toast({ title: "Setup Complete", description: "Your business is now live on the platform." });
+            toast({ title: "Shell Created", description: "Next: Scan your menu to determine business type." });
             onComplete(storeId);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
@@ -125,48 +267,28 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
             <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
-                <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Business Identity</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Initialize your digital hub</CardDescription>
+                <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Business Setup</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Step 1: Basic Identity</CardDescription>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <ScrollArea className="max-h-[60vh]">
-                        <CardContent className="p-8 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Grand Tiffin Centre" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
-                                )} />
-                                <FormField control={form.control} name="businessType" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Hub Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent className="rounded-xl border-2">
-                                                <SelectItem value="restaurant" className="rounded-lg">Restaurant</SelectItem>
-                                                <SelectItem value="salon" className="rounded-lg">Salon / Spa</SelectItem>
-                                                <SelectItem value="grocery" className="rounded-lg">Grocery Store</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormItem>
-                                )} />
-                            </div>
-                            <FormField control={form.control} name="description" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} placeholder="Describe what makes your hub special..." className="min-h-[100px] rounded-xl border-2 font-medium" /></FormControl></FormItem>
-                            )} />
-                            <FormField control={form.control} name="address" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Contact Address</FormLabel><FormControl><Input {...field} placeholder="Complete physical location" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
-                            )} />
-                            <div className="pt-2">
-                                <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest bg-white hover:bg-primary/5 transition-all">
-                                    {isDetecting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <MapPin className="h-4 w-4 mr-2" />}
-                                    Lock GPS Location
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </ScrollArea>
-                    <div className="p-8 bg-gray-50 border-t border-black/5 sticky bottom-0">
+                    <CardContent className="p-8 space-y-6">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Grand Tiffin Centre" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                        )} />
+                        <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Location Address</FormLabel><FormControl><Input {...field} placeholder="Complete physical location" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                        )} />
+                        <div className="pt-2">
+                            <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest bg-white hover:bg-primary/5 transition-all">
+                                {isDetecting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <MapPin className="h-4 w-4 mr-2" />}
+                                Lock GPS Coordinates
+                            </Button>
+                        </div>
+                    </CardContent>
+                    <div className="p-8 bg-gray-50 border-t border-black/5">
                         <Button type="submit" disabled={isSaving} className="w-full h-16 rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/20 text-sm">
-                            {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><CheckCircle2 className="h-6 w-6 mr-2" /> Save & Launch Hub</>}
+                            {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><Sparkles className="h-6 w-6 mr-2" /> Next: Add My Menu</>}
                         </Button>
                     </div>
                 </form>
@@ -205,10 +327,20 @@ export default function MerchantDashboardPage() {
 
     if (isLoading || !isUserDataLoaded) return <GlobalLoader />;
     
+    // STEP 1: Basic creation
     if (!userStore && isInitialized) {
         return (
             <div className="container mx-auto px-4 py-12 max-w-4xl space-y-12 animate-in fade-in duration-700">
                 <CreateStoreForm onComplete={() => firestore && fetchUserStore(firestore, user!.uid)} />
+            </div>
+        );
+    }
+
+    // STEP 2: AI Determination of Vertical
+    if (userStore && !userStore.businessType) {
+        return (
+            <div className="container mx-auto px-4 py-12 max-w-4xl space-y-12 animate-in fade-in duration-700">
+                <MenuOnboardingTool storeId={userStore.id} onComplete={() => firestore && fetchUserStore(firestore, user!.uid)} />
             </div>
         );
     }

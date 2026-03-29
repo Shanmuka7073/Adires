@@ -53,24 +53,22 @@ const prompt = ai.definePrompt({
   input: { schema: ExtractMenuItemsInputSchema },
   output: { schema: ExtractMenuItemsOutputSchema },
   model: 'googleai/gemini-2.5-flash',
-  prompt: `You are an expert OCR and business analysis engine for the Indian marketplace.
+  prompt: `You are an expert OCR and business intelligence engine for the Indian marketplace.
 Your task is to analyze the provided image of a menu, price list, or storefront board and extract every single item and the visual theme into a structured format.
 
 Menu Image:
 {{media url=menuImage}}
 
 Instructions:
-1.  **Analyze Every Column**: Indian menus often use multiple columns (e.g., Rice & Grains on the left, Flours on the right). Read the entire image from left to right, top to bottom.
-2.  **Extract All Items**: For every single item listed, extract the name, the price (as a number), and the header category it falls under.
+1.  **Analyze Every Column**: Read the entire image from left to right, top to bottom.
+2.  **Extract All Items**: For every single item listed, extract the name, the price (as a number), and the category.
 3.  **Detect Dietary Status**: 
-    - For food items, determine if it is 'veg' or 'non-veg'. 
-    - Look for indicators like green/red dots on the menu, or use common knowledge (e.g., Chicken, Mutton, Fish, Egg, Prawn are 'non-veg'; Paneer, Dal, Sabzi, Rice are 'veg').
-    - If unsure or if it's a non-food item (like a haircut), leave 'dietary' empty.
-4.  **Analyze Color Scheme**: Detect the dominant visual colors. Provide hex codes for background, primary (brand color), and text.
-5.  **Determine Business Vertical**:
-    - If the items are predominantly food dishes (Biryani, Curry, Tiffin), set 'businessType' to 'restaurant'.
-    - If the items are raw ingredients (Rice, Dal, Oil, Soap, Biscuits), set 'businessType' to 'grocery'.
-    - If the items are services (Haircut, Facial), set 'businessType' to 'salon'.
+    - For food items, determine if it is 'veg' or 'non-veg' based on keywords or standard Indian culinary knowledge.
+4.  **Analyze Color Scheme**: Detect the dominant visual colors for branding.
+5.  **Determine Business Vertical (CRITICAL)**:
+    - If the items are predominantly prepared food dishes (e.g., Biryani, Tiffin, Meals, Snacks, Pizza, Curry), set 'businessType' to 'restaurant'.
+    - If the items are raw grocery products, packaged retail goods, fruits, vegetables, or household supplies, set 'businessType' to 'grocery'.
+    - If the items are grooming, wellness, or beauty services (e.g., Haircut, Shave, Facial, Massage, Waxing, Makeup), set 'businessType' to 'salon'.
 6.  **Clean Data**: Remove any currency symbols (₹) from the price. If a price range is given, use the starting price.
 7.  **Final Output**: Return a valid JSON object matching the schema.
 `,
