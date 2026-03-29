@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -204,19 +204,20 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeData: StoreType) =>
 
     const handleDetectLocation = () => {
         if (!navigator.geolocation) {
-            toast({ variant: 'destructive', title: "Not Supported" });
+            toast({ variant: 'destructive', title: "Not Supported", description: "GPS is not available." });
             return;
         }
         setIsDetecting(true);
         navigator.geolocation.getCurrentPosition((pos) => {
-            form.setValue('latitude', pos.coords.latitude, { shouldValidate: true });
-            form.setValue('longitude', pos.coords.longitude, { shouldValidate: true });
+            const { latitude, longitude } = pos.coords;
+            form.setValue('latitude', latitude, { shouldValidate: true });
+            form.setValue('longitude', longitude, { shouldValidate: true });
             setIsDetecting(false);
-            toast({ title: "GPS Locked" });
+            toast({ title: "GPS Locked", description: `Accuracy: ${pos.coords.accuracy.toFixed(0)}m` });
         }, (err) => {
             setIsDetecting(false);
             toast({ variant: 'destructive', title: "GPS Error", description: err.message });
-        });
+        }, { enableHighAccuracy: true });
     };
 
     const onSubmit = async (data: CreateStoreFormValues) => {
