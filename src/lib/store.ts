@@ -8,6 +8,7 @@ import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './t
 import { initializeTranslations, Locales, buildLocalesFromAliasGroups, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useEffect } from 'react';
+import { useFirebase } from '@/firebase';
 
 export interface AppState {
   stores: Store[];

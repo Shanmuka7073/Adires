@@ -42,7 +42,7 @@ export function useAdminAuth() {
 
   const isCustomer = useMemo(() => {
     if (!isUserDataLoaded || isProfileLoading) return false;
-    return userData?.accountType === 'customer' || !userData?.accountType;
+    return !userData?.accountType;
   }, [userData, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
