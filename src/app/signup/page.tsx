@@ -1,18 +1,19 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Mail, Lock } from 'lucide-react';
+import { Loader2, Mail, Lock, Chrome } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 
@@ -83,8 +84,57 @@ export default function SignupPage() {
     }
   };
 
+  const handleGoogleSignup = async () => {
+    if (!auth || !firestore) return;
+    setIsLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if Firestore document exists
+      const userRef = doc(firestore, 'users', user.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+          const accountType = signupSource === 'customer' ? 'customer' : 'restaurant';
+          await setDoc(userRef, {
+              id: user.uid,
+              uid: user.uid,
+              email: user.email,
+              accountType: accountType,
+              firstName: user.displayName?.split(' ')[0] || '',
+              lastName: user.displayName?.split(' ')[1] || '',
+              phoneNumber: user.phoneNumber || '',
+              address: ''
+          }, { merge: true });
+          
+          toast({
+              title: 'Welcome!',
+              description: `Account created as a ${accountType === 'restaurant' ? 'Merchant' : 'Member'}.`,
+          });
+      } else {
+          toast({
+              title: 'Welcome back!',
+              description: "You've logged in with Google.",
+          });
+      }
+
+      localStorage.removeItem('signup_context');
+      router.replace('/dashboard');
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Google Signup Failed',
+            description: error.message,
+        });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[#FDFCF7]">
       <div className="w-full max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white/80 backdrop-blur-xl">
           <CardContent className="p-8 space-y-8">
@@ -133,6 +183,26 @@ export default function SignupPage() {
                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sign Up'}
               </Button>
             </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-black/5" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-4 text-[8px] font-black uppercase tracking-[0.3em] opacity-20">Identity Provider</span>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleGoogleSignup}
+              variant="outline"
+              disabled={isLoading}
+              className="w-full h-14 rounded-2xl border-2 font-bold gap-3 hover:bg-black/5 transition-all"
+            >
+              <Chrome className="h-5 w-5 text-blue-500" />
+              <span>Sign up with Google</span>
+            </Button>
+
             <p className="text-center text-xs text-gray-500">
                 Already have an account?{' '}
                 <Link href="/login" className="font-medium text-primary hover:underline">
