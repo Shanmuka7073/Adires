@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -79,7 +78,7 @@ function UserMenu() {
             </Link>
         )}
 
-        <Link href="/dashboard/customer/my-profile" passHref>
+        <Link href="/profile" passHref>
             <DropdownMenuItem className="rounded-lg cursor-pointer">
                 <UserCircle className="mr-2 h-4 w-4" />
                 <span>My Profile</span>

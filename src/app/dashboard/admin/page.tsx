@@ -20,7 +20,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { getPlatformAnalytics } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';

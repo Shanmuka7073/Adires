@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -17,38 +16,37 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from './ui/button';
+import { useAppStore } from '@/lib/store';
 
 const SESSION_STORAGE_KEY = 'profile-prompt-dismissed';
-const ADMIN_EMAIL = 'admin@gmail.com';
 
 export function ProfileCompletionChecker() {
   const { user, isUserLoading, firestore } = useFirebase();
+  const { isUserDataLoaded } = useAppStore();
   const router = useRouter();
   const pathname = usePathname();
   const [showPrompt, setShowPrompt] = useState(false);
 
-  // Memoize the document reference
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  // useDoc will fetch the user's profile data
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
   useEffect(() => {
-    // Don't show anything on menu pages or if loading
-    if (pathname?.startsWith('/menu/') || isUserLoading || isProfileLoading) {
+    // 1. Wait for everything to be loaded before checking
+    if (isUserLoading || !isUserDataLoaded || isProfileLoading || !user) {
       return;
     }
 
-    // Don't show the prompt if the user is not logged in, is the admin, or has dismissed it this session.
-    if (!user || user.email === ADMIN_EMAIL || sessionStorage.getItem(SESSION_STORAGE_KEY) === 'true') {
+    // 2. Ignore on profile page or if dismissed
+    if (pathname === '/profile' || sessionStorage.getItem(SESSION_STORAGE_KEY) === 'true') {
       setShowPrompt(false);
       return;
     }
     
-    // Condition is now checked only after we're sure userData is loaded or confirmed to be null.
+    // 3. Check for incomplete profile
     const isProfileIncomplete = 
         !userData || 
         !userData.firstName || 
@@ -59,36 +57,35 @@ export function ProfileCompletionChecker() {
     if (isProfileIncomplete) {
       setShowPrompt(true);
     } else {
-      setShowPrompt(false); // Explicitly hide if profile is complete
+      setShowPrompt(false);
     }
-  }, [user, isUserLoading, userData, isProfileLoading, pathname]);
+  }, [user, isUserLoading, isUserDataLoaded, userData, isProfileLoading, pathname]);
 
   const handleDismiss = () => {
-    // Remember that the user dismissed the prompt for this session
     sessionStorage.setItem(SESSION_STORAGE_KEY, 'true');
     setShowPrompt(false);
   };
 
   const handleNavigate = () => {
     setShowPrompt(false);
-    router.push('/dashboard/customer/my-profile');
+    router.push('/profile');
   };
 
   return (
     <AlertDialog open={showPrompt} onOpenChange={setShowPrompt}>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-[2rem] border-0 shadow-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>Welcome to LocalBasket!</AlertDialogTitle>
-          <AlertDialogDescription>
-            To ensure a smooth delivery experience, please complete your profile with your name, address, and phone number.
+          <AlertDialogTitle className="font-black uppercase tracking-tight italic">Action Required</AlertDialogTitle>
+          <AlertDialogDescription className="font-bold text-gray-500">
+            Please complete your business or personal profile to ensure accurate delivery and billing records.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
+        <AlertDialogFooter className="gap-2 sm:gap-0">
           <AlertDialogCancel asChild>
-            <Button variant="outline" onClick={handleDismiss}>Later</Button>
+            <Button variant="outline" className="rounded-xl font-bold" onClick={handleDismiss}>Skip</Button>
           </AlertDialogCancel>
           <AlertDialogAction asChild>
-            <Button onClick={handleNavigate}>Complete Profile</Button>
+            <Button onClick={handleNavigate} className="rounded-xl bg-primary hover:bg-primary/90 font-black uppercase text-[10px] tracking-widest">Setup Profile</Button>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
