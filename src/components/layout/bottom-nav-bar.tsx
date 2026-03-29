@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,10 +10,9 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 
 const customerNavItems = [
   { href: '/', label: 'home', icon: Home, color: 'text-primary' },
-  { href: '/dashboard/owner/my-store', label: 'my-store', icon: Store, color: 'text-orange-500' },
   { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-blue-500' },
   { href: '/dashboard/customer/my-orders', label: 'my-orders', icon: Package, color: 'text-purple-500' },
-  { href: '/dashboard/customer/my-profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
+  { href: '/profile', label: 'my-profile', icon: User, color: 'text-gray-500' },
 ];
 
 const merchantNavItems = [
@@ -22,14 +20,14 @@ const merchantNavItems = [
   { href: '/dashboard/owner/orders', label: 'Live Orders', icon: ShoppingBag, color: 'text-blue-600' },
   { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-indigo-500' },
   { href: '/dashboard/owner/my-store', label: 'Business', icon: Store, color: 'text-orange-500' },
-  { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
+  { href: '/profile', label: 'Profile', icon: User, color: 'text-gray-500' },
 ];
 
 const employeeNavItems = [
     { href: '/dashboard/employee/attendance', label: 'Attendance', icon: UserCheck, color: 'text-green-600' },
     { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-indigo-500' },
     { href: '/dashboard/employee/salary-slips', label: 'Salaries', icon: FileText, color: 'text-blue-600' },
-    { href: '/dashboard/customer/my-profile', label: 'Profile', icon: User, color: 'text-gray-500' },
+    { href: '/profile', label: 'Profile', icon: User, color: 'text-gray-500' },
 ];
 
 export function BottomNavBar() {

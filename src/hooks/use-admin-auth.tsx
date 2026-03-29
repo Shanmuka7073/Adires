@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -45,6 +44,7 @@ export function useAdminAuth() {
   }, [userData, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
+      // In this system, Merchants are Restaurant Owners or Admins
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 

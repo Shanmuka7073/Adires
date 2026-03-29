@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,6 +6,8 @@ import { getSystemStatus } from '@/app/actions';
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useRouter } from 'next/navigation';
 
 interface ServerStatus {
     status: 'ok' | 'error' | 'loading';
@@ -19,6 +20,8 @@ interface ServerStatus {
 }
 
 export default function SystemStatusPage() {
+  const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+  const router = useRouter();
   const [status, setStatus] = useState<ServerStatus>({ 
     status: 'loading',
     llmStatus: 'Unknown', 
@@ -54,10 +57,22 @@ export default function SystemStatusPage() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+    if (!isAdminLoading && !isAdmin) {
+      router.replace('/dashboard');
+    }
+  }, [isAdmin, isAdminLoading, router]);
+
+  useEffect(() => {
+    if (isAdmin) {
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 30000);
+        return () => clearInterval(interval);
+    }
+  }, [fetchStatus, isAdmin]);
+
+  if (isAdminLoading || !isAdmin) {
+    return <div className="p-12 text-center h-[80vh] flex flex-col items-center justify-center opacity-20"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  }
 
   return (
     <div className="p-8 space-y-12 bg-gray-50 min-h-screen pb-32">
