@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useTransition, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
@@ -21,6 +22,9 @@ import { endCall } from '@/lib/chat-service';
 import type { Chat, CallSession } from '@/lib/types';
 import { AnimatePresence } from 'framer-motion';
 import { WebRTCManager } from '@/lib/webrtc-service';
+import { VoiceCommandContext, PriceCheckInfo } from './voice-commander-context';
+import { VoiceCommander } from './voice-commander';
+import { useCart } from '@/lib/cart';
 
 function MaintenanceOverlay() {
     return (
@@ -65,17 +69,40 @@ export function MainLayout({
 }: { 
   children: React.ReactNode;
 }) {
-  const { firestore, user } = useFirebase();
+  const { firestore, user, isUserLoading } = useFirebase();
   const { isAdmin } = useAdminAuth();
-  const { isInitialized } = useAppStore();
+  const { isInitialized, fetchInitialData } = useAppStore();
+  const { cartItems } = useCart();
   const [activeCall, setActiveCall] = useState<{ call: CallSession, chatId: string } | null>(null);
   const rtcManagerRef = useRef<WebRTCManager | null>(null);
   const callUnsubRef = useRef<Unsubscribe | null>(null);
 
-  // Maintenance Listener
-  const statusRef = useMemoFirebase(() => firestore ? doc(firestore, 'siteConfig', 'appStatus') : null, [firestore]);
-  const { data: appStatus } = useDoc<any>(statusRef);
-  const isMaintenanceActive = appStatus?.isMaintenance && !isAdmin;
+  // Voice States
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('Idle');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isVoiceOrderDialogOpen, setIsVoiceOrderDialogOpen] = useState(false);
+  const [priceCheckInfo, setPriceCheckInfo] = useState<PriceCheckInfo | null>(null);
+
+  const onToggleVoice = useCallback(() => setVoiceEnabled(prev => !prev), []);
+  const triggerVoicePrompt = useCallback(() => setVoiceEnabled(true), []);
+  const showPriceCheck = useCallback((info: PriceCheckInfo) => setPriceCheckInfo(info), []);
+  const hidePriceCheck = useCallback(() => setPriceCheckInfo(null), []);
+  const onCartOpenChange = useCallback((open: boolean) => setIsCartOpen(open), []);
+
+  useEffect(() => {
+      if (firestore && !isInitialized) {
+          fetchInitialData(firestore, user?.uid);
+      }
+  }, [firestore, isInitialized, fetchInitialData, user?.uid]);
+
+  const statusRef = useMemoFirebase(() => {
+      if (!firestore || isUserLoading) return null;
+      return doc(firestore, 'siteConfig', 'appStatus');
+  }, [firestore, isUserLoading]);
+  
+  const { data: appStatus, isLoading: statusLoading } = useDoc<any>(statusRef);
+  const isMaintenanceActive = !statusLoading && appStatus?.isMaintenance && !isAdmin;
 
   // Real-time Incoming Call Listener
   useEffect(() => {
@@ -89,18 +116,12 @@ export function MainLayout({
       const unsubscribe = onSnapshot(q, (snapshot) => {
           snapshot.docs.forEach((d) => {
               const chat = d.data() as Chat;
-              
-              // If we find a chat with an active call and we are NOT the one who initiated it
               if (chat.activeCallId && chat.lastSenderId !== user.uid) {
-                  // If we are already listening to this call, skip
                   if (activeCall?.call.id === chat.activeCallId) return;
-
-                  // Cleanup old call listener if switching calls
                   if (callUnsubRef.current) {
                       callUnsubRef.current();
                       callUnsubRef.current = null;
                   }
-
                   const callRef = doc(firestore, 'calls', chat.activeCallId);
                   callUnsubRef.current = onSnapshot(callRef, (snap) => {
                       const call = snap.data() as CallSession;
@@ -115,7 +136,6 @@ export function MainLayout({
                       }
                   });
               } else if (!chat.activeCallId && activeCall?.chatId === d.id) {
-                  // Call ended externally
                   setActiveCall(null);
                   if (callUnsubRef.current) {
                       callUnsubRef.current();
@@ -142,33 +162,60 @@ export function MainLayout({
       }
   };
 
-  const handleAcceptCall = () => {
-      // Audio stream is handled inside CallOverlay via answerCall
-  };
+  const handleAcceptCall = () => {};
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-background">
-      {isMaintenanceActive && <MaintenanceOverlay />}
-      
-      <AnimatePresence>
-          {activeCall && (
-              <CallOverlay 
-                key={activeCall.call.id}
-                call={activeCall.call}
-                onAccept={handleAcceptCall}
-                onDecline={handleDeclineCall}
-              />
-          )}
-      </AnimatePresence>
+    <VoiceCommandContext.Provider
+      value={{
+        triggerVoicePrompt,
+        showPriceCheck,
+        hidePriceCheck,
+        onCartOpenChange,
+        isCartOpen,
+        voiceEnabled,
+        voiceStatus,
+        onToggleVoice,
+        isVoiceOrderDialogOpen,
+        setIsVoiceOrderDialogOpen
+      }}
+    >
+        <div className="relative flex min-h-dvh flex-col bg-background">
+        {isMaintenanceActive && <MaintenanceOverlay />}
+        
+        <AnimatePresence>
+            {activeCall && (
+                <CallOverlay 
+                    key={activeCall.call.id}
+                    call={activeCall.call}
+                    onAccept={handleAcceptCall}
+                    onDecline={handleDeclineCall}
+                />
+            )}
+        </AnimatePresence>
 
-      <OfflineStatus />
-      <Header />
-      <ProfileCompletionChecker />
-      <main className="flex-1 pb-16 md:pb-0">{children}</main>
-      <NotificationPermissionManager />
-      <Footer />
-      <BottomNavBar />
-      <FirestoreCounter />
-    </div>
+        <OfflineStatus />
+        <Header />
+        <ProfileCompletionChecker />
+        <main className="flex-1 pb-16 md:pb-0">{children}</main>
+        
+        <VoiceCommander 
+            enabled={voiceEnabled}
+            onStatusUpdate={setVoiceStatus}
+            onOpenCart={() => setIsCartOpen(true)}
+            onCloseCart={() => setIsCartOpen(false)}
+            cartItems={cartItems}
+            voiceTrigger={0}
+            triggerVoicePrompt={triggerVoicePrompt}
+            retryCommandText={null}
+            onRetryHandled={() => {}}
+            onInstallApp={() => {}}
+        />
+
+        <NotificationPermissionManager />
+        <Footer />
+        <BottomNavBar />
+        <FirestoreCounter />
+        </div>
+    </VoiceCommandContext.Provider>
   );
 }

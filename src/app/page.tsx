@@ -3,17 +3,15 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType } from '@/lib/types';
+import { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
+import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
-import { doc, collection, query, limit } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { RecipeCard } from '@/components/features/recipe-card';
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
@@ -76,7 +74,6 @@ function HubNavigation() {
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const { isMerchant, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -88,17 +85,6 @@ export default function LocalBasketHomepage() {
   }, [firestore, isInitialized, isFetchingStores, fetchInitialData, user?.uid]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
-
-  if (isRoleLoading) {
-    return (
-        <div className="flex h-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Synchronizing Hub...</p>
-            </div>
-        </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">

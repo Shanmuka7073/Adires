@@ -11,7 +11,6 @@ export interface PriceCheckInfo {
 
 export interface VoiceCommandContextType {
   triggerVoicePrompt: () => void;
-  retryCommand?: (command: string) => void;
   showPriceCheck: (info: PriceCheckInfo) => void;
   hidePriceCheck: () => void;
   onCartOpenChange: (open: boolean) => void;
@@ -19,6 +18,8 @@ export interface VoiceCommandContextType {
   voiceEnabled: boolean;
   voiceStatus: string;
   onToggleVoice: () => void;
+  isVoiceOrderDialogOpen: boolean;
+  setIsVoiceOrderDialogOpen: (open: boolean) => void;
 }
 
 export const VoiceCommandContext = createContext<VoiceCommandContextType | undefined>(undefined);
@@ -26,7 +27,7 @@ export const VoiceCommandContext = createContext<VoiceCommandContextType | undef
 export function useVoiceCommanderContext() {
   const context = useContext(VoiceCommandContext);
   if (!context) {
-    throw new Error('useVoiceCommanderContext must be used within a VoiceCommandProvider (MainLayout)');
+    throw new Error('useVoiceCommanderContext must be used within a VoiceCommandProvider');
   }
   return context;
 }

@@ -35,7 +35,8 @@ import {
   CalendarCheck,
   RefreshCw,
   LogIn,
-  MessageCircle
+  MessageCircle,
+  Mic
 } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -50,8 +51,10 @@ import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store';
 import { useCart } from '@/lib/cart';
 import { BookingSheet } from '@/components/features/booking-sheet';
+import { VoiceOrderDialog } from '@/components/features/voice-order-dialog';
 import Link from 'next/link';
 import { getOrCreateChat } from '@/lib/chat-service';
+import { useVoiceCommanderContext } from '@/components/layout/voice-commander-context';
 
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
@@ -232,6 +235,7 @@ function MenuContent() {
   const [searchTerm, setSearchTerm] = useState(''); 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLiveBillOpen, setIsLiveBillOpen] = useState(false);
+  const { isVoiceOrderDialogOpen, setIsVoiceOrderDialogOpen } = useVoiceCommanderContext();
   const [tableNumber, setTableNumber] = useState<string | null>(null); 
   const [selectedItemForIngredients, setSelectedItemForIngredients] = useState<MenuItem | null>(null); 
   const [ingredientsData, setIngredientsData] = useState<GetIngredientsOutput | null>(null); 
@@ -355,6 +359,15 @@ function MenuContent() {
               <BookingSheet store={store} service={bookingService} onComplete={() => setBookingService(null)} />
           </Sheet>
       )}
+
+      {isVoiceOrderDialogOpen && menu && (
+        <VoiceOrderDialog 
+          open={isVoiceOrderDialogOpen} 
+          onClose={() => setIsVoiceOrderDialogOpen(false)} 
+          menu={menu.items} 
+          storeId={storeId} 
+        />
+      )}
       
       <div className="min-h-screen pb-40 bg-[#FDFCF7]">
           <header className="sticky top-0 z-50 bg-[#FDFCF7]/90 backdrop-blur-xl px-5 pt-4 pb-2 border-b border-black/5">
@@ -374,11 +387,18 @@ function MenuContent() {
                               </div>
                           </div>
                       </div>
-                      {canInstall && (
-                        <button onClick={triggerInstall} className="h-8 px-3 rounded-full bg-white shadow-sm border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest flex items-center gap-1.5 text-gray-950">
-                            <Download className="h-3 w-3 text-primary" /> Install
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {!isSalon && (
+                          <button onClick={() => setIsVoiceOrderDialogOpen(true)} className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
+                            <Mic className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canInstall && (
+                          <button onClick={triggerInstall} className="h-8 px-3 rounded-full bg-white shadow-sm border border-black/5 active:scale-90 transition-all font-black text-[8px] uppercase tracking-widest flex items-center gap-1.5 text-gray-950">
+                              <Download className="h-3 w-3 text-primary" /> Install
+                          </button>
+                        )}
+                      </div>
                   </div>
                   <div className="flex gap-2 overflow-x-auto no-scrollbar py-0.5">
                       {availableCategories.map(cat => (

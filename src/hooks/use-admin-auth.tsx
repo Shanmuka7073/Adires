@@ -7,15 +7,15 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
-const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com'];
+const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
 
 /**
- * A hardened hook to determine the current user's role and authorization status.
- * Ensures data is fully loaded before role calculation to prevent flickering.
+ * Unified Auth Hook
+ * Synchronizes Firebase Auth with Firestore Profile data to prevent redirection loops.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
-  const isUserDataLoaded = useAppStore(state => state.isUserDataLoaded);
+  const { isUserDataLoaded } = useAppStore();
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -29,20 +29,21 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    return isAdmin || userData?.accountType === 'restaurant';
-  }, [userData, isAdmin]);
+    if (!isUserDataLoaded) return false;
+    return userData?.accountType === 'restaurant';
+  }, [userData, isUserDataLoaded]);
 
   const isEmployee = useMemo(() => {
+    if (!isUserDataLoaded) return false;
     return userData?.accountType === 'employee';
-  }, [userData]);
+  }, [userData, isUserDataLoaded]);
 
   const isMerchant = useMemo(() => {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // CRITICAL: isLoading MUST account for isUserDataLoaded to prevent redirect loops
-  // If we have a user, we must wait for their profile data to be confirmed before concluding loading is done.
-  const loading = isUserLoading || (!!user && isProfileLoading) || (!!user && !isUserDataLoaded) || !auth;
+  // CRITICAL: loading MUST account for isUserDataLoaded to prevent redirect loops
+  const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth;
 
   return {
     isAdmin,

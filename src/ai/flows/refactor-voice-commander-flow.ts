@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to analyze and refactor the VoiceCommander component.
@@ -10,7 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const RefactorVoiceCommanderInputSchema = z.object({
   code: z.string().describe('The TypeScript/React source code of the VoiceCommander component.'),
@@ -29,15 +27,11 @@ const RefactorVoiceCommanderOutputSchema = z.object({
 });
 export type RefactorVoiceCommanderOutput = z.infer<typeof RefactorVoiceCommanderOutputSchema>;
 
-export async function refactorVoiceCommander(input: RefactorVoiceCommanderInput): Promise<RefactorVoiceCommanderOutput> {
-  return refactorFlow(input);
-}
-
-const prompt = ai.definePrompt({
+const refactorPrompt = ai.definePrompt({
   name: 'refactorVoiceCommanderPrompt',
   input: { schema: RefactorVoiceCommanderInputSchema },
   output: { schema: RefactorVoiceCommanderOutputSchema },
-  model: googleAI.model('gemini-2.5-flash'),
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are an expert software architect specializing in building clean, modular, and high-performance React applications with TypeScript.
 
 You will be given the source code for a "VoiceCommander" React component. Your task is to completely refactor this code to be more modular, readable, and efficient.
@@ -51,11 +45,6 @@ You will be given the source code for a "VoiceCommander" React component. Your t
 5.  **Performance:** Look for performance bottlenecks, such as expensive computations happening on every render. Suggest using \`useMemo\` or \`useCallback\` where appropriate to optimize.
 6.  **Do Not Remove Features:** The final code must retain all original functionality. You are refactoring, not removing features.
 
-**Output Requirements:**
-
-1.  **Explanation:** Provide a clear, step-by-step explanation of the key changes you made and why they improve the code. Justify your architectural decisions.
-2.  **Refactored Code:** Provide the *complete* and final refactored TypeScript code for the component. It must be a single, copy-pasteable block of code.
-
 **Input Code to Refactor:**
 \`\`\`typescript
 {{{code}}}
@@ -63,14 +52,10 @@ You will be given the source code for a "VoiceCommander" React component. Your t
 `,
 });
 
-const refactorFlow = ai.defineFlow(
-  {
-    name: 'refactorVoiceCommanderFlow',
-    inputSchema: RefactorVoiceCommanderInputSchema,
-    outputSchema: RefactorVoiceCommanderOutputSchema,
-  },
-  async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+export async function refactorVoiceCommander(input: RefactorVoiceCommanderInput): Promise<RefactorVoiceCommanderOutput> {
+  const { output } = await refactorPrompt(input);
+  if (!output) {
+    throw new Error('Refactoring failed to generate output.');
   }
-);
+  return output;
+}
