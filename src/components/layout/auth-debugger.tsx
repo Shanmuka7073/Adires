@@ -22,6 +22,13 @@ export function AuthDebugger() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
 
+    // SET DEBUG GLOBALS FOR THE TEST FUNCTION
+    if (typeof window !== 'undefined') {
+        (window as any).DEBUG_USER = user;
+        (window as any).DEBUG_ACCOUNT_TYPE = profile?.accountType;
+        (window as any).DEBUG_APP_READY = appReady;
+    }
+
     // 1. GLOBAL AUTH STATE LOGGER
     console.log('[AUTH_STATE]', {
       userId: user?.uid || 'null',
@@ -93,32 +100,25 @@ export function AuthDebugger() {
   // 5. MANUAL TEST FUNCTION: window.runAppTest()
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).runAppTest = () => {
-        console.log("%c --- INITIATING SYSTEM AUDIT --- ", "background: #1e293b; color: #10b981; font-weight: bold; padding: 4px;");
-        
-        const results = {
-            authStatus: user ? "AUTHENTICATED" : "GUEST",
-            profileLoaded: !!profile,
-            accountType: profile?.accountType || "MISSING",
-            isReady: appReady,
-            environment: process.env.NODE_ENV
+      (window as any).runAppTest = function() {
+        console.log("[TEST] Running system check");
+
+        const state = {
+          user: (window as any).DEBUG_USER,
+          accountType: (window as any).DEBUG_ACCOUNT_TYPE,
+          appReady: (window as any).DEBUG_APP_READY
         };
 
-        console.table(results);
+        console.log("[AUTH_STATE]", state);
 
-        let failed = false;
-        if (user && !profile) { console.error("FAIL: Authenticated but profile document missing."); failed = true; }
-        if (user && profile && !profile.accountType) { console.error("FAIL: Profile document exists but accountType is undefined."); failed = true; }
-        if (!appReady && !authLoading && !profileLoading) { console.error("FAIL: App is not ready but loading states are finished."); failed = true; }
+        if (!state.user) console.error("❌ No user");
+        if (!state.accountType) console.error("❌ Missing accountType");
+        if (!state.appReady) console.error("❌ App not ready");
 
-        if (!failed) {
-            console.log("%c SYSTEM VALIDATION PASSED ", "background: #10b981; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px;");
-        } else {
-            console.error("SYSTEM VALIDATION FAILED - CHECK ANOMALIES ABOVE");
-        }
+        console.log("✅ Test completed");
       };
     }
-  }, [user, profile, appReady, authLoading, profileLoading]);
+  }, []);
 
   // Render Visual Health Badge (Development Only)
   if (process.env.NODE_ENV !== 'development') return null;
