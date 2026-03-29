@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -19,39 +20,7 @@ export function AuthDebugger() {
   // State for Visual Health Indicator
   const [healthStatus, setHealthStatus] = useState<'ready' | 'syncing' | 'anomaly'>('syncing');
 
-  // 1. Update Global Debug Values whenever state changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__DEBUG_USER__ = user;
-      (window as any).__DEBUG_ACCOUNT_TYPE__ = profile?.accountType;
-      (window as any).__DEBUG_APP_READY__ = appReady;
-    }
-  }, [user, profile, appReady]);
-
-  // 2. Attach Global Test Function to window object
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).runAppTest = () => {
-        console.log("[TEST] Running system check");
-
-        const state = {
-          user: (window as any).__DEBUG_USER__,
-          accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
-          appReady: (window as any).__DEBUG_APP_READY__
-        };
-
-        console.log("[AUTH_STATE]", state);
-
-        if (!state.user) console.error("❌ No user");
-        if (!state.accountType) console.error("❌ Missing accountType");
-        if (!state.appReady) console.error("❌ App not ready");
-
-        console.log("✅ Test completed");
-      };
-    }
-  }, []);
-
-  // 3. Automated Monitoring Logic
+  // Core monitoring logic (Logging & Anomaly Detection)
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
 
@@ -113,7 +82,7 @@ export function AuthDebugger() {
 
   }, [user, profile, authLoading, profileLoading, appReady, pathname, toast]);
 
-  // 4. FIRESTORE FAILURE DETECTION (Listen to Global Emitter)
+  // 3. FIRESTORE FAILURE DETECTION (Listen to Global Emitter)
   useEffect(() => {
     const handleFirestoreError = (err: any) => {
         console.error("[FIRESTORE_ERROR]", err.message);
