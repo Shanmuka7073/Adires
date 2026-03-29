@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,7 +17,8 @@ import {
     LayoutGrid,
     Monitor,
     RefreshCw,
-    CheckCircle2
+    CheckCircle2,
+    MapPin
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -70,7 +70,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
 
     const handleDetectLocation = () => {
         if (!navigator.geolocation) {
-            toast({ variant: 'destructive', title: "Not Supported" });
+            toast({ variant: 'destructive', title: "Not Supported", description: "GPS is not available on this device." });
             return;
         }
         setIsDetecting(true);
@@ -78,8 +78,11 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
             form.setValue('latitude', pos.coords.latitude, { shouldValidate: true });
             form.setValue('longitude', pos.coords.longitude, { shouldValidate: true });
             setIsDetecting(false);
-            toast({ title: "GPS Locked", description: "Location captured from device." });
-        }, () => setIsDetecting(false));
+            toast({ title: "GPS Locked", description: "Business coordinates synchronized." });
+        }, (err) => {
+            setIsDetecting(false);
+            toast({ variant: 'destructive', title: "GPS Error", description: err.message });
+        });
     };
 
     const onSubmit = async (data: CreateStoreFormValues) => {
@@ -110,7 +113,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 setDoc(userRef, { accountType: 'restaurant' }, { merge: true })
             ]);
 
-            toast({ title: "Store Created Successfully!" });
+            toast({ title: "Setup Complete", description: "Your business is now live on the platform." });
             onComplete(storeId);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
