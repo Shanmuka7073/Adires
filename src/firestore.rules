@@ -15,6 +15,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
+        request.auth.token.email == 'shanmuka7073@gmail.com' ||
         request.auth.token.email == 'admin@gmail.com' ||
         request.auth.token.email == 'adires@gmail.com'
       );
@@ -128,16 +129,17 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
-    match /deliveryPartners/{partnerId} {
-      allow get, update, create: if isOwner(partnerId) || isAdmin();
-    }
-
     match /failedCommands/{commandId} {
       allow create: if true;
       allow read, write: if isAdmin();
     }
     
     match /voiceAliasGroups/{groupId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /voiceCommands/{commandKey} {
       allow read: if true;
       allow write: if isAdmin();
     }

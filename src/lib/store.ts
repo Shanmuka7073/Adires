@@ -1,9 +1,8 @@
-
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { initializeTranslations, Locales, buildLocalesFromAliasGroups, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';

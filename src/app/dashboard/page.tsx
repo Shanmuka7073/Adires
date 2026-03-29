@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -217,7 +216,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeData: StoreType) =>
         }, (err) => {
             setIsDetecting(false);
             toast({ variant: 'destructive', title: "GPS Error", description: err.message });
-        }, { enableHighAccuracy: true });
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     };
 
     const onSubmit = async (data: CreateStoreFormValues) => {
