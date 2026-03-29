@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -95,7 +96,7 @@ export const useAppStore = create<AppState>()(
               error: null
           });
           if (typeof window !== 'undefined') {
-              localStorage.removeItem('adires-ops-storage');
+              localStorage.removeItem('adires-ops-storage-v3');
           }
       },
 
@@ -156,11 +157,13 @@ export const useAppStore = create<AppState>()(
       getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
-      name: 'adires-ops-storage', 
+      name: 'adires-ops-storage-v3', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,
-          deviceId: state.deviceId
+          deviceId: state.deviceId,
+          userStore: state.userStore,
+          isUserDataLoaded: state.isUserDataLoaded
       }),
     }
   )
