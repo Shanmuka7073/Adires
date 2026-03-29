@@ -12,9 +12,6 @@ import StoreCard from '@/components/store-card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RecipeCard } from '@/components/features/recipe-card';
-import { useRouter } from 'next/navigation';
-import { useAdminAuth } from '@/hooks/use-admin-auth';
-import GlobalLoader from '@/components/layout/global-loader';
 import { doc } from 'firebase/firestore';
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
@@ -76,41 +73,21 @@ function HubNavigation() {
 }
 
 export default function LocalBasketHomepage() {
-  const { firestore, user } = useFirebase();
+  const { firestore, profile } = useFirebase();
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const router = useRouter();
-  const { isMerchant, isAdmin, isLoading, userData } = useAdminAuth();
 
   useEffect(() => {
-    if (isLoading) return;
-    
-    // REDIRECT MERCHANTS AND ADMINS AWAY FROM HOME TO THEIR RESPECTIVE HUBS
-    if (user) {
-        if (isAdmin) {
-            router.replace('/dashboard/admin');
-            return;
-        }
-        if (isMerchant) {
-            router.replace('/dashboard');
-            return;
-        }
-    }
-    
     if (firestore && !isInitialized && !isFetchingStores) {
-        fetchInitialData(firestore, user?.uid);
+        fetchInitialData(firestore);
     }
-}, [isLoading, isMerchant, isAdmin, user, firestore, isInitialized, isFetchingStores, fetchInitialData, router]);
+  }, [firestore, isInitialized, isFetchingStores, fetchInitialData]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isLoading) {
-    return <GlobalLoader />
-  }
-
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <HomepageHeader onSearchChange={setSearchTerm} user={userData} />
+      <HomepageHeader onSearchChange={setSearchTerm} user={profile} />
       {!searchTerm && <HubNavigation />}
       <main className="p-4 space-y-10">
         <section className="space-y-4">
