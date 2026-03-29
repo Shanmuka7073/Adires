@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -78,6 +79,7 @@ export function NonBlockingLogin() {
           await setDoc(userRef, {
               id: result.user.uid,
               email: result.user.email,
+              uid: result.user.uid,
               accountType: accountType,
               firstName: result.user.displayName?.split(' ')[0] || '',
               lastName: result.user.displayName?.split(' ')[1] || '',

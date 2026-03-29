@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -81,6 +82,11 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
         });
     };
 
+    // Ensure context is set when entering the booking flow
+    useEffect(() => {
+        localStorage.setItem('signup_context', 'menu_flow');
+    }, []);
+
     return (
         <SheetContent side="bottom" className="h-[90vh] rounded-t-[3rem] p-0 border-0 overflow-hidden flex flex-col bg-[#FDFCF7]">
             <SheetHeader className="p-6 pb-2 shrink-0 bg-white border-b">
@@ -109,7 +115,7 @@ export function BookingSheet({ store, service, onComplete }: BookingSheetProps) 
                         </p>
                     </div>
                     <Button asChild className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
-                        <Link href="/login">
+                        <Link href={`/login?redirectTo=/menu/${store.id}`}>
                             <LogIn className="mr-2 h-5 w-5" /> Create Account / Login
                         </Link>
                     </Button>

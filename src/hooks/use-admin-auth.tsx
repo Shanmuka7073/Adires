@@ -7,7 +7,7 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
-const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
+const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com', 'shanmuka7073@gmail.com'];
 
 /**
  * UNIFIED AUTH GUARD
@@ -42,7 +42,8 @@ export function useAdminAuth() {
 
   const isCustomer = useMemo(() => {
     if (!isUserDataLoaded || isProfileLoading) return false;
-    return !userData?.accountType;
+    // EXPLICIT CHECK: Customer is someone without an accountType OR explicitly set to 'customer'
+    return !userData?.accountType || userData?.accountType === 'customer';
   }, [userData, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
