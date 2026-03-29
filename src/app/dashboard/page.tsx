@@ -8,9 +8,7 @@ import GlobalLoader from '@/components/layout/global-loader';
 /**
  * CENTRAL REDIRECTION HUB
  * Routes users to their specific operational dashboards based on confirmed role.
- * - Admin -> Decision Hub
- * - Merchant -> Restaurant Dashboard
- * - Personal Account -> Home Page (Directly, as requested)
+ * Waits for isUserDataLoaded to prevent "identity flickering" and redirect loops.
  */
 export default function DashboardRedirectPage() {
     const { isAdmin, isRestaurantOwner, isCustomer, isLoading, user } = useAdminAuth();
@@ -28,8 +26,8 @@ export default function DashboardRedirectPage() {
             router.replace('/dashboard/admin');
         } else if (isRestaurantOwner) {
             router.replace('/dashboard/restaurant');
-        } else if (isCustomer) {
-            // Personal accounts do not have a dashboard, they go home directly
+        } else {
+            // Personal accounts go home directly
             router.replace('/');
         }
     }, [isLoading, isAdmin, isRestaurantOwner, isCustomer, user, router]);

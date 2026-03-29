@@ -1,10 +1,8 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
-import { ProfileCompletionChecker } from '@/components/profile-completion-checker';
 import { NotificationPermissionManager } from '@/components/layout/notification-permission-manager';
 import { useAppStore } from '@/lib/store';
 import { BottomNavBar } from './bottom-nav-bar';
@@ -13,10 +11,9 @@ import { FirestoreCounter } from './firestore-counter';
 import { OfflineStatus } from './offline-status';
 import { doc, collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { Cog, Zap, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { Cog, Zap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
 import { CallOverlay } from '@/components/features/call-overlay';
 import { endCall } from '@/lib/chat-service';
 import type { Chat, CallSession } from '@/lib/types';
@@ -195,7 +192,6 @@ export function MainLayout({
 
         <OfflineStatus />
         <Header />
-        <ProfileCompletionChecker />
         <main className="flex-1 pb-16 md:pb-0">{children}</main>
         
         <VoiceCommander 

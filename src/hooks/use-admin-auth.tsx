@@ -6,7 +6,6 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
-// Hardened Admin List (Personal email removed to force Merchant status for user)
 const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
 
 /**
@@ -25,20 +24,11 @@ export function useAdminAuth() {
 
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  // DEBUG LOGS (As requested for root cause analysis)
-  console.log('[AUTH_DEBUG]', {
-    email: user?.email,
-    accountType: userData?.accountType,
-    isUserDataLoaded,
-    isProfileLoading
-  });
-
   const isAdmin = useMemo(() => {
     return !!(user && ADMIN_EMAILS.includes(user.email || ''));
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    // CRITICAL: Return false until data is definitely loaded to prevent "none" flicker
     if (!isUserDataLoaded || isProfileLoading) return false;
     return userData?.accountType === 'restaurant';
   }, [userData, isUserDataLoaded, isProfileLoading]);
@@ -57,7 +47,6 @@ export function useAdminAuth() {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // Loading state must persist until identity data is fully synchronized from Firestore
   const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth || isProfileLoading;
 
   return {
