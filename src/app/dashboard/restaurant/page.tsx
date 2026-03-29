@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,7 +17,8 @@ import {
     Zap,
     LayoutGrid,
     Monitor,
-    RefreshCw
+    RefreshCw,
+    CheckCircle2
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -35,6 +37,7 @@ import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
 import GlobalLoader from '@/components/layout/global-loader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const createStoreSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -75,6 +78,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
             form.setValue('latitude', pos.coords.latitude, { shouldValidate: true });
             form.setValue('longitude', pos.coords.longitude, { shouldValidate: true });
             setIsDetecting(false);
+            toast({ title: "GPS Locked", description: "Location captured from device." });
         }, () => setIsDetecting(false));
     };
 
@@ -106,7 +110,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 setDoc(userRef, { accountType: 'restaurant' }, { merge: true })
             ]);
 
-            toast({ title: "Store Created!" });
+            toast({ title: "Store Created Successfully!" });
             onComplete(storeId);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
@@ -116,46 +120,50 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
     };
 
     return (
-        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12">
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
             <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
-                <CardTitle className="text-2xl font-black uppercase tracking-tight italic">Business Identity</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Configure your digital storefront</CardDescription>
+                <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Business Identity</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Initialize your digital hub</CardDescription>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <CardContent className="p-8 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="name" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                    <ScrollArea className="max-h-[60vh]">
+                        <CardContent className="p-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField control={form.control} name="name" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Store Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Grand Tiffin Centre" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                                )} />
+                                <FormField control={form.control} name="businessType" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Hub Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                            <SelectContent className="rounded-xl border-2">
+                                                <SelectItem value="restaurant" className="rounded-lg">Restaurant</SelectItem>
+                                                <SelectItem value="salon" className="rounded-lg">Salon / Spa</SelectItem>
+                                                <SelectItem value="grocery" className="rounded-lg">Grocery Store</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )} />
+                            </div>
+                            <FormField control={form.control} name="description" render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} placeholder="Describe what makes your hub special..." className="min-h-[100px] rounded-xl border-2 font-medium" /></FormControl></FormItem>
                             )} />
-                            <FormField control={form.control} name="businessType" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Business Category</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent className="rounded-xl border-2">
-                                            <SelectItem value="restaurant" className="rounded-lg">Restaurant</SelectItem>
-                                            <SelectItem value="salon" className="rounded-lg">Salon / Spa</SelectItem>
-                                            <SelectItem value="grocery" className="rounded-lg">Grocery Store</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
+                            <FormField control={form.control} name="address" render={({ field }) => (
+                                <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Contact Address</FormLabel><FormControl><Input {...field} placeholder="Complete physical location" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
                             )} />
-                        </div>
-                        <FormField control={form.control} name="description" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Bio</FormLabel><FormControl><Textarea {...field} className="min-h-[80px] rounded-xl border-2 font-medium" /></FormControl></FormItem>
-                        )} />
-                        <FormField control={form.control} name="address" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Physical Address</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
-                        )} />
-                        <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest bg-white">
-                            {isDetecting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <LayoutGrid className="h-4 w-4 mr-2" />}
-                            Detect GPS Location
-                        </Button>
-                    </CardContent>
-                    <div className="p-8 bg-gray-50 border-t border-black/5">
-                        <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
-                            {isSaving ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : 'Launch My Business'}
+                            <div className="pt-2">
+                                <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest bg-white hover:bg-primary/5 transition-all">
+                                    {isDetecting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <MapPin className="h-4 w-4 mr-2" />}
+                                    Lock GPS Location
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </ScrollArea>
+                    <div className="p-8 bg-gray-50 border-t border-black/5 sticky bottom-0">
+                        <Button type="submit" disabled={isSaving} className="w-full h-16 rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/20 text-sm">
+                            {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><CheckCircle2 className="h-6 w-6 mr-2" /> Save & Launch Hub</>}
                         </Button>
                     </div>
                 </form>

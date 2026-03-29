@@ -10,6 +10,7 @@ import { InstallProvider } from '@/components/install-provider';
 /**
  * CLIENT ROOT
  * Fixed recursive circular dependency by providing actual implementation here.
+ * This is the entry point for all client-side providers.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
