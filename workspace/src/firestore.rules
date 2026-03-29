@@ -123,9 +123,10 @@ service cloud.firestore {
     }
     
      // SAFE collectionGroup rule for salary slips
-     match /{path=**}/salarySlips/{slipId} {
-       allow get: if
-        isStoreOwner(resource.data.storeId)
+     match /{path=**}/orders/{orderId} {
+  allow get: if true;
+  allow list: if isSignedIn();
+}
         || resource.data.employeeId == request.auth.uid;
        allow list: if isStoreOwner(resource.data.storeId);
     }
@@ -207,9 +208,9 @@ service cloud.firestore {
     
     // SAFE collectionGroup rule for orders
     match /{path=**}/orders/{orderId} {
-        allow get: if true;
-        allow list: if 
-            request.query.where('storeId', '==', resource.data.storeId)
+  allow get: if true;
+  allow list: if isSignedIn();
+}
             || request.query.where('userId', '==', request.auth.uid);
     }
     
@@ -286,7 +287,7 @@ service cloud.firestore {
     }
 
     match /siteConfig/{configId} {
-      allow read: if true;
+      allow get, list: if true;
       allow write: if isAdmin();
     }
     
@@ -299,4 +300,26 @@ service cloud.firestore {
     }
   }
 }
-    
+/* ======================
+   CHATS & MESSAGES (FIX)
+====================== */
+
+match /chats/{chatId} {
+
+  // 🔥 IMPORTANT: list cannot use resource.data
+  allow list: if isSignedIn();
+
+  // Single doc
+  allow get: if isSignedIn() &&
+    request.auth.uid in resource.data.participants;
+
+  allow create: if isSignedIn();
+
+  allow update: if isSignedIn() &&
+    request.auth.uid in resource.data.participants;
+
+  match /messages/{messageId} {
+    allow read, write: if isSignedIn() &&
+      request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+  }
+}   

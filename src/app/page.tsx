@@ -3,12 +3,11 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType } from '@/lib/types';
+import { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
 import { doc, collection, query, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -76,34 +75,17 @@ function HubNavigation() {
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const router = useRouter();
-  const { isMerchant, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
   const { data: userData } = useDoc<User>(userDocRef);
 
-  useEffect(() => {
-    if (!isRoleLoading && user) {
-        if (isAdmin) router.replace('/dashboard/admin');
-        else if (isMerchant) router.replace('/dashboard/restaurant');
-    }
-  }, [isRoleLoading, isMerchant, isAdmin, user, router]);
-
   useEffect(() => { 
     if (firestore && !isInitialized && !isFetchingStores) fetchInitialData(firestore, user?.uid); 
   }, [firestore, isInitialized, isFetchingStores, fetchInitialData, user?.uid]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
-
-  if (isRoleLoading || (user && (isMerchant || isAdmin))) {
-    return (
-        <div className="flex h-screen items-center justify-center bg-background">
-            <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-        </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">

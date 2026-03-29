@@ -7,123 +7,217 @@ import {
     Store, 
     ShoppingBag, 
     Users, 
-    FileText, 
-    Scissors, 
-    Utensils, 
-    Loader2, 
     BarChart3, 
-    WifiOff, 
-    Download, 
     Smartphone,
-    CheckCircle2,
-    Sparkles,
-    ShoppingBasket,
-    MessageSquare
+    MessageSquare,
+    CalendarCheck,
+    Utensils,
+    Scissors,
+    LocateFixed
 } from 'lucide-react';
-import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { useInstall } from '@/components/install-provider';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useToast } from '@/hooks/use-toast';
+import GlobalLoader from '@/components/layout/global-loader';
+import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
 
-export default function ServiceDashboardPage() {
-    const { user, firestore, areServicesAvailable } = useFirebase();
-    const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
+const createStoreSchema = z.object({
+  name: z.string().min(3, 'Store name must be at least 3 characters'),
+  businessType: z.enum(['restaurant', 'salon', 'grocery']),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  address: z.string().min(10, 'Please enter a valid address'),
+  latitude: z.coerce.number(),
+  longitude: z.coerce.number(),
+});
+
+type CreateStoreFormValues = z.infer<typeof createStoreSchema>;
+
+function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void }) {
+    const { user, firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDetecting, setIsDetecting] = useState(false);
+
+    const form = useForm<CreateStoreFormValues>({
+        resolver: zodResolver(createStoreSchema),
+        defaultValues: {
+            name: '',
+            businessType: 'restaurant',
+            description: '',
+            address: '',
+            latitude: 0,
+            longitude: 0,
+        }
+    });
+
+    const handleDetectLocation = () => {
+        if (!navigator.geolocation) {
+            toast({ variant: 'destructive', title: "Not Supported" });
+            return;
+        }
+        setIsDetecting(true);
+        navigator.geolocation.getCurrentPosition((pos) => {
+            form.setValue('latitude', pos.coords.latitude, { shouldValidate: true });
+            form.setValue('longitude', pos.coords.longitude, { shouldValidate: true });
+            setIsDetecting(false);
+        }, () => setIsDetecting(false));
+    };
+
+    const onSubmit = async (data: CreateStoreFormValues) => {
+        if (!user || !firestore) return;
+        setIsSaving(true);
+        try {
+            const storeId = doc(collection(firestore, 'stores')).id;
+            const storeRef = doc(firestore, 'stores', storeId);
+            const userRef = doc(firestore, 'users', user.uid);
+
+            const storeData = {
+                id: storeId,
+                ownerId: user.uid,
+                name: data.name,
+                businessType: data.businessType,
+                description: data.description,
+                address: data.address,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                isClosed: false,
+                imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+
+            await Promise.all([
+                setDoc(storeRef, storeData),
+                setDoc(userRef, { accountType: 'restaurant' }, { merge: true })
+            ]);
+
+            toast({ title: "Store Created!" });
+            onComplete(storeId);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto">
+            <div className="bg-primary/5 border-b border-black/5 p-8 text-center">
+                <h2 className="text-2xl font-black uppercase tracking-tight">Business Identity</h2>
+            </div>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <CardContent className="p-8 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem><FormLabel>Store Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                            )} />
+                            <FormField control={form.control} name="businessType" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Business Category</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="restaurant">Restaurant</SelectItem>
+                                            <SelectItem value="salon">Salon / Spa</SelectItem>
+                                            <SelectItem value="grocery">Grocery Store</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem><FormLabel>Bio</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+                        )} />
+                        <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel>Address</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                        )} />
+                        <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl">
+                            Detect GPS Location
+                        </Button>
+                    </CardContent>
+                    <div className="p-8 bg-gray-50 border-t border-black/5">
+                        <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase">
+                            Launch My Business
+                        </Button>
+                    </div>
+                </form>
+            </Form>
+        </Card>
+    );
+}
+
+export default function MerchantDashboardPage() {
+    const { user, firestore } = useFirebase();
+    const { isMerchant, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { userStore, fetchUserStore, isInitialized, isUserDataLoaded } = useAppStore();
+    const { userStore, fetchUserStore, isInitialized } = useAppStore();
     const { canInstall, triggerInstall } = useInstall();
     const [hasFetched, setHasFetched] = useState(false);
 
     useEffect(() => {
-        if (!isLoading) {
-            if (!user) {
-                router.replace('/login?redirectTo=/dashboard/restaurant');
-            } else if (!isRestaurantOwner && !isAdmin) {
-                router.replace('/dashboard');
-            }
-        }
-    }, [isLoading, user, isRestaurantOwner, isAdmin, router]);
+        if (isLoading) return;
+        if (!user) { router.replace('/login'); return; }
+        if (!isMerchant) { router.replace('/dashboard'); return; }
 
-    useEffect(() => {
-        if (firestore && user?.uid && !userStore && isInitialized && !hasFetched) {
+        if (firestore && !userStore && !hasFetched) {
             setHasFetched(true);
             fetchUserStore(firestore, user.uid);
         }
-    }, [firestore, user?.uid, userStore, isInitialized, fetchUserStore, hasFetched]);
+    }, [isLoading, isMerchant, user, firestore, userStore, hasFetched, fetchUserStore, router]);
 
-    const { dashboardTitle, DashboardIcon, serviceLinks } = useMemo(() => {
+    const serviceLinks = useMemo(() => {
         const isSalon = userStore?.businessType === 'salon';
-        
-        const links = [
-            { title: 'MY STORE', description: 'Manage products & orders', href: '/dashboard/owner/my-store', icon: Store },
-            { title: isSalon ? 'BOOKINGS' : 'STORE ORDERS', description: isSalon ? 'Live appointments' : 'Live table orders', href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', icon: ShoppingBag },
+        return [
+            { title: 'MY STORE', description: 'Manage products & profile', href: '/dashboard/owner/my-store', icon: Store },
+            { title: isSalon ? 'BOOKINGS' : 'STORE ORDERS', description: isSalon ? 'Live appointments' : 'Live table orders', href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', icon: isSalon ? CalendarCheck : ShoppingBag, highlight: true },
             { title: 'MESSAGES', description: 'Customer support chat', href: '/chat', icon: MessageSquare },
-            { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3, highlight: true },
-            { title: 'OFFLINE AUDIT', description: 'Device sync status', href: '/dashboard/offline-audit', icon: WifiOff },
-            { title: 'EMPLOYEES', description: 'Manage staff', href: '/dashboard/owner/employees', icon: Users },
-            { title: 'SALARY', description: 'Salary reports', href: '/dashboard/owner/salary', icon: FileText }
+            { title: 'ANALYTICS', description: 'Sales & profit insights', href: '/dashboard/owner/sales-report', icon: BarChart3 },
+            { title: 'EMPLOYEES', description: 'Staff & Payroll', href: '/dashboard/owner/employees', icon: Users },
+            { title: 'OFFLINE AUDIT', description: 'Audit device persistence', href: '/dashboard/offline-audit', icon: Smartphone }
         ];
-
-        if (isSalon) return { dashboardTitle: 'Salon Hub', DashboardIcon: Scissors, serviceLinks: links };
-        return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils, serviceLinks: links };
     }, [userStore]);
 
-    if (isLoading || !isUserDataLoaded) {
+    if (isLoading) return <GlobalLoader />;
+    if (!userStore && isInitialized) {
         return (
-            <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
-                <Loader2 className="animate-spin h-10 w-10 text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Verifying Authority...</p>
-            </div>
-        );
-    }
-
-    if (!user || (!isRestaurantOwner && !isAdmin)) {
-        return null;
-    }
-
-    if (!userStore) {
-        return (
-            <div className="container mx-auto px-4 py-12 text-center space-y-6">
-                <div className="h-20 w-20 rounded-[2.5rem] bg-amber-100 flex items-center justify-center text-amber-600 mx-auto">
-                    <ShoppingBasket className="h-10 w-10" />
-                </div>
-                <div>
-                    <h1 className="text-3xl font-black uppercase italic">Business Identity Required</h1>
-                    <p className="text-sm font-bold opacity-40 uppercase tracking-widest mt-2">No active store profile found for this account.</p>
-                </div>
-                <Button asChild className="h-12 px-8 rounded-xl font-black uppercase tracking-widest text-[10px]">
-                    <Link href="/dashboard/owner/my-store">Setup My Business</Link>
-                </Button>
+            <div className="container mx-auto px-4 py-12 max-w-4xl space-y-12 animate-in fade-in duration-700">
+                <CreateStoreForm onComplete={() => firestore && fetchUserStore(firestore, user!.uid)} />
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto px-3 py-3 max-w-2xl space-y-3 pb-24 animate-in fade-in duration-500">
+        <div className="container mx-auto px-3 py-3 max-w-2xl space-y-3 pb-24">
             <div className="flex items-center gap-3 border-b pb-3 border-black/5">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    <DashboardIcon className="h-5 w-5" />
+                    {userStore?.businessType === 'salon' ? <Scissors className="h-5 w-5" /> : <Utensils className="h-5 w-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h1 className="text-sm font-black uppercase tracking-tight truncate leading-none">{dashboardTitle}</h1>
+                    <h1 className="text-sm font-black uppercase tracking-tight truncate leading-none">{userStore?.name || 'My Hub'}</h1>
                     <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-1">Operational Control</p>
-                </div>
-                <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-2.5 py-1.5 rounded-full border border-green-100 shadow-sm">
-                    <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                    Online
                 </div>
             </div>
 
             <div className="space-y-2">
                 {serviceLinks.map((card) => (
-                    <Link href={card.href} key={card.href} className="group block">
+                    <a href={card.href} key={card.href} className="group block">
                         <Card className={cn(
                             "rounded-2xl border-0 shadow-sm transition-all active:scale-[0.98] bg-white border-2 border-transparent hover:border-primary/10",
-                            card.highlight && "bg-primary/5 ring-1 ring-primary/10"
+                            card.highlight && "bg-primary/5 ring-1 ring-primary/10 border-primary/20"
                         )}>
                             <div className="flex items-center gap-3 p-2.5">
                                 <div className={cn(
@@ -139,26 +233,9 @@ export default function ServiceDashboardPage() {
                                 <ArrowRight className="h-3.5 w-3.5 text-primary opacity-20 group-hover:opacity-100 transition-opacity shrink-0" />
                             </div>
                         </Card>
-                    </Link>
+                    </a>
                 ))}
             </div>
-
-            {canInstall && (
-                <Card className="rounded-2xl bg-gray-950 text-white p-3 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 rotate-12 transition-transform group-hover:rotate-45 duration-700">
-                        <Smartphone className="h-12 w-12" />
-                    </div>
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="min-w-0">
-                            <h2 className="text-[10px] font-black uppercase tracking-widest text-primary">Native Experience</h2>
-                            <p className="text-[8px] font-bold opacity-40 uppercase tracking-tighter mt-0.5">Install the Adires Pro Shell</p>
-                        </div>
-                        <Button onClick={triggerInstall} className="h-8 px-4 bg-white text-gray-950 text-[9px] font-black uppercase tracking-widest rounded-lg shadow-xl">
-                            <Download className="mr-1.5 h-3 w-3" /> Install
-                        </Button>
-                    </div>
-                </Card>
-            )}
         </div>
     );
 }

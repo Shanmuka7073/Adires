@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Dynamic Manifest API (Ultra-Resilient REST Version)
- * Uses the Firestore REST API to bypass Admin SDK credential issues on production.
+ * Dynamic Manifest API
+ * Uses Firestore REST API to bypass Admin SDK issues and provides valid remote icon URLs.
  */
 export async function GET(
   request: Request,
@@ -19,7 +19,6 @@ export async function GET(
     return new NextResponse("Missing context", { status: 400 });
   }
 
-  // DEFAULT FALLBACKS
   let name = storeId.toUpperCase();
   let imageUrl = ADIRES_LOGO;
   let themeColor = "#90EE90";
@@ -34,59 +33,39 @@ export async function GET(
     if (storeRes.ok) {
       const data = await storeRes.json();
       const fields = data.fields;
-      
       if (fields?.name?.stringValue) name = fields.name.stringValue;
       if (fields?.imageUrl?.stringValue) imageUrl = fields.imageUrl.stringValue;
-
-      const menuRes = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}/menus`,
-        { next: { revalidate: 60 } }
-      );
-      
-      if (menuRes.ok) {
-          const menuData = await menuRes.json();
-          const firstMenu = menuData.documents?.[0];
-          if (firstMenu?.fields?.theme?.mapValue?.fields) {
-              const themeFields = firstMenu.fields.theme.mapValue.fields;
-              if (themeFields.primaryColor?.stringValue) themeColor = themeFields.primaryColor.stringValue;
-              if (themeFields.backgroundColor?.stringValue) backgroundColor = themeFields.backgroundColor.stringValue;
-          }
-      }
     }
   } catch (error) {
     console.error(`Manifest REST error for ${storeId}:`, error);
   }
 
   const manifest = {
-    id: `adires-v4-${storeId}`, 
+    id: `adires-v5-${storeId}`, 
     name: name,
     short_name: name.substring(0, 12),
     description: `Official app for ${name}`,
-    start_url: `/menu/${storeId}?v=4`,
+    start_url: `/menu/${storeId}?v=5`,
     scope: `/menu/${storeId}`,
     display: "standalone",
-    display_override: ["standalone", "window-controls-overlay"],
     orientation: "portrait",
-    lang: "en",
-    dir: "ltr",
-    categories: ["food", "shopping"],
     background_color: backgroundColor,
     theme_color: themeColor,
     icons: [
       {
-        src: imageUrl,
+        src: imageUrl || ADIRES_LOGO,
         sizes: "192x192",
         type: "image/png",
         purpose: "any"
       },
       {
-        src: imageUrl,
+        src: imageUrl || ADIRES_LOGO,
         sizes: "512x512",
         type: "image/png",
         purpose: "any"
       },
       {
-        src: imageUrl,
+        src: imageUrl || ADIRES_LOGO,
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable"

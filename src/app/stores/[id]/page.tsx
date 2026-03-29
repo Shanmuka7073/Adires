@@ -1,4 +1,3 @@
-
 'use client';
 import { Store } from '@/lib/types';
 import { useParams, notFound, useRouter } from 'next/navigation';
@@ -21,7 +20,7 @@ export default function StoreDetailPage() {
 
   const { 
     stores,
-    loading: appLoading, 
+    isFetchingStores, 
     isInitialized,
     fetchInitialData
   } = useAppStore();
@@ -45,12 +44,12 @@ export default function StoreDetailPage() {
   }, [store, router]);
 
   useEffect(() => {
-    if (firestore && !isInitialized) {
+    if (firestore && !isInitialized && !isFetchingStores) {
       fetchInitialData(firestore);
     }
-  }, [firestore, isInitialized, fetchInitialData]);
+  }, [firestore, isInitialized, fetchInitialData, isFetchingStores]);
 
-  const isLoading = appLoading || !isInitialized;
+  const isLoading = isFetchingStores || !isInitialized;
 
   if (isLoading) {
     return (

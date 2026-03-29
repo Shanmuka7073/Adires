@@ -1,11 +1,12 @@
-
 import { MetadataRoute } from 'next';
 
 /**
  * Standard Web Manifest Generator
- * Fixes the "root element must be a valid JSON object" error by providing a valid schema.
+ * Uses valid external URLs for icons to prevent 404 errors during cloud deployment.
  */
 export default function manifest(): MetadataRoute.Manifest {
+  const ICON_URL = 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png';
+  
   return {
     name: 'Adires | Unified Local Market',
     short_name: 'Adires',
@@ -16,13 +17,13 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#90EE90',
     icons: [
       {
-        src: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
+        src: ICON_URL,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
       },
       {
-        src: 'https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png',
+        src: ICON_URL,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',

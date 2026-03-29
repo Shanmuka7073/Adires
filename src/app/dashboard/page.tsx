@@ -2,17 +2,17 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2, LayoutGrid } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, Package, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getProductImage } from '@/lib/data';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import GlobalLoader from '@/components/layout/global-loader';
 
 const allRoleCards = [
     {
@@ -35,20 +35,6 @@ const allRoleCards = [
         href: '/dashboard/delivery/deliveries',
         icon: Truck,
         imageId: 'dash-delivery'
-    },
-    {
-        title: 'employee',
-        description: 'punch-in-and-out-for-your-shift',
-        href: '/dashboard/employee/attendance',
-        icon: UserCheck,
-        imageId: 'dash-delivery'
-    },
-    {
-        title: 'salary-slips',
-        description: 'view-and-download-your-monthly-salary-slips',
-        href: '/dashboard/employee/salary-slips',
-        icon: FileText,
-        imageId: 'dash-owner'
     }
 ];
 
@@ -87,33 +73,27 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
     const [loadingImages, setLoadingImages] = useState(true);
-    const { isRestaurantOwner, isEmployee, isAdmin, isLoading, user } = useAdminAuth();
-    const isUserDataLoaded = useAppStore(state => state.isUserDataLoaded);
+    const { isMerchant, isAdmin, isLoading, user } = useAdminAuth();
     const router = useRouter();
 
-    const roleCards = useMemo(() => {
-        if (isEmployee) {
-            return allRoleCards.filter(card => card.title === 'employee' || card.title === 'salary-slips');
-        }
-        return allRoleCards.filter(card => card.title !== 'employee' && card.title !== 'salary-slips');
-    }, [isEmployee]);
-
     useEffect(() => {
-        if (!isLoading && isUserDataLoaded && user) {
+        if (isLoading) return;
+
+        if (user) {
             if (isAdmin) {
                 router.replace('/dashboard/admin');
-            } else if (isRestaurantOwner) {
+            } else if (isMerchant) {
                 router.replace('/dashboard/restaurant');
             }
         }
-    }, [isLoading, isUserDataLoaded, isRestaurantOwner, isAdmin, user, router]);
+    }, [isLoading, isMerchant, isAdmin, user, router]);
 
     useEffect(() => {
-        if (!isLoading && !isRestaurantOwner && !isAdmin) {
+        if (!isLoading && !isMerchant && !isAdmin) {
             const fetchImages = async () => {
-                const imagePromises = roleCards.map(card => getProductImage(card.imageId));
+                const imagePromises = allRoleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
-                const imageMap = roleCards.reduce((acc, card, index) => {
+                const imageMap = allRoleCards.reduce((acc, card, index) => {
                     acc[card.imageId] = resolvedImages[index];
                     return acc;
                 }, {} as Record<string, { imageUrl: string; imageHint: string }>);
@@ -122,31 +102,55 @@ export default function DashboardPage() {
             };
             fetchImages();
         }
-    }, [isLoading, isRestaurantOwner, isAdmin, roleCards]);
+    }, [isLoading, isMerchant, isAdmin]);
     
-    if (isLoading || !isUserDataLoaded) {
-        return (
-            <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
-                <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Identifying Role...</p>
-            </div>
-        );
+    if (isLoading) {
+        return <GlobalLoader />;
     }
 
-    // Prevents flicker during redirect
-    if (user && (isRestaurantOwner || isAdmin)) return null;
+    if (user && (isMerchant || isAdmin)) {
+        return <GlobalLoader />;
+    }
 
     return (
         <div className="container mx-auto py-8 px-4 md:px-6 max-w-6xl pb-24 md:pb-10">
             <div className="text-center mb-10 space-y-2">
-                <h1 className="text-4xl font-black font-headline tracking-tighter uppercase italic">{t('your-dashboard')}</h1>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">{t('select-your-role-to-access-your-tools')}</p>
+                <h1 className="text-4xl font-black font-headline tracking-tighter uppercase italic">My Activity Hub</h1>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Personal Access Console</p>
             </div>
-            <div className={cn(
-                "grid grid-cols-1 gap-6 max-w-5xl mx-auto",
-                isEmployee ? "md:grid-cols-2" : "md:grid-cols-2 lg:grid-cols-3"
-            )}>
-                {roleCards.map((card) => (
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <Link href="/dashboard/customer/my-orders" className="block group">
+                    <Card className="p-6 rounded-[2rem] border-0 shadow-lg bg-white flex items-center justify-between group-hover:shadow-2xl transition-all">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                <Package className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-black uppercase text-sm tracking-tight text-gray-950">My Orders</h3>
+                                <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Active & Past Jobs</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
+                    </Card>
+                </Link>
+
+                <Link href="/dashboard/customer/my-profile" className="block group">
+                    <Card className="p-6 rounded-[2rem] border-0 shadow-lg bg-white flex items-center justify-between group-hover:shadow-2xl transition-all">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner">
+                                <UserIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-black uppercase text-sm tracking-tight text-gray-950">My Profile</h3>
+                                <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">Identity & Address</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 opacity-20 group-hover:translate-x-1 group-hover:opacity-100 transition-all" />
+                    </Card>
+                </Link>
+
+                {allRoleCards.map((card) => (
                     <RoleCard 
                         key={card.title} 
                         card={card} 

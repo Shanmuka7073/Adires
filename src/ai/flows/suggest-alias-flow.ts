@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI flow to suggest aliases for failed voice commands and generate multilingual aliases.
@@ -10,7 +9,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { googleAI } from '@genkit-ai/google-genai';
 
 const SuggestAliasInputSchema = z.object({
   commandText: z.string().describe('The failed voice command text that the user spoke.'),
@@ -49,15 +47,11 @@ const SuggestAliasOutputSchema = z.object({
 });
 export type SuggestAliasOutput = z.infer<typeof SuggestAliasOutputSchema>;
 
-export async function suggestAlias(input: SuggestAliasInput): Promise<SuggestAliasOutput> {
-  return suggestAliasFlow(input);
-}
-
-const prompt = ai.definePrompt({
+const suggestAliasPrompt = ai.definePrompt({
   name: 'suggestAliasPrompt',
   input: {schema: SuggestAliasInputSchema},
   output: {schema: SuggestAliasOutputSchema},
-  model: googleAI.model('gemini-2.5-flash'),
+  model: 'googleai/gemini-2.5-flash',
   prompt: `You are an expert linguist and data analyst for a grocery app in India. Your task is to analyze a failed voice command, find the most likely intended item, and then provide standard aliases for it in multiple languages and scripts.
 
 The user said: "{{commandText}}" in language "{{language}}".
@@ -86,14 +80,10 @@ Here are all the valid canonical item names (in English):
 `,
 });
 
-const suggestAliasFlow = ai.defineFlow(
-  {
-    name: 'suggestAliasFlow',
-    inputSchema: SuggestAliasInputSchema,
-    outputSchema: SuggestAliasOutputSchema,
-  },
-  async (input) => {
-    const { output } = await prompt(input);
-    return output!;
+export async function suggestAlias(input: SuggestAliasInput): Promise<SuggestAliasOutput> {
+  const { output } = await suggestAliasPrompt(input);
+  if (!output) {
+    throw new Error('Alias suggestion failed to generate output.');
   }
-);
+  return output;
+}

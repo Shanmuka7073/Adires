@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,7 +12,8 @@ import {
     Loader2,
     RefreshCw,
     Wrench,
-    Activity
+    Activity,
+    Mic
 } from 'lucide-react';
 import Link from 'next/link';
 import { useFirebase } from '@/firebase';
@@ -114,27 +116,27 @@ export default function AdminDashboardPage() {
 
             <div className="space-y-6">
                  <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1 text-primary flex items-center gap-2">
-                    <Activity className="h-3 w-3" /> Diagnostic & Repair Hub
+                    <Activity className="h-3 w-3" /> Intelligence & Controls
                  </h2>
                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <AdminActionCard 
+                        title="Voice Intel"
+                        description="Audit failed commands & global aliases."
+                        href="/dashboard/admin/voice-intelligence"
+                        icon={Mic}
+                        highlight={true}
+                    />
                     <AdminActionCard 
                         title="Nuke & Sync Audit"
                         description="Fix Index failures and clear ghost data."
                         href="/dashboard/admin/offline-audit"
                         icon={Wrench}
-                        highlight={true}
                     />
                     <AdminActionCard 
                         title="System Status"
                         description="Live health check of cloud services."
                         href="/dashboard/admin/system-status"
                         icon={Server}
-                    />
-                    <AdminActionCard
-                        title="Security Rules"
-                        description="Firestore permission audit."
-                        href="/dashboard/admin/security-rules"
-                        icon={Shield}
                     />
                 </div>
             </div>
@@ -147,6 +149,12 @@ export default function AdminDashboardPage() {
                         description="Global product management."
                         href="/dashboard/owner/my-store"
                         icon={ShoppingBag}
+                    />
+                    <AdminActionCard
+                        title="Security Rules"
+                        description="Firestore permission audit."
+                        href="/dashboard/admin/security-rules"
+                        icon={Shield}
                     />
                 </div>
             </div>

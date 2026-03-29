@@ -1,4 +1,3 @@
-
 'use client';
 
 import StoreCard from '@/components/store-card';
@@ -8,7 +7,11 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+<<<<<<< HEAD
 import { Search, Building2, Loader2 } from 'lucide-react';
+=======
+import { Search, Building2 } from 'lucide-react';
+>>>>>>> 4742da82200849f40d246aaabc747352d08f8b8e
 import { Input } from '@/components/ui/input';
 import { useSearchParams } from 'next/navigation';
 
@@ -33,7 +36,11 @@ export default function StoresPage() {
   const categoryParam = searchParams.get('category');
   
   const allStores = useAppStore((state) => state.stores);
+<<<<<<< HEAD
   const isFetchingStores = useAppStore((state) => state.isFetchingStores);
+=======
+  const isFetching = useAppStore((state) => state.isFetchingStores);
+>>>>>>> 4742da82200849f40d246aaabc747352d08f8b8e
   const isInitialized = useAppStore((state) => state.isInitialized);
   const fetchInitialData = useAppStore((state) => state.fetchInitialData);
 
@@ -42,8 +49,13 @@ export default function StoresPage() {
   const [sortedStores, setSortedStores] = useState<Store[]>([]);
 
   useEffect(() => {
+<<<<<<< HEAD
     if (firestore && !isInitialized && !isFetchingStores) fetchInitialData(firestore, user?.uid);
   }, [firestore, fetchInitialData, isInitialized, isFetchingStores, user?.uid]);
+=======
+    if (firestore && !isInitialized && !isFetching) fetchInitialData(firestore);
+  }, [firestore, fetchInitialData, isInitialized, isFetching]);
+>>>>>>> 4742da82200849f40d246aaabc747352d08f8b8e
 
   useEffect(() => {
     if (categoryParam) {
@@ -141,7 +153,11 @@ export default function StoresPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-0">
+<<<<<<< HEAD
             {isFetchingStores && allStores.length === 0 ? (
+=======
+            {isFetching && !isInitialized ? (
+>>>>>>> 4742da82200849f40d246aaabc747352d08f8b8e
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <Skeleton className="h-64 w-full rounded-3xl" />
                     <Skeleton className="h-64 w-full rounded-3xl" />
