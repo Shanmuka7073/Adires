@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -9,14 +8,11 @@ import type { User as AppUser } from '@/lib/types';
 import LoginForm from './login-form';
 import { Loader2 } from 'lucide-react';
 
-const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
+const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com', 'shanmuka7073@gmail.com'];
 
 /**
- * Login Page.
- * Implements role-based redirection:
- * - Admins -> Decision Hub
- * - Merchants -> Merchant Hub (Dashboard)
- * - Customers -> Home Page
+ * AUTHENTICATION HUB
+ * Implements role-specific redirection logic to ensure operational efficiency.
  */
 export default function LoginPage() {
   const { user, isUserLoading, firestore } = useFirebase();
@@ -34,33 +30,42 @@ export default function LoginPage() {
   useEffect(() => {
     if (isUserLoading || isProfileLoading) return;
 
-    if (user && userData) {
+    if (user) {
+       // 1. ADMIN PRIORITY: Check email address for platform authority
        const isAdmin = ADMIN_EMAILS.includes(user.email || '');
        
        if (isAdmin) {
             router.push('/dashboard/admin');
-       } else if (userData.accountType === 'restaurant') {
-            router.push('/dashboard');
-       } else {
-            // Customers go to the intended page or the marketplace home
-            router.push(redirectTo || '/');
+            return;
        }
+
+       // 2. MERCHANT SYNC: Check account type for store owners
+       if (userData?.accountType === 'restaurant') {
+            router.push('/dashboard');
+            return;
+       }
+
+       // 3. CUSTOMER FALLBACK: Home or intended destination
+       router.push(redirectTo || '/');
     }
   }, [user, isUserLoading, isProfileLoading, userData, router, redirectTo]);
 
   if (isUserLoading || (user && isProfileLoading)) {
     return (
-        <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex h-screen items-center justify-center bg-[#FDFCF7]">
             <div className="flex flex-col items-center gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Authenticating...</p>
+                <div className="relative">
+                    <div className="h-12 w-12 rounded-full border-4 border-primary/20" />
+                    <div className="absolute top-0 left-0 h-12 w-12 rounded-full border-t-4 border-primary animate-spin" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Synchronizing Identity...</p>
             </div>
         </div>
     );
   }
 
   return (
-    <div className="container mx-auto flex min-h-screen items-center justify-center py-12 px-4">
+    <div className="container mx-auto flex min-h-screen items-center justify-center py-12 px-4 bg-[#FDFCF7]">
       <LoginForm />
     </div>
   );

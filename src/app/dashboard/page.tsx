@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -36,8 +35,8 @@ import GlobalLoader from '@/components/layout/global-loader';
 import Link from 'next/link';
 
 /**
- * UNIFIED MERCHANT HUB (MATCHED TO SCREENSHOT)
- * Consolidates business operations with high-fidelity UI.
+ * UNIFIED MERCHANT HUB
+ * Consolidates business operations with high-fidelity UI and instant identity persistence.
  */
 export default function UnifiedDashboardPage() {
     const { user, firestore } = useFirebase();
@@ -125,7 +124,7 @@ export default function UnifiedDashboardPage() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-2xl space-y-8 pb-24 animate-in fade-in duration-500">
-            {/* BRAND HEADER (MATCHED TO SCREENSHOT) */}
+            {/* BRAND HEADER */}
             <div className="flex items-center justify-between pb-6 border-b border-black/5">
                 <div className="flex items-center gap-4">
                     <div className="h-14 w-14 rounded-3xl bg-[#f0fff4] flex items-center justify-center text-primary shadow-inner border-2 border-white">
@@ -140,9 +139,9 @@ export default function UnifiedDashboardPage() {
                         </p>
                     </div>
                 </div>
-                <Badge className="bg-[#f0fff4] text-primary border-primary/10 font-black text-[9px] uppercase px-3 py-1 flex gap-1.5 items-center">
+                <div className="inline-flex items-center rounded-full border border-primary/10 bg-[#f0fff4] px-3 py-1 text-primary font-black text-[9px] uppercase gap-1.5 shadow-sm">
                     <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ONLINE
-                </Badge>
+                </div>
             </div>
 
             {/* ACTION CARDS GRID */}
@@ -190,8 +189,4 @@ export default function UnifiedDashboardPage() {
             </div>
         </div>
     );
-}
-
-function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
-    return <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2", className)}>{children}</div>;
 }
