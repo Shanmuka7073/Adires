@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors } from 'lucide-react';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
@@ -15,6 +15,7 @@ import { RecipeCard } from '@/components/features/recipe-card';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import GlobalLoader from '@/components/layout/global-loader';
+import { doc } from 'firebase/firestore';
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
@@ -79,17 +80,27 @@ export default function LocalBasketHomepage() {
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const router = useRouter();
-  const { isMerchant, isLoading, userData } = useAdminAuth();
+  const { isMerchant, isAdmin, isLoading, userData } = useAdminAuth();
 
-  // STABILITY: Removed automatic merchant redirect to dashboard.
-  // Merchants can now stay on the home page and browse hubs.
   useEffect(() => {
     if (isLoading) return;
+    
+    // REDIRECT MERCHANTS AND ADMINS AWAY FROM HOME TO THEIR RESPECTIVE HUBS
+    if (user) {
+        if (isAdmin) {
+            router.replace('/dashboard/admin');
+            return;
+        }
+        if (isMerchant) {
+            router.replace('/dashboard');
+            return;
+        }
+    }
     
     if (firestore && !isInitialized && !isFetchingStores) {
         fetchInitialData(firestore, user?.uid);
     }
-}, [isLoading, firestore, isInitialized, isFetchingStores, fetchInitialData, user]);
+}, [isLoading, isMerchant, isAdmin, user, firestore, isInitialized, isFetchingStores, fetchInitialData, router]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
