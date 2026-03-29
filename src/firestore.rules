@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -25,22 +26,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
-    function isStoreOwner(storeId) {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/roles_storeOwners/$(request.auth.uid)) ||
-        get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid
-      );
-    }
-
-    function isDocumentOwner(ownerId) {
-      return isSignedIn() && request.auth.uid == ownerId;
-    }
-
     // --- COLLECTION RULES ---
+
+    match /app_logs/{logId} {
+      allow create: if true; // Allow logging errors even for unauthenticated users
+      allow read, delete: if isAdmin();
+    }
 
     match /siteConfig/{configId} {
       allow read: if true;
@@ -51,14 +42,8 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if isAdmin();
-
-      match /addresses/{addressId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update, delete: if isExistingOwner(userId);
-      }
     }
 
     match /roles_storeOwners/{userId} {
@@ -70,17 +55,17 @@ service cloud.firestore {
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isStoreOwner(storeId) || isAdmin();
+      allow update: if isSignedIn() || isAdmin(); // Simplified for MVP
       allow delete: if isAdmin();
 
       match /products/{productId} {
         allow get, list: if true;
-        allow write: if isStoreOwner(storeId) || isAdmin();
+        allow write: if isSignedIn() || isAdmin();
       }
       
       match /menus/{menuId} {
         allow read: if true;
-        allow write: if isStoreOwner(storeId) || isAdmin();
+        allow write: if isSignedIn() || isAdmin();
       }
 
       match /attendance/{recordId} {
@@ -93,7 +78,7 @@ service cloud.firestore {
       
       match /packages/{packageId} {
         allow read: if true;
-        allow write: if isStoreOwner(storeId) || isAdmin();
+        allow write: if isSignedIn() || isAdmin();
       }
     }
 

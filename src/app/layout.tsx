@@ -4,6 +4,7 @@ import { PT_Sans } from "next/font/google";
 import "./globals.css";
 import { ClientRoot } from "@/components/layout/client-root";
 import ServiceWorkerRegister from "@/components/service-worker-register";
+import { MonitoringInitializer } from "@/components/monitoring/monitoring-initializer";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -54,16 +55,9 @@ export default function RootLayout({
        <head>
         <meta charSet="utf-8" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        
-        {/* PERFORMANCE: Resource hints for critical Firebase domains */}
         <link rel="preconnect" href="https://www.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://www.google.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://firestore.googleapis.com" />
-        <link rel="preconnect" href="https://studio-9070259337-c267a.firebaseapp.com" crossOrigin="anonymous" />
-        
-        <link rel="dns-prefetch" href="https://www.google.com" />
-        <link rel="dns-prefetch" href="https://www.gstatic.com" />
-        <link rel="dns-prefetch" href="https://studio-9070259337-c267a.firebaseapp.com" />
         
         <script dangerouslySetInnerHTML={{
             __html: `
@@ -77,6 +71,7 @@ export default function RootLayout({
       </head>
       <body>
         <ServiceWorkerRegister />
+        <MonitoringInitializer />
         <ClientRoot>{children}</ClientRoot>
       </body>
     </html>
