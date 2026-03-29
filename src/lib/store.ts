@@ -50,8 +50,8 @@ export interface AppState {
 }
 
 /**
- * GLOBAL OPS STATE
- * Persistent storage name set to v4 to ensure clean state after branding updates.
+ * GLOBAL OPS STATE (HARDENED PERSISTENCE)
+ * Identifies the version as v5 to force a clean cache after UI refactor.
  */
 export const useAppStore = create<AppState>()(
   persist(
@@ -100,7 +100,7 @@ export const useAppStore = create<AppState>()(
               error: null
           });
           if (typeof window !== 'undefined') {
-              localStorage.removeItem('adires-ops-storage-v4');
+              localStorage.removeItem('adires-ops-storage-v5');
           }
       },
 
@@ -161,7 +161,7 @@ export const useAppStore = create<AppState>()(
       getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
-      name: 'adires-ops-storage-v4', 
+      name: 'adires-ops-storage-v5', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
           language: state.language,

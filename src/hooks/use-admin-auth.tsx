@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
@@ -11,11 +12,10 @@ const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
 /**
  * UNIFIED AUTH GUARD
  * Synchronizes Firebase Auth with Firestore Profile data.
- * Waits for isUserDataLoaded to prevent identity flickering and redirect loops.
  */
 export function useAdminAuth() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
-  const { isUserDataLoaded } = useAppStore();
+  const { isUserDataLoaded, userStore } = useAppStore();
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -29,9 +29,11 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
+    // If the user has a linked store in memory, they are a merchant.
+    if (userStore) return true;
     if (!isUserDataLoaded || isProfileLoading) return false;
     return userData?.accountType === 'restaurant';
-  }, [userData, isUserDataLoaded, isProfileLoading]);
+  }, [userData, isUserDataLoaded, isProfileLoading, userStore]);
 
   const isEmployee = useMemo(() => {
     if (!isUserDataLoaded || isProfileLoading) return false;
@@ -44,7 +46,6 @@ export function useAdminAuth() {
   }, [userData, isUserDataLoaded, isProfileLoading]);
 
   const isMerchant = useMemo(() => {
-      // In this system, Merchants are Restaurant Owners or Admins
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 

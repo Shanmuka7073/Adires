@@ -19,16 +19,11 @@ import {
     Scissors,
     Loader2,
     RefreshCw,
-    MapPin,
-    Camera,
-    Upload as UploadIcon,
-    Sparkles,
-    Zap,
-    Monitor,
-    XCircle,
-    CheckCircle2,
     BarChart3,
-    AlertCircle
+    Users,
+    CheckCircle2,
+    XCircle,
+    Zap
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -41,9 +36,8 @@ import GlobalLoader from '@/components/layout/global-loader';
 import Link from 'next/link';
 
 /**
- * UNIFIED MERCHANT HUB
- * Consolidates business operations. Restored a fallback setup button to prevent
- * the "Store Not Found" lockout while respecting the user's wish to avoid mandatory gates.
+ * UNIFIED MERCHANT HUB (MATCHED TO SCREENSHOT)
+ * Consolidates business operations with high-fidelity UI.
  */
 export default function UnifiedDashboardPage() {
     const { user, firestore } = useFirebase();
@@ -68,39 +62,39 @@ export default function UnifiedDashboardPage() {
         const isSalon = userStore?.businessType === 'salon';
         return [
             { 
-                title: isSalon ? 'Live Bookings' : 'Live Orders', 
-                description: isSalon ? 'Appointments queue' : 'Active table sessions', 
+                title: 'MY STORE', 
+                description: 'MANAGE PRODUCTS & PROFILE', 
+                href: '/dashboard/owner/my-store', 
+                icon: Store 
+            },
+            { 
+                title: isSalon ? 'LIVE BOOKINGS' : 'STORE ORDERS', 
+                description: isSalon ? 'APPOINTMENTS QUEUE' : 'LIVE TABLE ORDERS', 
                 href: isSalon ? '/dashboard/owner/bookings' : '/dashboard/owner/orders', 
                 icon: isSalon ? CalendarCheck : ShoppingBag, 
                 highlight: true 
             },
             { 
-                title: 'Hub Messenger', 
-                description: 'Customer support chat', 
+                title: 'MESSAGES', 
+                description: 'CUSTOMER SUPPORT CHAT', 
                 href: '/chat', 
                 icon: MessageSquare 
             },
             { 
-                title: 'Operational Analytics', 
-                description: 'Gross profit & check trends', 
+                title: 'ANALYTICS', 
+                description: 'SALES & PROFIT INSIGHTS', 
                 href: '/dashboard/owner/sales-report', 
                 icon: BarChart3 
             },
             { 
-                title: 'Digital Menu Hub', 
-                description: 'Catalog & QR assignments', 
-                href: '/dashboard/owner/menu-manager', 
-                icon: Utensils 
-            },
-            { 
-                title: 'Business Profile', 
-                description: 'Manage storefront & photo', 
-                href: '/dashboard/owner/my-store', 
-                icon: Store 
+                title: 'EMPLOYEES', 
+                description: 'STAFF & PAYROLL', 
+                href: '/dashboard/owner/employees', 
+                icon: Users 
             },
             {
-                title: 'Offline Audit',
-                description: 'Check local data persistence',
+                title: 'OFFLINE AUDIT',
+                description: 'AUDIT DEVICE PERSISTENCE',
                 href: '/dashboard/offline-audit',
                 icon: Smartphone
             }
@@ -129,80 +123,75 @@ export default function UnifiedDashboardPage() {
         );
     }
 
-    if (!userStore && isUserDataLoaded) {
-        return (
-            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500">
-                <div className="h-20 w-20 rounded-[2.5rem] bg-primary/10 flex items-center justify-center mx-auto text-primary">
-                    <Store className="h-10 w-10" />
-                </div>
-                <div className="space-y-2">
-                    <h1 className="text-3xl font-black uppercase tracking-tight italic text-center">Business Not Found</h1>
-                    <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed text-center">
-                        We couldn't find a business linked to this account. If you haven't set up your store yet, click below.
-                    </p>
-                </div>
-                <Button asChild className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20">
-                    <Link href="/dashboard/restaurant">Setup My Business</Link>
-                </Button>
-            </div>
-        );
-    }
-
     return (
-        <div className="container mx-auto px-3 py-6 max-w-2xl space-y-6 pb-24 animate-in fade-in duration-500">
-            <div className="flex items-center gap-4 border-b pb-6 border-black/5">
-                <div className="h-14 w-14 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border-2 border-white">
-                    {userStore?.businessType === 'salon' ? <Scissors className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                    <h1 className="text-xl font-black uppercase tracking-tight truncate leading-none text-gray-950 italic">{userStore?.name || 'Business Hub'}</h1>
-                    <div className="flex items-center gap-2 mt-2">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Operational Hub</p>
-                        <div className="h-1 w-1 rounded-full bg-black/10" />
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{userStore?.businessType || 'Independent Hub'}</p>
+        <div className="container mx-auto px-4 py-8 max-w-2xl space-y-8 pb-24 animate-in fade-in duration-500">
+            {/* BRAND HEADER (MATCHED TO SCREENSHOT) */}
+            <div className="flex items-center justify-between pb-6 border-b border-black/5">
+                <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-3xl bg-[#f0fff4] flex items-center justify-center text-primary shadow-inner border-2 border-white">
+                        {userStore?.businessType === 'salon' ? <Scissors className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
+                    </div>
+                    <div className="text-left">
+                        <h1 className="text-xl font-black uppercase tracking-tight text-gray-950 leading-none italic">
+                            {userStore?.name || 'MY HUB'}
+                        </h1>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">
+                            OPERATIONAL CONTROL
+                        </p>
                     </div>
                 </div>
-                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-2" onClick={() => window.location.reload()}>
-                    <RefreshCw className="h-4 w-4 opacity-40" />
-                </Button>
+                <Badge className="bg-[#f0fff4] text-primary border-primary/10 font-black text-[9px] uppercase px-3 py-1 flex gap-1.5 items-center">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ONLINE
+                </Badge>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            {/* ACTION CARDS GRID */}
+            <div className="grid grid-cols-1 gap-4">
                 {serviceLinks.map((card) => (
-                    <a href={card.href} key={card.href} className="group block">
+                    <Link href={card.href} key={card.href} className="group block">
                         <Card className={cn(
-                            "rounded-2xl border-0 shadow-lg transition-all active:scale-[0.98] bg-white border-2 border-transparent hover:border-primary/10",
-                            card.highlight && "bg-primary/5 ring-2 ring-primary/10 border-primary/20"
+                            "rounded-[1.5rem] border-0 shadow-lg transition-all active:scale-[0.98] bg-white border-2 border-transparent hover:border-primary/10",
+                            card.highlight && "bg-[#f0fff4] border-primary/20 ring-1 ring-primary/10"
                         )}>
-                            <div className="flex items-center gap-4 p-4">
+                            <div className="flex items-center gap-5 p-5">
                                 <div className={cn(
-                                    "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner shrink-0",
-                                    card.highlight ? "bg-primary text-white" : "bg-primary/5 text-primary"
+                                    "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner shrink-0 transition-colors",
+                                    card.highlight ? "bg-primary text-white" : "bg-[#f0fff4] text-primary"
                                 )}>
                                     <card.icon className="h-6 w-6" />
                                 </div>
                                 <div className="flex-1 min-w-0 text-left">
-                                    <h3 className="text-sm font-black uppercase tracking-tight text-gray-950 leading-none">{card.title}</h3>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 leading-none truncate">{card.description}</p>
+                                    <h3 className="text-sm font-black uppercase tracking-tight text-gray-950 leading-none">
+                                        {card.title}
+                                    </h3>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2 leading-none truncate">
+                                        {card.description}
+                                    </p>
                                 </div>
-                                <ArrowRight className="h-4 w-4 text-primary opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all shrink-0" />
+                                <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
                             </div>
                         </Card>
-                    </a>
+                    </Link>
                 ))}
             </div>
 
-            <Card className="rounded-[2.5rem] border-0 shadow-xl bg-slate-900 text-white p-8 overflow-hidden relative mt-6">
-                <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
-                    <Zap className="h-24 w-24" />
-                </div>
-                <div className="relative z-10 space-y-2 text-left">
-                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">System Pulse</h3>
-                    <p className="text-sm font-bold opacity-60 leading-relaxed uppercase">
-                        All local table sessions are synchronized with the kitchen display. Ensure your device has a stable internet connection.
-                    </p>
-                </div>
-            </Card>
+            <div className="pt-6">
+                <Card className="rounded-[2.5rem] border-0 shadow-xl bg-slate-900 text-white p-8 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+                        <Zap className="h-24 w-24" />
+                    </div>
+                    <div className="relative z-10 space-y-2 text-left">
+                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">System Pulse</h3>
+                        <p className="text-sm font-bold opacity-60 leading-relaxed uppercase">
+                            All operational terminals are currently synchronized with the regional dispatch network.
+                        </p>
+                    </div>
+                </Card>
+            </div>
         </div>
     );
+}
+
+function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
+    return <div className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2", className)}>{children}</div>;
 }
