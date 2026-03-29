@@ -22,6 +22,7 @@ import { WebRTCManager } from '@/lib/webrtc-service';
 import { VoiceCommandContext, PriceCheckInfo } from './voice-commander-context';
 import { VoiceCommander } from './voice-commander';
 import { useCart } from '@/lib/cart';
+import { Toaster } from '@/components/ui/toaster';
 
 function MaintenanceOverlay() {
     return (
@@ -211,6 +212,7 @@ export function MainLayout({
         <Footer />
         <BottomNavBar />
         <FirestoreCounter />
+        <Toaster />
         </div>
     </VoiceCommandContext.Provider>
   );

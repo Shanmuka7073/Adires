@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -58,7 +57,7 @@ const storeSchema = z.object({
 
 type StoreFormValues = z.infer<typeof storeSchema>;
 
-function StoreImageUploader({ store }: { store: Store }) {
+function StoreImageUploader({ store, onUpdate }: { store: Store, onUpdate?: () => void }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
     const { incrementWriteCount } = useAppStore();
@@ -81,6 +80,9 @@ function StoreImageUploader({ store }: { store: Store }) {
             const updateData = { imageUrl: imageUrl };
 
             updateDoc(storeRef, updateData)
+                .then(() => {
+                    if (onUpdate) onUpdate();
+                })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -89,7 +91,10 @@ function StoreImageUploader({ store }: { store: Store }) {
                     }));
                 });
             
-            toast({ title: 'Image Queued!' });
+            toast({ 
+                title: 'Visual Updated!', 
+                description: 'Your storefront image has been synchronized.' 
+            });
             incrementWriteCount(1);
         });
     };
@@ -162,7 +167,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     }));
                 });
             
-            toast({ title: "Changes Queued!" });
+            toast({ title: "Profile Updated!", description: "Business details have been saved." });
             incrementWriteCount(1);
             setIsOpen(false);
             onUpdate();
@@ -245,7 +250,7 @@ export default function MyStorePage() {
         <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 gap-3">
                 <StoreDetails store={userStore} onUpdate={() => fetchUserStore(firestore!, user!.uid)} />
-                <StoreImageUploader store={userStore} />
+                <StoreImageUploader store={userStore} onUpdate={() => fetchUserStore(firestore!, user!.uid)} />
                 <Button asChild variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[9px] tracking-widest hover:bg-primary/10 shadow-sm transition-all active:scale-95">
                     <Link href="/dashboard/owner/menu-manager">
                         <ImageIcon className="mr-2 h-4 w-4" /> Go to Digital Menu
