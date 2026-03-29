@@ -75,7 +75,7 @@ export default function MyProfilePage() {
     <div className="container mx-auto py-12 px-4 max-w-2xl">
         <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 p-8 border-b">
-                <CardTitle className="text-3xl font-black italic uppercase tracking-tight">Identity Hub</CardTitle>
+                <CardTitle className="text-3xl font-black italic uppercase tracking-tight">My Profile</CardTitle>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>

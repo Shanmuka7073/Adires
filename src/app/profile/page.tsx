@@ -28,7 +28,7 @@ const profileSchema = z.object({
 
 /**
  * TOP-LEVEL PROFILE PAGE
- * Unified location for all users to prevent redirection loops.
+ * Unified location for all users to manage their personal details.
  */
 export default function ProfilePage() {
   const { user, firestore, auth } = useFirebase();
@@ -90,7 +90,7 @@ export default function ProfilePage() {
 
         <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
             <CardHeader className="bg-primary/5 p-8 border-b">
-                <CardTitle className="text-sm font-black uppercase tracking-widest opacity-40">Identity Credentials</CardTitle>
+                <CardTitle className="text-sm font-black uppercase tracking-widest opacity-40">Profile Details</CardTitle>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -112,7 +112,7 @@ export default function ProfilePage() {
                     </CardContent>
                     <CardFooter className="p-8 bg-gray-50 border-t flex flex-col gap-4">
                         <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
-                            {isSaving ? 'Syncing...' : 'Save Profile Changes'}
+                            {isSaving ? 'Syncing...' : 'Save Changes'}
                         </Button>
                         <Button onClick={handleLogout} variant="ghost" className="w-full h-12 text-destructive font-black uppercase tracking-widest text-[10px]">
                             <LogOut className="mr-2 h-4 w-4" /> Terminate Session
