@@ -30,7 +30,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { Store, User as AppUser } from '@/lib/types';
 import { useFirebase, errorEmitter, FirestorePermissionError, useDoc, useMemoFirebase } from '@/firebase';
@@ -46,7 +45,8 @@ import {
   Rocket,
   LocateFixed,
   Store as StoreIcon,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
@@ -57,7 +57,6 @@ const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3
 
 const storeSchema = z.object({
   name: z.string().min(2, 'Store name is required'),
-  businessType: z.enum(['restaurant', 'salon', 'grocery']),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
   latitude: z.coerce.number().refine(n => n !== 0, "GPS Location is required"),
@@ -76,8 +75,7 @@ function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => 
     const form = useForm<StoreFormValues>({
         resolver: zodResolver(storeSchema),
         defaultValues: {
-            name: 'CHADE',
-            businessType: 'restaurant',
+            name: '',
             description: 'Professional hub for rapid operations and local commerce.',
             address: '',
             latitude: 0,
@@ -118,7 +116,7 @@ function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => 
                 id: storeId,
                 ownerId: user.uid,
                 name: data.name,
-                businessType: data.businessType,
+                businessType: 'restaurant', // DEFAULT: Determined later by AI Menu Scan
                 description: data.description,
                 address: data.address,
                 latitude: data.latitude,
@@ -133,11 +131,10 @@ function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => 
                 setDoc(userRef, { accountType: 'restaurant', address: data.address }, { merge: true })
             ]);
 
-            // Optimistic update for instant branding visibility
             setUserStore(storeData);
             incrementWriteCount(1);
             
-            toast({ title: "Business Launched!", description: "Your operational hub is now live." });
+            toast({ title: "Business Launched!", description: "Scan your menu next to finalize category." });
             onComplete(storeId);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
@@ -152,35 +149,19 @@ function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => 
                 <div className="h-16 w-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary mb-4">
                     <Rocket className="h-8 w-8" />
                 </div>
-                <CardTitle className="text-2xl font-black uppercase tracking-tight">Launch Business Hub</CardTitle>
-                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-40">Initialize your digital storefront</CardDescription>
+                <CardTitle className="text-2xl font-black uppercase tracking-tight">Initialize Business Hub</CardTitle>
+                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-40">Step 1: Identity & Location</CardDescription>
             </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <CardContent className="p-8 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField control={form.control} name="name" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel>
-                                    <FormControl><Input {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="businessType" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Category</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent className="rounded-xl border-2">
-                                            <SelectItem value="restaurant" className="rounded-lg">Restaurant / Cafe</SelectItem>
-                                            <SelectItem value="salon" className="rounded-lg">Salon / Spa</SelectItem>
-                                            <SelectItem value="grocery" className="rounded-lg">Retail / Grocery</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel>
+                                <FormControl><Input {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
                         
                         <FormField control={form.control} name="description" render={({ field }) => (
                             <FormItem>
@@ -212,11 +193,18 @@ function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => 
                                 </Button>
                             </div>
                         </div>
+
+                        <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 flex gap-3">
+                            <Sparkles className="h-5 w-5 text-primary shrink-0" />
+                            <p className="text-[9px] font-bold text-gray-500 uppercase leading-relaxed">
+                                Note: Your business category (Restaurant, Salon, etc.) will be determined automatically after you upload your menu in the next step.
+                            </p>
+                        </div>
                     </CardContent>
                     <div className="p-8 bg-gray-50 border-t border-black/5 pb-12">
                         <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
                             {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CheckCircle2 className="h-5 w-5 mr-2" />}
-                            Go Live as Merchant
+                            Create Business Profile
                         </Button>
                     </div>
                 </form>
@@ -312,7 +300,6 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: store.name,
-            businessType: store.businessType || 'restaurant',
             description: store.description,
             address: store.address,
             latitude: store.latitude,
