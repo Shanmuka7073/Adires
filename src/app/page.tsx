@@ -1,18 +1,19 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors } from 'lucide-react';
 import Link from 'next/link';
 import StoreCard from '@/components/store-card';
-import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RecipeCard } from '@/components/features/recipe-card';
+import { useRouter } from 'next/navigation';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import GlobalLoader from '@/components/layout/global-loader';
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
@@ -76,15 +77,25 @@ export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
-  const { data: userData } = useDoc<User>(userDocRef);
+  const router = useRouter();
+  const { isMerchant, isLoading, userData } = useAdminAuth();
 
-  useEffect(() => { 
-    if (firestore && !isInitialized && !isFetchingStores) fetchInitialData(firestore, user?.uid); 
-  }, [firestore, isInitialized, isFetchingStores, fetchInitialData, user?.uid]);
+  useEffect(() => {
+    if (isLoading) return;
+    if (isMerchant) {
+        router.replace('/dashboard');
+    } else {
+      if (firestore && !isInitialized && !isFetchingStores) {
+          fetchInitialData(firestore, user?.uid);
+      }
+    }
+}, [isLoading, isMerchant, router, firestore, isInitialized, isFetchingStores, fetchInitialData, user]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
+
+  if (isLoading || isMerchant) {
+    return <GlobalLoader />
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
