@@ -26,11 +26,12 @@ import {
     Zap,
     Monitor,
     XCircle,
-    CheckCircle2
+    CheckCircle2,
+    BarChart3
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState, useTransition, useRef } from 'react';
+import { useEffect, useMemo, useState, useTransition, useRef, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,7 +62,7 @@ type CreateStoreFormValues = z.infer<typeof createStoreSchema>;
 function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
-    const { incrementWriteCount, setUserStore } = useAppStore();
+    const { incrementWriteCount } = useAppStore();
     const [isProcessing, startProcessing] = useTransition();
     const [isSaving, startSave] = useTransition();
     const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
@@ -121,7 +122,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
-            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center text-left">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
                 <div className="h-16 w-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary mb-4">
                     <Camera className="h-8 w-8" />
                 </div>
@@ -244,7 +245,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeData: StoreType) =>
                 setDoc(userRef, { 
                     id: user.uid, 
                     accountType: 'restaurant',
-                    firstName: data.name.split(' ')[0], // Placeholder first name for consistency
+                    firstName: data.name.split(' ')[0], 
                     lastName: data.name.split(' ').slice(1).join(' ') || 'Merchant',
                     address: data.address,
                     latitude: data.latitude,
@@ -264,7 +265,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeData: StoreType) =>
 
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
-            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center text-left">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
                 <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Business Hub Setup</CardTitle>
                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Step 1: Registration</CardDescription>
             </CardHeader>
@@ -308,14 +309,12 @@ export default function UnifiedDashboardPage() {
     useEffect(() => {
         if (isLoading) return;
         if (!user) { router.replace('/login'); return; }
-        
-        // ADMINS: Routed to Decision Hub
         if (isAdmin) { router.replace('/dashboard/admin'); return; }
 
         if (firestore && !userStore && !isUserDataLoaded && isMerchant) {
             fetchUserStore(firestore, user.uid);
         }
-    }, [isLoading, isMerchant, isCustomer, isAdmin, user, firestore, userStore, isUserDataLoaded, fetchUserStore, router]);
+    }, [isLoading, isMerchant, isAdmin, user, firestore, userStore, isUserDataLoaded, fetchUserStore, router]);
 
     const serviceLinks = useMemo(() => {
         const isSalon = userStore?.businessType === 'salon';
@@ -331,15 +330,14 @@ export default function UnifiedDashboardPage() {
 
     if (isLoading || (!isUserDataLoaded && user)) return <GlobalLoader />;
     
-    // CUSTOMER VIEW
     if (isCustomer) {
         return (
-            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500 text-left">
+            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500">
                 <div className="h-20 w-20 rounded-[2.5rem] bg-destructive/10 flex items-center justify-center mx-auto text-destructive">
                     <XCircle className="h-10 w-10" />
                 </div>
                 <div className="space-y-2">
-                    <h1 className="text-3xl font-black uppercase tracking-tight italic">Merchant Access</h1>
+                    <h1 className="text-3xl font-black uppercase tracking-tight italic text-center">Merchant Access</h1>
                     <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed text-center">
                         This operational hub is reserved for verified store owners and employees.
                     </p>
@@ -351,12 +349,10 @@ export default function UnifiedDashboardPage() {
         );
     }
 
-    // MERCHANT SETUP LOGIC
     if (!userStore && isInitialized) {
         return (
             <div className="container mx-auto px-4 py-12 max-w-4xl animate-in fade-in duration-700">
                 <CreateStoreForm onComplete={(data) => {
-                    // OPTIMISTIC UPDATE: Set store locally immediately to trigger next step
                     setUserStore(data);
                 }} />
             </div>
@@ -372,13 +368,13 @@ export default function UnifiedDashboardPage() {
     }
 
     return (
-        <div className="container mx-auto px-3 py-6 max-w-2xl space-y-6 pb-24 animate-in fade-in duration-500 text-left">
+        <div className="container mx-auto px-3 py-6 max-w-2xl space-y-6 pb-24 animate-in fade-in duration-500">
             <div className="flex items-center gap-4 border-b pb-6 border-black/5">
                 <div className="h-14 w-14 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border-2 border-white">
                     {userStore?.businessType === 'salon' ? <Scissors className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h1 className="text-xl font-black uppercase tracking-tight truncate leading-none text-gray-950 italic">{userStore?.name || 'Business Hub'}</h1>
+                    <h1 className="text-xl font-black uppercase tracking-tight truncate leading-none text-gray-950 italic text-left">{userStore?.name || 'Business Hub'}</h1>
                     <div className="flex items-center gap-2 mt-2">
                         <p className="text-[10px] font-black text-primary uppercase tracking-widest">Operational Hub</p>
                         <div className="h-1 w-1 rounded-full bg-black/10" />
@@ -405,8 +401,8 @@ export default function UnifiedDashboardPage() {
                                     <card.icon className="h-6 w-6" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-sm font-black uppercase tracking-tight text-gray-950 leading-none">{card.title}</h3>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 leading-none truncate">{card.description}</p>
+                                    <h3 className="text-sm font-black uppercase tracking-tight text-gray-950 leading-none text-left">{card.title}</h3>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 leading-none truncate text-left">{card.description}</p>
                                 </div>
                                 <ArrowRight className="h-4 w-4 text-primary opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all shrink-0" />
                             </div>
@@ -420,8 +416,8 @@ export default function UnifiedDashboardPage() {
                     <Zap className="h-24 w-24" />
                 </div>
                 <div className="relative z-10 space-y-2">
-                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">System Pulse</h3>
-                    <p className="text-sm font-bold opacity-60 leading-relaxed uppercase">
+                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary text-left">System Pulse</h3>
+                    <p className="text-sm font-bold opacity-60 leading-relaxed uppercase text-left">
                         All local table sessions are synchronized with the kitchen display. Ensure your device has a stable internet connection.
                     </p>
                 </div>
