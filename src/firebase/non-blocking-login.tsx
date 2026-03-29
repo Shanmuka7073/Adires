@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -62,6 +63,7 @@ export function NonBlockingLogin() {
       
       if (!snap.exists()) {
           const context = localStorage.getItem('signup_context');
+          // Defaults to restaurant (Merchant) unless they came from a specific menu flow
           const accountType = context === 'menu_flow' ? 'customer' : 'restaurant';
 
           await setDoc(userRef, {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -8,10 +9,9 @@ import GlobalLoader from '@/components/layout/global-loader';
 /**
  * CENTRAL REDIRECTION HUB
  * Routes users to their specific operational dashboards based on confirmed role.
- * Waits for isUserDataLoaded to prevent "identity flickering" and redirect loops.
  */
 export default function DashboardRedirectPage() {
-    const { isAdmin, isRestaurantOwner, isCustomer, isLoading, user } = useAdminAuth();
+    const { isAdmin, isRestaurantOwner, isLoading, user } = useAdminAuth();
     const router = useRouter();
 
     useEffect(() => {
@@ -28,9 +28,9 @@ export default function DashboardRedirectPage() {
             router.replace('/dashboard/restaurant');
         } else {
             // Personal accounts go home directly
-            router.replace('/');
+            router.push('/');
         }
-    }, [isLoading, isAdmin, isRestaurantOwner, isCustomer, user, router]);
+    }, [isLoading, isAdmin, isRestaurantOwner, user, router]);
 
     return <GlobalLoader />;
 }

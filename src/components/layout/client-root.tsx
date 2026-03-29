@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
@@ -8,8 +9,7 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CLIENT ROOT
- * Fixed recursive circular dependency by providing actual implementation here
- * and using absolute paths for child providers.
+ * Fixed recursive circular dependency by providing actual implementation here.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);

@@ -1,13 +1,13 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { initializeTranslations, Locales, buildLocalesFromAliasGroups } from './locales';
+import { initializeTranslations, Locales, buildLocalesFromAliasGroups, getAllAliases as getAliasesFromLocales } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useEffect } from 'react';
-import { useFirebase } from '@/firebase';
 
 export interface AppState {
   stores: Store[];
@@ -46,6 +46,7 @@ export interface AppState {
   commands: Record<string, CommandGroup>;
   masterProducts: Product[];
   productPrices: Record<string, ProductPrice | null>;
+  getAllAliases: (key: string) => Record<string, string[]>;
 }
 
 export const useAppStore = create<AppState>()(
@@ -104,14 +105,23 @@ export const useAppStore = create<AppState>()(
         set({ isFetchingStores: true, error: null });
         
         try {
-          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
+          const [storesSnap, aliasSnap] = await Promise.all([
+            getDocs(query(collection(db, 'stores'), limit(50))),
+            getDocs(collection(db, 'voiceAliasGroups'))
+          ]);
+
           const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          const voiceAliasGroups = aliasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           
+          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
+          initializeTranslations(locales);
+
           set({
             stores: storesList,
+            locales,
             isInitialized: true,
             isFetchingStores: false,
-            readCount: get().readCount + storesSnap.docs.length
+            readCount: get().readCount + storesSnap.docs.length + aliasSnap.docs.length
           });
 
           if (userId) {
@@ -161,6 +171,10 @@ export const useAppStore = create<AppState>()(
               }
           }
           set({ productPrices: { ...get().productPrices, ...prices } });
+      },
+
+      getAllAliases: (key: string) => {
+        return getAliasesFromLocales(get().locales, key);
       }
     }),
     {
