@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -26,7 +27,8 @@ import {
     Monitor,
     XCircle,
     CheckCircle2,
-    BarChart3
+    BarChart3,
+    AlertCircle
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -40,7 +42,8 @@ import Link from 'next/link';
 
 /**
  * UNIFIED MERCHANT HUB
- * Redundant POS link removed as it is accessible via the "+" button in Live Orders.
+ * Consolidates business operations. Restored a fallback setup button to prevent
+ * the "Store Not Found" lockout while respecting the user's wish to avoid mandatory gates.
  */
 export default function UnifiedDashboardPage() {
     const { user, firestore } = useFirebase();
@@ -56,10 +59,10 @@ export default function UnifiedDashboardPage() {
         if (isAdmin) { router.replace('/dashboard/admin'); return; }
 
         // Fetch store identity if not already in memory
-        if (firestore && !userStore && !isUserDataLoaded && isMerchant) {
+        if (firestore && !userStore && isMerchant) {
             fetchUserStore(firestore, user.uid);
         }
-    }, [isLoading, isMerchant, isAdmin, user, firestore, userStore, isUserDataLoaded, fetchUserStore, router]);
+    }, [isLoading, isMerchant, isAdmin, user, firestore, userStore, fetchUserStore, router]);
 
     const serviceLinks = useMemo(() => {
         const isSalon = userStore?.businessType === 'salon';
@@ -104,7 +107,7 @@ export default function UnifiedDashboardPage() {
         ];
     }, [userStore]);
 
-    if (isLoading || (!isUserDataLoaded && user)) return <GlobalLoader />;
+    if (isLoading) return <GlobalLoader />;
     
     // Safety check for customers manually navigating to /dashboard
     if (isCustomer) {
@@ -121,6 +124,25 @@ export default function UnifiedDashboardPage() {
                 </div>
                 <Button asChild variant="outline" className="w-full h-14 rounded-2xl border-2 font-black uppercase text-xs tracking-widest shadow-xl">
                     <Link href="/">Return to Marketplace</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    if (!userStore && isUserDataLoaded) {
+        return (
+            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500">
+                <div className="h-20 w-20 rounded-[2.5rem] bg-primary/10 flex items-center justify-center mx-auto text-primary">
+                    <Store className="h-10 w-10" />
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black uppercase tracking-tight italic text-center">Business Not Found</h1>
+                    <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed text-center">
+                        We couldn't find a business linked to this account. If you haven't set up your store yet, click below.
+                    </p>
+                </div>
+                <Button asChild className="w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-primary/20">
+                    <Link href="/dashboard/restaurant">Setup My Business</Link>
                 </Button>
             </div>
         );
