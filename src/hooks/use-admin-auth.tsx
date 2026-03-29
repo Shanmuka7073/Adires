@@ -5,7 +5,6 @@ import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
-import { useAppStore } from '@/lib/store';
 
 const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
 
@@ -14,8 +13,7 @@ const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail
  * Synchronizes Firebase Auth with Firestore Profile data to prevent redirection loops.
  */
 export function useAdminAuth() {
-  const { user, isUserLoading, firestore, auth } = useFirebase();
-  const { isUserDataLoaded } = useAppStore();
+  const { user, isUserLoading, firestore } = useFirebase();
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -29,21 +27,18 @@ export function useAdminAuth() {
   }, [user]);
 
   const isRestaurantOwner = useMemo(() => {
-    if (!isUserDataLoaded) return false;
     return userData?.accountType === 'restaurant';
-  }, [userData, isUserDataLoaded]);
+  }, [userData]);
 
   const isEmployee = useMemo(() => {
-    if (!isUserDataLoaded) return false;
     return userData?.accountType === 'employee';
-  }, [userData, isUserDataLoaded]);
+  }, [userData]);
 
   const isMerchant = useMemo(() => {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // CRITICAL: loading MUST account for isUserDataLoaded to prevent redirect loops
-  const loading = isUserLoading || (!!user && !isUserDataLoaded) || !auth;
+  const loading = isUserLoading || isProfileLoading;
 
   return {
     isAdmin,

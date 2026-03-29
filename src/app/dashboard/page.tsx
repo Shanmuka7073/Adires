@@ -78,11 +78,10 @@ export default function DashboardPage() {
         if (isLoading) return;
 
         if (user) {
-            // If the user is an admin or a store owner, they belong in the operational dashboard
             if (isAdmin) {
                 router.replace('/dashboard/admin');
             } else if (isMerchant) {
-                router.replace('/dashboard/restaurant');
+                router.replace('/dashboard/owner/my-store');
             }
         }
     }, [isLoading, isMerchant, isAdmin, user, router]);
@@ -105,7 +104,6 @@ export default function DashboardPage() {
     
     if (isLoading) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
 
-    // Merchants are redirected away from this "Activity Hub" to their business tools
     if (user && (isMerchant || isAdmin)) return null;
 
     return (

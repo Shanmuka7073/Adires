@@ -7,6 +7,8 @@ import { Firestore, collection, getDocs, query, where, limit } from 'firebase/fi
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
+import { useEffect } from 'react';
+import { useFirebase } from '@/firebase';
 
 export interface AppState {
   stores: Store[];
@@ -14,7 +16,7 @@ export interface AppState {
   isFetchingStores: boolean;
   isFetchingUserStore: boolean;
   isInitialized: boolean;
-  isUserDataLoaded: boolean;
+  isUserDataLoaded: boolean; // Flag to synchronize auth and profile data
   appReady: boolean;
   error: Error | null;
   language: string;
@@ -166,3 +168,14 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+export const useInitializeApp = () => {
+    const { firestore, user, isUserLoading } = useFirebase();
+    const { fetchInitialData, isInitialized, isFetchingStores } = useAppStore();
+
+    useEffect(() => {
+        if (firestore && !isInitialized && !isFetchingStores) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, user?.uid, isInitialized, isFetchingStores, fetchInitialData]);
+};

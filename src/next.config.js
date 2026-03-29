@@ -3,7 +3,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: false, // Handled manually in ServiceWorkerRegister.tsx
   skipWaiting: true,
-  disable: false, // Force enabled for offline-first health
+  disable: process.env.NODE_ENV === 'development', // Critical: Disable SW in dev to prevent fetch errors
   buildExcludes: [
     /middleware-manifest\.json$/, 
     /app-build-manifest\.json$/,
@@ -38,17 +38,6 @@ const withPWA = require('next-pwa')({
         },
         cacheableResponse: {
           statuses: [0, 200],
-        },
-      },
-    },
-    {
-      urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'google-fonts',
-        expiration: {
-          maxEntries: 20,
-          maxAgeSeconds: 365 * 24 * 60 * 60,
         },
       },
     },

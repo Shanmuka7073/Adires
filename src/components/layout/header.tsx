@@ -33,7 +33,7 @@ function UserMenu() {
   const { resetApp } = useAppStore();
   const router = useRouter();
   
-  const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
+  const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/owner/my-store' : '/dashboard');
 
   const handleLogout = async () => {
     if (auth) {
@@ -90,7 +90,7 @@ export function Header() {
   const logoHref = useMemo(() => {
     if (!user) return "/";
     if (isAdmin) return "/dashboard/admin";
-    if (isRestaurantOwner) return "/dashboard/restaurant";
+    if (isRestaurantOwner) return "/dashboard/owner/my-store";
     return "/dashboard";
   }, [user, isAdmin, isRestaurantOwner]);
 
