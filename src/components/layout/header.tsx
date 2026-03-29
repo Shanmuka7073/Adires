@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { UserCircle, Globe, LogOut, Download, LayoutDashboard, CheckCircle2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import {
   DropdownMenu,
@@ -73,12 +73,18 @@ function LanguageSwitcher() {
 function UserMenu() {
   const { user, isUserLoading, auth } = useFirebase();
   const { isAdmin, isRestaurantOwner } = useAdminAuth();
+  const { resetApp } = useAppStore();
+  const router = useRouter();
+  
   const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
   const { canInstall, triggerInstall } = useInstall();
 
   const handleLogout = async () => {
     if (auth) {
         await signOut(auth);
+        resetApp();
+        useAppStore.persist.clearStorage();
+        router.push('/login');
     }
   };
 
@@ -146,23 +152,21 @@ function UserMenu() {
 export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
-  const { isRestaurantOwner, isAdmin } = useAdminAuth();
+  const { isMerchant, isAdmin } = useAdminAuth();
 
-  // Show the header globally EXCEPT on the homepage
   if (pathname === '/') return null;
 
-  const showShoppingControls = !isRestaurantOwner && !isAdmin;
-  const homeHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/');
+  const showShoppingControls = !isMerchant && !isAdmin;
+  
+  // BRAND LOGO LINK LOGIC
+  const logoHref = isAdmin ? '/dashboard/admin' : (isMerchant ? '/dashboard/restaurant' : '/');
 
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
 
   return (
     <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
-
-      {/* LEFT */}
-      <Link href={homeHref} className="flex items-center gap-1 min-w-0">
-
+      <Link href={logoHref} className="flex items-center gap-1 min-w-0">
         <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
           <Image 
             src={logoUrl} 
@@ -173,13 +177,11 @@ export function Header() {
             priority 
           />
         </div>
-
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           <span className="font-black text-[10px] truncate uppercase">
             {brandName}
           </span>
-
-          {(isAdmin || isRestaurantOwner) && (
+          {(isAdmin || isMerchant) && (
             <div className="flex items-center gap-0.5">
               <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
               <span className="text-[7px] font-black text-green-600">V</span>
@@ -188,7 +190,6 @@ export function Header() {
         </div>
       </Link>
 
-      {/* RIGHT */}
       <div className="flex-1" />
 
       <div className="flex items-center gap-1">
@@ -197,7 +198,6 @@ export function Header() {
         {showShoppingControls && <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />}
         <UserMenu />
       </div>
-
     </header>
   );
 }

@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2 } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Store, Truck, UserCheck, FileText, Loader2, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { getProductImage } from '@/lib/data';
@@ -17,7 +18,7 @@ const allRoleCards = [
     {
         title: 'start-shopping',
         description: 'browse-local-stores-and-find-fresh-groceries',
-        href: '/stores/beverages', 
+        href: '/stores', 
         icon: ShoppingCart,
         imageId: 'dash-shopping'
     },
@@ -52,17 +53,12 @@ const allRoleCards = [
 ];
 
 function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading: boolean }) {
-    const firstStoreId = useAppStore((state) => state.stores[0]?.id);
-    const href = card.href.startsWith('/stores/') && firstStoreId 
-        ? `/stores/${firstStoreId}?category=${card.href.split('/')[2]}` 
-        : card.href;
-
     if (isLoading || !image) {
         return <Skeleton className="h-full w-full min-h-[200px] rounded-[2rem]" />;
     }
 
     return (
-        <Link href={href} className="group block h-full">
+        <Link href={card.href} className="group block h-full">
             <Card className="h-full rounded-[2rem] border-0 shadow-lg flex flex-col transition-all group-hover:shadow-2xl group-active:scale-95 overflow-hidden">
                 <div className="relative h-32 xs:h-40 w-full shrink-0">
                     <Image 
@@ -90,8 +86,9 @@ function RoleCard({ card, image, isLoading }: { card: any, image: any, isLoading
 
 export default function DashboardPage() {
     const [images, setImages] = useState<Record<string, { imageUrl: string; imageHint: string }>>({});
-    const [loading, setLoading] = useState(true);
-    const { isRestaurantOwner, isEmployee, isAdmin, isLoading: isRoleLoading, user } = useAdminAuth();
+    const [loadingImages, setLoadingImages] = useState(true);
+    const { isRestaurantOwner, isEmployee, isAdmin, isLoading, user } = useAdminAuth();
+    const isUserDataLoaded = useAppStore(state => state.isUserDataLoaded);
     const router = useRouter();
 
     const roleCards = useMemo(() => {
@@ -102,17 +99,17 @@ export default function DashboardPage() {
     }, [isEmployee]);
 
     useEffect(() => {
-        if (!isRoleLoading && user) {
+        if (!isLoading && isUserDataLoaded && user) {
             if (isAdmin) {
                 router.replace('/dashboard/admin');
             } else if (isRestaurantOwner) {
                 router.replace('/dashboard/restaurant');
             }
         }
-    }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
+    }, [isLoading, isUserDataLoaded, isRestaurantOwner, isAdmin, user, router]);
 
     useEffect(() => {
-        if (!isRoleLoading && !isRestaurantOwner && !isAdmin) {
+        if (!isLoading && !isRestaurantOwner && !isAdmin) {
             const fetchImages = async () => {
                 const imagePromises = roleCards.map(card => getProductImage(card.imageId));
                 const resolvedImages = await Promise.all(imagePromises);
@@ -121,13 +118,13 @@ export default function DashboardPage() {
                     return acc;
                 }, {} as Record<string, { imageUrl: string; imageHint: string }>);
                 setImages(imageMap);
-                setLoading(false);
+                setLoadingImages(false);
             };
             fetchImages();
         }
-    }, [isRoleLoading, isRestaurantOwner, isAdmin, roleCards]);
+    }, [isLoading, isRestaurantOwner, isAdmin, roleCards]);
     
-    if (isRoleLoading) {
+    if (isLoading || !isUserDataLoaded) {
         return (
             <div className="container mx-auto py-12 text-center flex flex-col items-center justify-center gap-4 h-[60vh]">
                 <Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" />
@@ -136,9 +133,8 @@ export default function DashboardPage() {
         );
     }
 
-    if (user && (isRestaurantOwner || isAdmin)) {
-        return null;
-    }
+    // Prevents flicker during redirect
+    if (user && (isRestaurantOwner || isAdmin)) return null;
 
     return (
         <div className="container mx-auto py-8 px-4 md:px-6 max-w-6xl pb-24 md:pb-10">
@@ -155,7 +151,7 @@ export default function DashboardPage() {
                         key={card.title} 
                         card={card} 
                         image={images[card.imageId]} 
-                        isLoading={loading}
+                        isLoading={loadingImages}
                     />
                 ))}
             </div>

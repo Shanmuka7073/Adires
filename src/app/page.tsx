@@ -1,24 +1,20 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/lib/store';
-import { User, Store as StoreType, Order } from '@/lib/types';
+import { User, Store as StoreType } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import Image from 'next/image';
-import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { Search, MapPin, ChevronDown, ArrowRight, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { Search, MapPin, ChevronDown, LayoutGrid, Beef, Scissors, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StoreCard from '@/components/store-card';
-import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, collection, query, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { RecipeCard } from '@/components/features/recipe-card';
-
-const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: string) => void, user: User | null }) {
     const [deliveryTime, setDeliveryTime] = useState<number | null>(null);
@@ -33,7 +29,7 @@ function HomepageHeader({ onSearchChange, user }: { onSearchChange: (term: strin
                 <div>
                      <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Quick Dispatch</p>
                      {deliveryTime !== null ? (
-                        <p className="text-2xl font-black text-gray-900 tracking-tighter italic">{deliveryTime} mins</p>
+                        <p className="text-2xl font-black text-gray-950 tracking-tighter italic">{deliveryTime} mins</p>
                      ) : (
                         <Skeleton className="h-8 w-24 mt-1" />
                      )}
@@ -81,8 +77,8 @@ function HubNavigation() {
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
   const router = useRouter();
-  const { isRestaurantOwner, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
-  const { stores, deviceId, fetchInitialData, isInitialized } = useAppStore();
+  const { isMerchant, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
+  const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   const userDocRef = useMemoFirebase(() => (!firestore || !user) ? null : doc(firestore, 'users', user.uid), [firestore, user]);
@@ -91,17 +87,17 @@ export default function LocalBasketHomepage() {
   useEffect(() => {
     if (!isRoleLoading && user) {
         if (isAdmin) router.replace('/dashboard/admin');
-        else if (isRestaurantOwner) router.replace('/dashboard/restaurant');
+        else if (isMerchant) router.replace('/dashboard/restaurant');
     }
-  }, [isRoleLoading, isRestaurantOwner, isAdmin, user, router]);
+  }, [isRoleLoading, isMerchant, isAdmin, user, router]);
 
   useEffect(() => { 
-    if (firestore && !isInitialized) fetchInitialData(firestore, user?.uid); 
-  }, [firestore, isInitialized, fetchInitialData, user?.uid]);
+    if (firestore && !isInitialized && !isFetchingStores) fetchInitialData(firestore, user?.uid); 
+  }, [firestore, isInitialized, isFetchingStores, fetchInitialData, user?.uid]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isRoleLoading || (user && (isRestaurantOwner || isAdmin))) {
+  if (isRoleLoading || (user && (isMerchant || isAdmin))) {
     return (
         <div className="flex h-screen items-center justify-center bg-background">
             <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -117,7 +113,11 @@ export default function LocalBasketHomepage() {
         <section className="space-y-4">
             <h2 className="text-xl font-black font-headline uppercase tracking-tighter text-gray-950">Marketplace Hub</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredStores.map(store => <StoreCard key={store.id} store={store} />)}
+                {isFetchingStores && stores.length === 0 ? (
+                    Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-[2.5rem]" />)
+                ) : (
+                    filteredStores.map(store => <StoreCard key={store.id} store={store} />)
+                )}
             </div>
         </section>
         <RecipeCard />

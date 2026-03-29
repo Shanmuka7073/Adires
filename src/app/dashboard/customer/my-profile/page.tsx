@@ -15,7 +15,7 @@ import { useTransition, useEffect, useState } from 'react';
 import type { User as AppUser } from '@/lib/types';
 import { Loader2, LogOut, LayoutDashboard, MapPin, LocateFixed, User as UserIcon, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useProfileFormStore, type ProfileFormValues } from '@/lib/store';
+import { useAppStore, useProfileFormStore, type ProfileFormValues } from '@/lib/store';
 import Link from 'next/link';
 import { t } from '@/lib/locales';
 import { signOut } from 'firebase/auth';
@@ -106,6 +106,7 @@ function ProfilePictureCard({ user }: { user: AppUser }) {
 export default function MyProfilePage() {
   const { user, isUserLoading, firestore, auth } = useFirebase();
   const { isAdmin } = useAdminAuth();
+  const { resetApp } = useAppStore();
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, startSaveTransition] = useTransition();
@@ -136,7 +137,7 @@ export default function MyProfilePage() {
   
   useEffect(() => {
     setForm(form);
-    return () => setForm(null); // Cleanup
+    return () => setForm(null);
   }, [form, setForm]);
 
 
@@ -170,24 +171,19 @@ export default function MyProfilePage() {
             (position) => {
                 form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
                 form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
-                toast({ title: "Location Captured!", description: "Your coordinates have been filled. Save changes to store them." });
+                toast({ title: "Location Captured!" });
                 setIsFetchingLocation(false);
             },
             () => {
-                toast({ variant: 'destructive', title: "Location Error", description: "Could not retrieve your location. Please check browser permissions." });
+                toast({ variant: 'destructive', title: "Location Error" });
                 setIsFetchingLocation(false);
             }
         );
-    } else {
-        toast({ variant: 'destructive', title: "Not Supported", description: "Geolocation is not supported by your browser." });
     }
   }
   
   const onSubmit = (data: ProfileFormValues) => {
-    if (!firestore || !user || !userDocRef) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in.' });
-        return;
-    }
+    if (!firestore || !user || !userDocRef) return;
     
     startSaveTransition(() => {
         const profileData: Partial<AppUser> = {
@@ -204,19 +200,14 @@ export default function MyProfilePage() {
 
         setDoc(userDocRef, profileData, { merge: true })
             .then(() => {
-                toast({
-                    title: 'Profile Updated',
-                    description: 'Your information has been saved successfully.',
-                });
+                toast({ title: 'Profile Updated' });
             })
             .catch((error) => {
-                console.error("Error saving profile:", error);
-                const permissionError = new FirestorePermissionError({
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: userDocRef.path,
                     operation: 'write',
                     requestResourceData: profileData
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                }));
             });
     });
   };
@@ -224,6 +215,8 @@ export default function MyProfilePage() {
   const handleLogout = async () => {
     if (auth) {
         await signOut(auth);
+        resetApp();
+        useAppStore.persist.clearStorage();
         router.push('/login');
     }
   };
@@ -231,7 +224,7 @@ export default function MyProfilePage() {
   const dashboardLink = isAdmin ? "/dashboard/admin" : "/dashboard";
 
   if (isUserLoading || isProfileLoading) {
-      return <div className="container mx-auto py-12">Loading your profile...</div>;
+      return <div className="container mx-auto py-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
   }
   
   return (
@@ -239,21 +232,21 @@ export default function MyProfilePage() {
          <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
-                    <Card>
-                        <CardHeader>
-                        <CardTitle className="text-3xl font-headline">{t('my-profile')}</CardTitle>
-                        <CardDescription>Manage your personal information. You can use your voice to fill the form.</CardDescription>
+                    <Card className="rounded-[2.5rem] border-0 shadow-xl overflow-hidden bg-white">
+                        <CardHeader className="bg-primary/5 border-b border-black/5 p-8">
+                        <CardTitle className="text-3xl font-black font-headline uppercase tracking-tighter italic">{t('my-profile')}</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase opacity-40 tracking-widest">Personal Identity Vault</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="p-8 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
                                     name="firstName"
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>First Name</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">First Name</FormLabel>
                                         <FormControl>
-                                        <Input placeholder="John" {...field} />
+                                        <Input placeholder="John" {...field} className="h-12 rounded-xl border-2 font-bold" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -264,9 +257,9 @@ export default function MyProfilePage() {
                                     name="lastName"
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Last Name</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase opacity-40">Last Name</FormLabel>
                                         <FormControl>
-                                        <Input placeholder="Doe" {...field} />
+                                        <Input placeholder="Doe" {...field} className="h-12 rounded-xl border-2 font-bold" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -278,9 +271,9 @@ export default function MyProfilePage() {
                                 name="email"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Email Address</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Email Address</FormLabel>
                                     <FormControl>
-                                    <Input type="email" {...field} readOnly disabled />
+                                    <Input type="email" {...field} readOnly disabled className="h-12 rounded-xl border-2 font-bold bg-muted/20" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -291,9 +284,9 @@ export default function MyProfilePage() {
                                 name="phone"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Phone Number</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Phone Number</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="9876543210" {...field} />
+                                    <Input placeholder="9876543210" {...field} className="h-12 rounded-xl border-2 font-bold" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -304,61 +297,54 @@ export default function MyProfilePage() {
                                 name="address"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Full Address</FormLabel>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Full Delivery Address</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="123 Main St, Anytown, USA 12345" {...field} />
+                                    <Input placeholder="123 Main St, Area, City" {...field} className="h-12 rounded-xl border-2 font-bold" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
 
-                            <div className="p-4 border rounded-lg space-y-3">
-                                <h4 className="font-medium">Home Location (GPS)</h4>
-                                <Button type="button" variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
-                                    {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
-                                    Get Current Location
-                                </Button>
-                                <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-mono">
-                                        Lat: {form.watch('latitude')?.toFixed(4) || 'Not set'}, Lng: {form.watch('longitude')?.toFixed(4) || 'Not set'}
-                                    </span>
+                            <div className="p-6 rounded-2xl bg-muted/30 border-2 border-dashed border-black/10 space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <h4 className="text-[10px] font-black uppercase opacity-40">GPS Coordinates</h4>
+                                    <Button type="button" variant="outline" size="sm" onClick={handleGetLocation} disabled={isFetchingLocation} className="h-8 rounded-lg text-[8px] font-black uppercase bg-white border-2">
+                                        {isFetchingLocation ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <LocateFixed className="h-3 w-3 mr-1" />}
+                                        Auto-Detect
+                                    </Button>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-mono font-bold text-primary">
+                                    <MapPin className="h-4 w-4" />
+                                    <span>Lat: {form.watch('latitude')?.toFixed(4) || '—'} / Lng: {form.watch('longitude')?.toFixed(4) || '—'}</span>
                                 </div>
                             </div>
 
                         </CardContent>
-                        <CardFooter className="flex-col gap-4">
-                            <Button type="submit" disabled={isSaving} className="w-full">
-                                {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Changes'}
+                        <CardFooter className="p-8 bg-gray-50 border-t border-black/5 flex flex-col gap-4">
+                            <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
+                                {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Save Identity Changes'}
                             </Button>
-                            <Button onClick={handleLogout} variant="destructive" className="w-full">
-                                <LogOut className="mr-2 h-4 w-4" />
-                                {t('logout')}
+                            <Button onClick={handleLogout} variant="ghost" className="w-full h-12 rounded-xl font-bold uppercase text-[10px] text-destructive tracking-widest">
+                                <LogOut className="mr-2 h-4 w-4" /> {t('logout')}
                             </Button>
                         </CardFooter>
                     </Card>
                 </div>
                 <div className="space-y-8">
                     {user && userData && <ProfilePictureCard user={userData} />}
-                    <div className="space-y-4">
-                        <h2 className="text-xl font-bold font-headline">My Dashboards</h2>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                <LayoutDashboard className="h-5 w-5 text-primary" />
-                                Main Dashboard
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <Button asChild className="w-full" variant="outline">
-                                <Link href={dashboardLink}>
-                                        Go to Dashboard
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <Card className="rounded-[2rem] border-0 shadow-lg bg-slate-900 text-white p-6 space-y-4">
+                        <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-primary">
+                            <LayoutDashboard className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 className="font-black uppercase text-xs tracking-tight">Access Dashboard</h3>
+                            <p className="text-[10px] font-bold text-white/40 leading-relaxed uppercase mt-1">Return to your operational control center.</p>
+                        </div>
+                        <Button asChild className="w-full h-11 rounded-xl bg-white text-slate-900 hover:bg-white/90 font-black uppercase text-[10px] tracking-widest shadow-xl">
+                            <Link href={dashboardLink}>Go to Dashboard</Link>
+                        </Button>
+                    </Card>
                 </div>
             </form>
         </Form>

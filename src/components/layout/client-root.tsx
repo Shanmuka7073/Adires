@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { FirebaseClientProvider } from '@/firebase';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { CartProvider } from '@/lib/cart';
 import { MainLayout } from '@/components/layout/main-layout';
 import { Toaster } from '@/components/ui/toaster';
@@ -9,20 +10,19 @@ import { useInitializeApp } from '@/lib/store';
 import { InstallProvider } from '@/components/install-provider';
 
 /**
- * RESILIENT HYDRATION ROOT
- * Ensures initial render matches server (null) 100% of the time.
- * This eliminates the "Hydration failed" Expected matching div error.
+ * CORE CLIENT WRAPPER
+ * Ensures consistent service initialization and prevents circular dependencies.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);
     
+    // Initialize global app data exactly once
     useInitializeApp();
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
     
-    // Return null on both server and client first render to ensure hydration match
     if (!isMounted) {
         return null;
     }

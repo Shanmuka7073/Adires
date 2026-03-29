@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -22,8 +23,10 @@ export interface ProfileFormValues {
 export interface AppState {
   stores: Store[];
   userStore: Store | null; 
-  loading: boolean;
+  isFetchingStores: boolean;
+  isFetchingUserStore: boolean;
   isInitialized: boolean;
+  isUserDataLoaded: boolean;
   appReady: boolean;
   error: Error | null;
   language: string;
@@ -32,6 +35,8 @@ export interface AppState {
   isCartOpen: boolean;
   readCount: number;
   writeCount: number;
+  
+  // Actions
   incrementReadCount: (count?: number) => void;
   incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
@@ -40,8 +45,13 @@ export interface AppState {
   setAppReady: (ready: boolean) => void;
   setDeviceId: (id: string) => void;
   setCartOpen: (open: boolean) => void;
+  resetApp: () => void;
+  
+  // Fetching
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
+  
+  // Helpers
   locales: Locales;
   commands: Record<string, CommandGroup>;
   getAllAliases: (key: string) => Record<string, string[]>;
@@ -50,26 +60,6 @@ export interface AppState {
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
 }
-
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));
 
 const getInitialLanguage = (): string => {
   if (typeof window !== 'undefined') {
@@ -97,8 +87,10 @@ export const useAppStore = create<AppState>()(
       userStore: null,
       locales: {},
       commands: defaultGeneralCommands,
-      loading: false,
+      isFetchingStores: false,
+      isFetchingUserStore: false,
       isInitialized: false,
+      isUserDataLoaded: false,
       appReady: false,
       error: null,
       language: getInitialLanguage(),
@@ -124,62 +116,78 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
+      resetApp: () => set({
+          stores: [],
+          userStore: null,
+          isInitialized: false,
+          isUserDataLoaded: false,
+          activeStoreId: null,
+          isCartOpen: false,
+          isFetchingStores: false,
+          isFetchingUserStore: false,
+          readCount: 0,
+          writeCount: 0,
+          error: null
+      }),
+
       fetchInitialData: async (db: Firestore, userId?: string) => {
         const state = get();
-        if (state.loading) return;
+        if (state.isFetchingStores) return;
         
-        set({ loading: true, error: null });
+        set({ isFetchingStores: true, error: null });
         
         try {
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
-          let userStore = state.userStore;
-          if (userId && (!userStore || userStore.ownerId !== userId)) {
-              userStore = stores.find((s: Store) => s.ownerId === userId) || null;
-          }
-
           const id = getOrGenerateDeviceId();
 
           set({
             stores,
             isInitialized: true,
-            loading: false,
-            userStore,
+            isFetchingStores: false,
             deviceId: id,
             appReady: true,
             readCount: state.readCount + storesSnap.docs.length
           });
+
+          if (userId) {
+              await state.fetchUserStore(db, userId);
+          } else {
+              set({ isUserDataLoaded: true });
+          }
           
         } catch (error) {
           console.error("fetchInitialData failed:", error);
-          set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+          set({ error: error as Error, isFetchingStores: false, isInitialized: true, appReady: true, isUserDataLoaded: true });
         }
       },
 
       fetchUserStore: async (db: Firestore, userId: string) => {
         const state = get();
-        if (state.loading) return;
+        if (state.isFetchingUserStore) return;
 
-        set({ loading: true, error: null });
+        set({ isFetchingUserStore: true, error: null });
 
         try {
             const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
             const snap = await getDocs(q);
+            
+            // SECURITY: Only update userStore if data is found.
+            // If user is a customer, userStore remains null but loading is complete.
             const userStore = snap.docs.length > 0 
                 ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
                 : null;
 
             set({
                 userStore,
-                isInitialized: true,
-                loading: false,
-                appReady: true,
+                isFetchingUserStore: false,
+                isUserDataLoaded: true,
                 readCount: state.readCount + 1
             });
         } catch (error) {
             console.error("fetchUserStore failed:", error);
-            set({ error: error as Error, loading: false, isInitialized: true, appReady: true });
+            set({ error: error as Error, isFetchingUserStore: false, isUserDataLoaded: true });
         }
       },
 
@@ -197,12 +205,11 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v14', 
+      name: 'adires-ops-v15', 
       storage: createJSONStorage(() => localStorage),
+      // CRITICAL: ONLY persist non-user data to prevent leakage
       partialize: (state) => ({ 
-          userStore: state.userStore,
           language: state.language,
-          isInitialized: state.isInitialized,
           deviceId: state.deviceId
       }),
     }
@@ -213,25 +220,44 @@ export const useInitializeApp = () => {
     const { firestore, user, isUserLoading } = useFirebase();
     const fetchUserStore = useAppStore(state => state.fetchUserStore);
     const fetchInitialData = useAppStore(state => state.fetchInitialData);
-    const loading = useAppStore(state => state.loading);
+    const isFetchingStores = useAppStore(state => state.isFetchingStores);
     const isInitialized = useAppStore(state => state.isInitialized);
     const setAppReady = useAppStore(state => state.setAppReady);
-    const userStore = useAppStore(state => state.userStore);
 
     useEffect(() => {
-        if (!firestore || isUserLoading || loading) return;
+        if (!firestore || isUserLoading) return;
 
         const bootstrap = async () => {
-            if (!isInitialized) {
+            if (!isInitialized && !isFetchingStores) {
                 await fetchInitialData(firestore, user?.uid);
-            } else if (user?.uid && !userStore) {
+            } else if (user?.uid && !isFetchingStores) {
                 await fetchUserStore(firestore, user.uid);
             }
             setAppReady(true);
         };
 
         bootstrap();
-    }, [firestore, isUserLoading, isInitialized, loading, fetchInitialData, fetchUserStore, user?.uid, userStore, setAppReady]);
+    }, [firestore, isUserLoading, isInitialized, isFetchingStores, fetchInitialData, fetchUserStore, user?.uid, setAppReady]);
 
-    return { isLoading: loading };
+    return { isLoading: isFetchingStores };
 };
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));
