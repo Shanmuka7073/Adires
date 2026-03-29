@@ -4,18 +4,21 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import GlobalLoader from './global-loader';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * CENTRALIZED ROUTING ENGINE
  * Monitors and enforces access based on user role and session state.
+ * Includes loop detection and state validation.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, profile, isAdmin, isMerchant, isLoading, error } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
   
   // Monitoring Layer: Redirect Tracking
-  const redirectCountRef = useRef(0);
+  const redirectHistory = useRef<{ path: string; count: number }>({ path: '', count: 0 });
 
   useEffect(() => {
     if (isLoading) return;
@@ -38,18 +41,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Enforcement & Loop Detection
     if (redirectPath && redirectPath !== pathname) {
-        if (process.env.NODE_ENV === 'development') {
-            redirectCountRef.current++;
-            console.log(`[AUTH_FLOW] Redirect detected: ${pathname} -> ${redirectPath} (Count: ${redirectCountRef.current})`);
-            
-            if (redirectCountRef.current > 3) {
-                console.error(`[AUTH_FLOW] CRITICAL: Multiple redirects triggered in rapid succession. Investigate dependency loops.`);
-            }
+        // DETECT REDIRECT LOOPS (same route triggered > 3 times)
+        if (redirectHistory.current.path === redirectPath) {
+            redirectHistory.current.count++;
+        } else {
+            redirectHistory.current = { path: redirectPath, count: 1 };
         }
+
+        if (redirectHistory.current.count > 3) {
+            console.error(`[AUTH_CRITICAL] Redirect loop detected at: ${redirectPath}`);
+            toast({
+                variant: 'destructive',
+                title: 'System state error detected',
+                description: 'A navigation loop was prevented. Please refresh the page or check your account role.',
+            });
+            return; // Terminate redirect to prevent browser hang
+        }
+
         router.replace(redirectPath);
     } else {
-        // Stabilization
-        redirectCountRef.current = 0;
+        // Path matches or no redirect needed, stabilize history
+        redirectHistory.current = { path: '', count: 0 };
     }
 
   }, [user, profile, isLoading, pathname, router, isAdmin, isMerchant]);
