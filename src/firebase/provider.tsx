@@ -19,11 +19,14 @@ export interface FirebaseContextState {
   error: Error | null;
 }
 
+// Return type for useFirebase() includes the full state
+export interface FirebaseServicesAndUser extends FirebaseContextState {}
+
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 /**
  * CENTRALIZED IDENTITY PROVIDER
- * Enforces Auth -> Profile fetch sequence to ensure Single Source of Truth.
+ * Enforces Auth -> Profile fetch sequence using UID as the document key.
  */
 export const FirebaseProvider: React.FC<{
   children: ReactNode;
@@ -45,11 +48,30 @@ export const FirebaseProvider: React.FC<{
       if (firebaseUser) {
         setProfileLoading(true);
         try {
-          const docRef = doc(firestore, 'users', firebaseUser.uid);
-          const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            setProfile({ ...snap.data(), id: snap.id } as AppUser);
+          // ALWAYS fetch using Firebase Auth UID as the document ID
+          const userRef = doc(firestore, 'users', firebaseUser.uid);
+          
+          // Fetch document data
+          const docSnap = await getDoc(userRef);
+          
+          // Debug logs for environment verification
+          console.log("[UID]", firebaseUser.uid);
+          console.log("[DOC_ID_FETCHED]", userRef.id);
+          console.log("[PROFILE_DATA]", docSnap.data());
+
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            
+            // Extract accountType safely with a default fallback
+            const accountType = data?.accountType || "user";
+            
+            setProfile({ 
+                ...data, 
+                id: docSnap.id,
+                accountType 
+            } as AppUser);
           } else {
+            console.warn("[AUTH] Profile document missing for UID:", firebaseUser.uid);
             setProfile(null);
           }
         } catch (err: any) {
@@ -120,7 +142,7 @@ export const FirebaseProvider: React.FC<{
   );
 };
 
-export const useFirebase = () => {
+export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
   if (!context) throw new Error('useFirebase used outside Provider');
   return context;
