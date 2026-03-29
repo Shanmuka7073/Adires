@@ -83,7 +83,6 @@ function UserMenu() {
     if (auth) {
         await signOut(auth);
         resetApp();
-        useAppStore.persist.clearStorage();
         router.push('/login');
     }
   };
@@ -152,14 +151,14 @@ function UserMenu() {
 export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
-  const { isMerchant, isAdmin } = useAdminAuth();
+  const { isMerchant, isAdmin, isLoading } = useAdminAuth();
 
   if (pathname === '/') return null;
 
   const showShoppingControls = !isMerchant && !isAdmin;
   
   // BRAND LOGO LINK LOGIC
-  const logoHref = isAdmin ? '/dashboard/admin' : (isMerchant ? '/dashboard/restaurant' : '/');
+  const logoHref = !isLoading && userStore ? (isAdmin ? '/dashboard/admin' : (isMerchant ? '/dashboard/restaurant' : '/')) : '/';
 
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";

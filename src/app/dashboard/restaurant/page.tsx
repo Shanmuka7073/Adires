@@ -8,15 +8,12 @@ import {
     ShoppingBag, 
     Users, 
     FileText, 
-    Scissors, 
     Utensils, 
     Loader2, 
     BarChart3, 
     WifiOff, 
     Download, 
     Smartphone,
-    CheckCircle2,
-    Sparkles,
     ShoppingBasket,
     MessageSquare
 } from 'lucide-react';
@@ -31,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { useInstall } from '@/components/install-provider';
 
 export default function ServiceDashboardPage() {
-    const { user, firestore, areServicesAvailable } = useFirebase();
+    const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
     const router = useRouter();
     const { userStore, fetchUserStore, isInitialized, isUserDataLoaded } = useAppStore();
@@ -68,8 +65,11 @@ export default function ServiceDashboardPage() {
             { title: 'SALARY', description: 'Salary reports', href: '/dashboard/owner/salary', icon: FileText }
         ];
 
-        if (isSalon) return { dashboardTitle: 'Salon Hub', DashboardIcon: Scissors, serviceLinks: links };
-        return { dashboardTitle: 'Restaurant Hub', DashboardIcon: Utensils, serviceLinks: links };
+        return { 
+            dashboardTitle: isSalon ? 'Salon Hub' : 'Restaurant Hub', 
+            DashboardIcon: Utensils, 
+            serviceLinks: links 
+        };
     }, [userStore]);
 
     if (isLoading || !isUserDataLoaded) {
@@ -81,9 +81,7 @@ export default function ServiceDashboardPage() {
         );
     }
 
-    if (!user || (!isRestaurantOwner && !isAdmin)) {
-        return null;
-    }
+    if (!user || (!isRestaurantOwner && !isAdmin)) return null;
 
     if (!userStore) {
         return (

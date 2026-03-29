@@ -11,7 +11,7 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CORE CLIENT WRAPPER
- * Ensures consistent service initialization and prevents circular dependencies.
+ * This is the actual implementation of the ClientRoot.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
     const [isMounted, setIsMounted] = useState(false);

@@ -133,7 +133,6 @@ export default function DashboardPage() {
         );
     }
 
-    // Prevents flicker during redirect
     if (user && (isRestaurantOwner || isAdmin)) return null;
 
     return (
