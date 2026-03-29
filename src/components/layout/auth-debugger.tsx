@@ -19,18 +19,44 @@ export function AuthDebugger() {
   // State for Visual Health Indicator
   const [healthStatus, setHealthStatus] = useState<'ready' | 'syncing' | 'anomaly'>('syncing');
 
+  // 1. Update Global Debug Values whenever state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__DEBUG_USER__ = user;
+      (window as any).__DEBUG_ACCOUNT_TYPE__ = profile?.accountType;
+      (window as any).__DEBUG_APP_READY__ = appReady;
+    }
+  }, [user, profile, appReady]);
+
+  // 2. Attach Global Test Function to window object
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).runAppTest = () => {
+        console.log("[TEST] Running system check");
+
+        const state = {
+          user: (window as any).__DEBUG_USER__,
+          accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
+          appReady: (window as any).__DEBUG_APP_READY__
+        };
+
+        console.log("[AUTH_STATE]", state);
+
+        if (!state.user) console.error("❌ No user");
+        if (!state.accountType) console.error("❌ Missing accountType");
+        if (!state.appReady) console.error("❌ App not ready");
+
+        console.log("✅ Test completed");
+      };
+    }
+  }, []);
+
+  // 3. Automated Monitoring Logic
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
 
-    // SET DEBUG GLOBALS FOR THE TEST FUNCTION
-    if (typeof window !== 'undefined') {
-        (window as any).DEBUG_USER = user;
-        (window as any).DEBUG_ACCOUNT_TYPE = profile?.accountType;
-        (window as any).DEBUG_APP_READY = appReady;
-    }
-
     // 1. GLOBAL AUTH STATE LOGGER
-    console.log('[AUTH_STATE]', {
+    console.log('[AUTH_FLOW] State Change:', {
       userId: user?.uid || 'null',
       email: user?.email || 'none',
       authLoading,
@@ -48,8 +74,8 @@ export function AuthDebugger() {
       setHealthStatus('anomaly');
     }
 
-    // B. appReady true but user null (Check if this is intentional for specific routes)
-    if (appReady && !user && !['/login', '/signup', '/'].includes(pathname)) {
+    // B. appReady true but user null
+    if (appReady && !user && !['/login', '/signup', '/', '/offline'].includes(pathname) && !pathname.startsWith('/menu/')) {
       console.warn("Invalid state: app ready but no user in protected context");
     }
 
@@ -95,29 +121,6 @@ export function AuthDebugger() {
     };
     errorEmitter.on('permission-error', handleFirestoreError);
     return () => errorEmitter.off('permission-error', handleFirestoreError);
-  }, []);
-
-  // 5. MANUAL TEST FUNCTION: window.runAppTest()
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).runAppTest = function() {
-        console.log("[TEST] Running system check");
-
-        const state = {
-          user: (window as any).DEBUG_USER,
-          accountType: (window as any).DEBUG_ACCOUNT_TYPE,
-          appReady: (window as any).DEBUG_APP_READY
-        };
-
-        console.log("[AUTH_STATE]", state);
-
-        if (!state.user) console.error("❌ No user");
-        if (!state.accountType) console.error("❌ Missing accountType");
-        if (!state.appReady) console.error("❌ App not ready");
-
-        console.log("✅ Test completed");
-      };
-    }
   }, []);
 
   // Render Visual Health Badge (Development Only)
