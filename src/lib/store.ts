@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -8,7 +7,6 @@ import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './t
 import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
 import { useEffect } from 'react';
-import { useFirebase } from '@/firebase';
 
 export interface AppState {
   stores: Store[];
@@ -16,7 +14,7 @@ export interface AppState {
   isFetchingStores: boolean;
   isFetchingUserStore: boolean;
   isInitialized: boolean;
-  isUserDataLoaded: boolean; // Flag to synchronize auth and profile data
+  isUserDataLoaded: boolean; 
   appReady: boolean;
   error: Error | null;
   language: string;
@@ -170,12 +168,8 @@ export const useAppStore = create<AppState>()(
 );
 
 export const useInitializeApp = () => {
-    const { firestore, user, isUserLoading } = useFirebase();
     const { fetchInitialData, isInitialized, isFetchingStores } = useAppStore();
 
-    useEffect(() => {
-        if (firestore && !isInitialized && !isFetchingStores) {
-            fetchInitialData(firestore, user?.uid);
-        }
-    }, [firestore, user?.uid, isInitialized, isFetchingStores, fetchInitialData]);
+    // Note: Initialization is now triggered by the useFirebase/useAdminAuth ecosystem
+    // to ensure user ID is present before fetching business-specific data.
 };
