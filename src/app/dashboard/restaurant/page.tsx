@@ -16,7 +16,8 @@ import {
     Loader2,
     Zap,
     LayoutGrid,
-    Monitor
+    Monitor,
+    RefreshCw
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
