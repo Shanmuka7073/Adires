@@ -11,21 +11,10 @@ import { InstallProvider } from '@/components/install-provider';
 
 /**
  * CORE CLIENT WRAPPER
- * Ensures consistent service initialization and prevents circular dependencies.
+ * Resolved circular dependency by being the actual implementation.
  */
 function AppContent({ children }: { children: React.ReactNode }) {
-    const [isMounted, setIsMounted] = useState(false);
-    
-    // Initialize global app data exactly once
     useInitializeApp();
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-    
-    if (!isMounted) {
-        return null;
-    }
 
     return (
         <InstallProvider>
@@ -40,6 +29,16 @@ function AppContent({ children }: { children: React.ReactNode }) {
 }
 
 export function ClientRoot({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  if (!isMounted) {
+    return null;
+  }
+
   return (
     <FirebaseClientProvider>
         <AppContent>{children}</AppContent>

@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
-import { useEffect, useCallback, RefObject } from 'react';
+import { useEffect } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups, t as translate } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
@@ -173,8 +173,6 @@ export const useAppStore = create<AppState>()(
             const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
             const snap = await getDocs(q);
             
-            // SECURITY: Only update userStore if data is found.
-            // If user is a customer, userStore remains null but loading is complete.
             const userStore = snap.docs.length > 0 
                 ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
                 : null;
@@ -205,9 +203,8 @@ export const useAppStore = create<AppState>()(
       }
     }),
     {
-      name: 'adires-ops-v15', 
+      name: 'adires-ops-v16', 
       storage: createJSONStorage(() => localStorage),
-      // CRITICAL: ONLY persist non-user data to prevent leakage
       partialize: (state) => ({ 
           language: state.language,
           deviceId: state.deviceId
