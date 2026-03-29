@@ -34,7 +34,7 @@ function UserMenu() {
   
   const dashboardHref = useMemo(() => {
       if (isAdmin) return '/dashboard/admin';
-      if (isRestaurantOwner) return '/dashboard/restaurant';
+      if (isRestaurantOwner) return '/dashboard';
       return '/'; // Customers go home
   }, [isAdmin, isRestaurantOwner]);
 
@@ -68,7 +68,6 @@ function UserMenu() {
         <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
         
-        {/* Only show Dashboard link for Merchants/Admins */}
         {!isCustomer && (
             <Link href={dashboardHref} passHref>
                 <DropdownMenuItem className="rounded-lg cursor-pointer">
@@ -105,8 +104,8 @@ export function Header() {
   const logoHref = useMemo(() => {
     if (!user) return "/";
     if (isAdmin) return "/dashboard/admin";
-    if (isRestaurantOwner) return "/dashboard/restaurant";
-    return "/"; // Default home for all others
+    if (isRestaurantOwner) return "/dashboard";
+    return "/"; 
   }, [user, isAdmin, isRestaurantOwner]);
 
   return (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Package, Store, Truck, UserCheck, FileText, LayoutGrid, ShoppingBag, MessageSquare } from 'lucide-react';
+import { Home, User, Package, Store, UserCheck, FileText, LayoutGrid, ShoppingBag, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase } from '@/firebase';
 import { t } from '@/lib/locales';
@@ -16,7 +16,7 @@ const customerNavItems = [
 ];
 
 const merchantNavItems = [
-  { href: '/dashboard/restaurant', label: 'Dashboard', icon: LayoutGrid, color: 'text-primary' },
+  { href: '/dashboard', label: 'Hub', icon: LayoutGrid, color: 'text-primary' },
   { href: '/dashboard/owner/orders', label: 'Live Orders', icon: ShoppingBag, color: 'text-blue-600' },
   { href: '/chat', label: 'Messages', icon: MessageSquare, color: 'text-indigo-500' },
   { href: '/dashboard/owner/my-store', label: 'Business', icon: Store, color: 'text-orange-500' },
