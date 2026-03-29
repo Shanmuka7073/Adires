@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, DependencyList } from 'react';
@@ -79,7 +80,7 @@ export const FirebaseProvider: React.FC<{
   useEffect(() => {
     console.log("🔥 Debug system initialized");
 
-    (window as any).runAppTest = () => {
+    (window as any).runAppTest = function () {
       console.log("[TEST] Running system check");
 
       const state = {
@@ -96,6 +97,8 @@ export const FirebaseProvider: React.FC<{
 
       console.log("✅ Test completed");
     };
+
+    console.log("✅ runAppTest attached to window:", (window as any).runAppTest);
   }, []);
 
   const contextValue = useMemo(() => ({
