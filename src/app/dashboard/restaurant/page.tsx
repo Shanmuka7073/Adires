@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -5,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 /**
- * REDUNDANT ROUTE
- * Merchant hub has been consolidated into the primary /dashboard route.
- * Redirecting to ensure stability.
+ * DECOMMISSIONED ROUTE
+ * The Merchant Hub has been consolidated into the primary /dashboard route.
+ * This file is kept as a stub to resolve legacy bookmarks and redirects to the new hub.
  */
-export default function RedundantMerchantDashboardPage() {
+export default function MerchantRedirectionPage() {
     const router = useRouter();
 
     useEffect(() => {

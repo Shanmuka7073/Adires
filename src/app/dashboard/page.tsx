@@ -1,6 +1,13 @@
+
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { 
+    Card, 
+    CardContent, 
+    CardHeader, 
+    CardTitle, 
+    CardDescription 
+} from '@/components/ui/card';
 import { 
     ArrowRight, 
     Store, 
@@ -18,7 +25,8 @@ import {
     Upload as UploadIcon,
     Sparkles,
     Zap,
-    Monitor
+    Monitor,
+    XCircle
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -39,6 +47,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
 import type { MenuItem, MenuTheme } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Link from 'next/link';
 
 const createStoreSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
@@ -288,9 +297,6 @@ export default function UnifiedDashboardPage() {
         if (isLoading) return;
         if (!user) { router.replace('/login'); return; }
         
-        // STABILITY FIX: Customers bypass dashboard directly
-        if (isCustomer) { router.replace('/'); return; }
-        
         // ADMINS: Routed to Decision Hub
         if (isAdmin) { router.replace('/dashboard/admin'); return; }
 
@@ -311,9 +317,29 @@ export default function UnifiedDashboardPage() {
         ];
     }, [userStore]);
 
-    if (isLoading || !isUserDataLoaded || isCustomer || isAdmin) return <GlobalLoader />;
+    if (isLoading || !isUserDataLoaded) return <GlobalLoader />;
     
-    // MERCHANT HUB LOGIC
+    // CUSTOMER VIEW: Access Denied (Non-mandatory redirect)
+    if (isCustomer) {
+        return (
+            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500">
+                <div className="h-20 w-20 rounded-[2.5rem] bg-destructive/10 flex items-center justify-center mx-auto text-destructive">
+                    <XCircle className="h-10 w-10" />
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black uppercase tracking-tight italic">Merchant Access</h1>
+                    <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed">
+                        This operational hub is reserved for verified store owners and employees.
+                    </p>
+                </div>
+                <Button asChild variant="outline" className="w-full h-14 rounded-2xl border-2 font-black uppercase text-xs tracking-widest shadow-xl">
+                    <Link href="/">Return to Marketplace</Link>
+                </Button>
+            </div>
+        );
+    }
+
+    // MERCHANT SETUP LOGIC
     if (!userStore && isInitialized) {
         return (
             <div className="container mx-auto px-4 py-12 max-w-4xl animate-in fade-in duration-700">

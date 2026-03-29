@@ -13,14 +13,14 @@ const ADMIN_EMAIL = 'shanmuka7073@gmail.com';
 
 /**
  * Login Page.
- * Redirects users to their dashboard once authenticated.
- * Verification is now handled via a non-blocking banner in the layout.
+ * Standardized to redirect to the Home Page (/) by default for all users.
+ * This prevents mandatory dashboard loops and provides a cleaner entry point.
  */
 export default function LoginPage() {
   const { user, isUserLoading, firestore } = useFirebase();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const redirectTo = searchParams.get('redirectTo') || '/';
   
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -29,22 +29,13 @@ export default function LoginPage() {
   
   const { data: userData, isLoading: isProfileLoading } = useDoc<AppUser>(userDocRef);
 
-  // REDIRECTION ENGINE
-  // We allow users into the app as soon as they are logged in.
-  // Verification status is checked globally in the layout banner.
   useEffect(() => {
     if (isUserLoading || isProfileLoading) return;
 
     if (user && userData) {
-       const isAdmin = user.email === ADMIN_EMAIL;
-       
-       if (isAdmin) {
-            router.push('/dashboard/admin');
-       } else if (userData.accountType === 'restaurant') {
-            router.push('/dashboard/restaurant');
-       } else {
-            router.push(redirectTo);
-       }
+       // Standardized to route everyone back to the marketplace or their intended destination.
+       // Owners and Admins can access their tools via the Header dropdown.
+       router.push(redirectTo);
     }
   }, [user, isUserLoading, isProfileLoading, userData, router, redirectTo]);
 

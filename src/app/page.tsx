@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -80,22 +81,19 @@ export default function LocalBasketHomepage() {
   const router = useRouter();
   const { isMerchant, isLoading, userData } = useAdminAuth();
 
+  // STABILITY: Removed automatic merchant redirect to dashboard.
+  // Merchants can now stay on the home page and browse hubs.
   useEffect(() => {
     if (isLoading) return;
     
-    // If identity is confirmed as Merchant, route to appropriate operational hub
-    if (isMerchant) {
-        router.replace('/dashboard');
-    } else {
-      if (firestore && !isInitialized && !isFetchingStores) {
-          fetchInitialData(firestore, user?.uid);
-      }
+    if (firestore && !isInitialized && !isFetchingStores) {
+        fetchInitialData(firestore, user?.uid);
     }
-}, [isLoading, isMerchant, router, firestore, isInitialized, isFetchingStores, fetchInitialData, user]);
+}, [isLoading, firestore, isInitialized, isFetchingStores, fetchInitialData, user]);
 
   const filteredStores = useMemo(() => searchTerm ? stores.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())) : stores, [searchTerm, stores]);
 
-  if (isLoading || isMerchant) {
+  if (isLoading) {
     return <GlobalLoader />
   }
 
