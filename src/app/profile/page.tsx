@@ -29,10 +29,11 @@ const profileSchema = z.object({
 /**
  * TOP-LEVEL PROFILE PAGE
  * Unified location for all users to manage their personal details.
+ * Optimized to sync with Business Identity for Merchants.
  */
 export default function ProfilePage() {
   const { user, firestore, auth } = useFirebase();
-  const { resetApp } = useAppStore();
+  const { resetApp, userStore } = useAppStore();
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, startSaveTransition] = useTransition();
@@ -47,15 +48,20 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (userData) {
+      // SMART FALLBACK: If personal profile is empty but user has a store, fetch from store identity.
+      const firstNameFallback = userData.firstName || (userStore?.name?.split(' ')[0] || '');
+      const lastNameFallback = userData.lastName || (userStore?.name?.split(' ').slice(1).join(' ') || '');
+      const addressFallback = userData.address || (userStore?.address || '');
+      
       form.reset({
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
+        firstName: firstNameFallback,
+        lastName: lastNameFallback,
         email: user?.email || '',
-        phone: userData.phoneNumber || '',
-        address: userData.address || '',
+        phone: userData.phoneNumber || (userStore?.phone || ''),
+        address: addressFallback,
       });
     }
-  }, [userData, user, form]);
+  }, [userData, userStore, user, form]);
 
   const onSubmit = (data: z.infer<typeof profileSchema>) => {
     if (!firestore || !user) return;
@@ -63,7 +69,7 @@ export default function ProfilePage() {
         await setDoc(doc(firestore, 'users', user.uid), { 
             ...data, 
             id: user.uid,
-            phoneNumber: data.phone // Align with DB schema
+            phoneNumber: data.phone 
         }, { merge: true });
         toast({ title: 'Profile Updated' });
     });

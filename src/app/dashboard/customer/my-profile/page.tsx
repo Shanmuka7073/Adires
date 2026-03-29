@@ -28,7 +28,7 @@ const profileSchema = z.object({
 
 export default function MyProfilePage() {
   const { user, firestore, auth } = useFirebase();
-  const { resetApp } = useAppStore();
+  const { resetApp, userStore } = useAppStore();
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, startSaveTransition] = useTransition();
@@ -43,15 +43,20 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     if (userData) {
+      // SMART FALLBACK: If personal profile is empty but user has a store, fetch from store identity.
+      const firstNameFallback = userData.firstName || (userStore?.name?.split(' ')[0] || '');
+      const lastNameFallback = userData.lastName || (userStore?.name?.split(' ').slice(1).join(' ') || '');
+      const addressFallback = userData.address || (userStore?.address || '');
+
       form.reset({
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
+        firstName: firstNameFallback,
+        lastName: lastNameFallback,
         email: user?.email || '',
-        phone: userData.phoneNumber || '',
-        address: userData.address || '',
+        phone: userData.phoneNumber || (userStore?.phone || ''),
+        address: addressFallback,
       });
     }
-  }, [userData, user, form]);
+  }, [userData, userStore, user, form]);
 
   const onSubmit = (data: z.infer<typeof profileSchema>) => {
     if (!firestore || !user) return;

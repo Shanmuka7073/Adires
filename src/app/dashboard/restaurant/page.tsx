@@ -14,7 +14,6 @@ import {
     Utensils,
     Scissors,
     Loader2,
-    Zap,
     LayoutGrid,
     Monitor,
     RefreshCw,
@@ -252,7 +251,13 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
 
             await Promise.all([
                 setDoc(storeRef, storeData),
-                setDoc(userRef, { accountType: 'restaurant' }, { merge: true })
+                // ALSO SYNC ADDRESS TO PERSONAL PROFILE AS REQUESTED
+                setDoc(userRef, { 
+                    accountType: 'restaurant',
+                    address: data.address,
+                    latitude: data.latitude,
+                    longitude: data.longitude
+                }, { merge: true })
             ]);
 
             toast({ title: "Shell Created", description: "Next: Scan your menu to determine business type." });
