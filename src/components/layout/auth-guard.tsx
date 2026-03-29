@@ -1,84 +1,100 @@
 'use client';
 
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, Suspense } from 'react';
 import GlobalLoader from './global-loader';
-import { useToast } from '@/hooks/use-toast';
 
 /**
- * CENTRALIZED ROUTING ENGINE
- * Monitors and enforces access based on user role and session state.
- * Includes loop detection and state validation.
+ * INTERNAL ROUTING LOGIC
+ * Encapsulated to allow Suspense wrapping for useSearchParams.
  */
-export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, profile, isAdmin, isMerchant, isLoading, error } = useAdminAuth();
+function AuthRoutingInternal({ children }: { children: React.ReactNode }) {
+  const { user, profile, isAdmin, isMerchant, isLoading } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const { toast } = useToast();
+  const searchParams = useSearchParams();
   
-  // Monitoring Layer: Redirect Tracking
-  const redirectHistory = useRef<{ path: string; count: number }>({ path: '', count: 0 });
+  const redirectTracker = useRef<{ lastPath: string; count: number; lastTimestamp: number }>({ 
+    lastPath: '', 
+    count: 0, 
+    lastTimestamp: 0 
+  });
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !pathname) return;
 
-    const isPublicRoute = ['/login', '/signup', '/'].includes(pathname) || pathname.startsWith('/menu/');
+    const isPublicRoute = ['/login', '/signup', '/', '/offline'].includes(pathname) || pathname.startsWith('/menu/');
+    const redirectTo = searchParams.get('redirectTo');
     
-    let redirectPath = null;
+    let redirectPath: string | null = null;
 
+    // 1. ANONYMOUS ACCESS CONTROL
     if (!user && !isPublicRoute) {
-      redirectPath = `/login?redirectTo=${pathname}`;
-    } else if (user && pathname === '/login') {
-      if (isAdmin) redirectPath = '/dashboard/admin';
-      else if (isMerchant) redirectPath = '/dashboard';
-      else redirectPath = '/';
-    } else if (user && pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/customer')) {
+      redirectPath = `/login?redirectTo=${encodeURIComponent(pathname)}`;
+    } 
+    // 2. POST-AUTH LANDING LOGIC
+    else if (user && (pathname === '/login' || pathname === '/signup')) {
+      if (isAdmin) {
+          redirectPath = '/dashboard/admin';
+      } else if (isMerchant) {
+          redirectPath = '/dashboard';
+      } else {
+          // Customers go back to original destination or home
+          // Ensure it's a relative path to prevent 404s on absolute URLs
+          let target = redirectTo || '/';
+          if (target.startsWith('http')) {
+              try { target = new URL(target).pathname; } catch(e) { target = '/'; }
+          }
+          redirectPath = target;
+      }
+    } 
+    // 3. ROLE-BASED AREA PROTECTION
+    else if (user && pathname.startsWith('/dashboard') && !pathname.startsWith('/dashboard/customer')) {
         if (!isMerchant && !isAdmin) {
             redirectPath = '/';
         }
     }
 
-    // Enforcement & Loop Detection
+    // 4. EXECUTE REDIRECT WITH LOOP PROTECTION
     if (redirectPath && redirectPath !== pathname) {
-        // DETECT REDIRECT LOOPS (same route triggered > 3 times)
-        if (redirectHistory.current.path === redirectPath) {
-            redirectHistory.current.count++;
-        } else {
-            redirectHistory.current = { path: redirectPath, count: 1 };
-        }
+        const now = Date.now();
+        const tracker = redirectTracker.current;
 
-        if (redirectHistory.current.count > 3) {
-            console.error(`[AUTH_CRITICAL] Redirect loop detected at: ${redirectPath}`);
-            toast({
-                variant: 'destructive',
-                title: 'System state error detected',
-                description: 'A navigation loop was prevented. Please refresh the page or check your account role.',
-            });
-            return; // Terminate redirect to prevent browser hang
+        if (tracker.lastPath === redirectPath && (now - tracker.lastTimestamp < 3000)) {
+            tracker.count++;
+        } else {
+            tracker.count = 1;
+            tracker.lastPath = redirectPath;
+        }
+        
+        tracker.lastTimestamp = now;
+
+        if (tracker.count > 3) {
+            console.error("[ROUTING] High-frequency redirect detected. Aborting to prevent infinite loop.");
+            return; 
         }
 
         router.replace(redirectPath);
-    } else {
-        // Path matches or no redirect needed, stabilize history
-        redirectHistory.current = { path: '', count: 0 };
     }
 
-  }, [user, profile, isLoading, pathname, router, isAdmin, isMerchant]);
+  }, [user, profile, isLoading, pathname, router, isAdmin, isMerchant, searchParams]);
 
   if (isLoading) return <GlobalLoader />;
   
-  if (error) {
-      return (
-          <div className="flex h-screen items-center justify-center p-6 text-center">
-              <div className="space-y-4">
-                  <h1 className="text-2xl font-black uppercase text-red-600">Sync Error</h1>
-                  <p className="text-sm opacity-60">We encountered a problem connecting to your profile.</p>
-                  <button onClick={() => window.location.reload()} className="h-12 px-8 bg-primary text-white rounded-xl font-bold uppercase text-xs shadow-lg">Retry Connection</button>
-              </div>
-          </div>
-      )
-  }
-
   return <>{children}</>;
+}
+
+/**
+ * GLOBAL AUTH GUARD
+ * Centralized authority for session-based routing.
+ */
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={<GlobalLoader />}>
+            <AuthRoutingInternal>
+                {children}
+            </AuthRoutingInternal>
+        </Suspense>
+    );
 }

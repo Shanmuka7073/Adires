@@ -1,28 +1,25 @@
-
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, errorEmitter } from '@/firebase';
 import { logEvent } from '@/lib/monitoring/logger';
 import { usePathname } from 'next/navigation';
 
 /**
  * Global Monitoring System
- * Detects network state, global errors, performance, and auth anomalies.
+ * Detects network state, global errors, and performance anomalies.
  */
 export function MonitoringInitializer() {
   const { firestore, user, profile, authLoading, profileLoading, appReady } = useFirebase();
   const pathname = usePathname();
   
-  // Track start time for performance
   const startTimeRef = useRef(Date.now());
-  const redirectTracker = useRef<{ path: string; count: number; lastTime: number }>({ path: '', count: 0, lastTime: 0 });
   const loadLogged = useRef(false);
 
   useEffect(() => {
     if (!firestore) return;
 
-    // 1. Global Error Handlers
+    // Capture Global Runtime Errors
     const handleError = (event: ErrorEvent) => {
       logEvent(firestore, {
         message: event.message,
@@ -35,6 +32,7 @@ export function MonitoringInitializer() {
       });
     };
 
+    // Capture Unhandled Rejections (Async)
     const handleRejection = (event: PromiseRejectionEvent) => {
       logEvent(firestore, {
         message: event.reason?.message || 'Unhandled Promise Rejection',
@@ -47,103 +45,33 @@ export function MonitoringInitializer() {
       });
     };
 
-    // 2. Network Monitoring
-    const handleOffline = () => {
-      logEvent(firestore, {
-        message: 'Device disconnected from network',
-        type: 'network_disconnected',
-        severity: 'warning',
-        route: window.location.pathname,
-        userId: user?.uid
-      });
-    };
-
     window.addEventListener('error', handleError);
     window.addEventListener('unhandledrejection', handleRejection);
-    window.addEventListener('offline', handleOffline);
 
     return () => {
       window.removeEventListener('error', handleError);
       window.removeEventListener('unhandledrejection', handleRejection);
-      window.removeEventListener('offline', handleOffline);
     };
   }, [firestore, user, profile]);
 
-  // 3. Performance & Auth Anomaly Monitoring
+  // Firestore Failure Detection (Hook into the global emitter)
   useEffect(() => {
     if (!firestore) return;
-
-    // Detect startup performance
-    if (appReady && !loadLogged.current) {
-      const loadTime = Date.now() - startTimeRef.current;
-      loadLogged.current = true;
-      
-      if (loadTime > 2000) {
+    
+    const handleFirestoreError = (err: any) => {
         logEvent(firestore, {
-          message: `Slow app ready state: ${loadTime}ms`,
-          type: 'slow_startup',
-          severity: 'warning',
-          route: pathname,
-          metadata: { loadTimeMs: loadTime }
-        });
-      }
-    }
-
-    // Detect loading deadlock
-    if (profileLoading) {
-      const timer = setTimeout(() => {
-        if (profileLoading) {
-          logEvent(firestore, {
-            message: 'Profile load hanging > 5s',
-            type: 'loading_deadlock',
-            severity: 'critical',
+            message: err.message,
+            type: 'firestore_permission_denied',
+            severity: 'error',
             route: pathname,
-            userId: user?.uid
-          });
-        }
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
+            userId: user?.uid,
+            metadata: { context: err.request }
+        });
+    };
 
-    // Detect role inconsistency
-    if (appReady && user && !profile) {
-      logEvent(firestore, {
-        message: 'Auth/Profile mismatch: User exists but profile document missing',
-        type: 'auth_mismatch',
-        severity: 'critical',
-        route: pathname,
-        userId: user.uid
-      });
-    }
-  }, [appReady, profileLoading, user, profile, firestore, pathname]);
-
-  // 4. Redirect Loop Detection
-  useEffect(() => {
-    if (!firestore) return;
-    
-    const now = Date.now();
-    if (redirectTracker.current.path === pathname) {
-      if (now - redirectTracker.current.lastTime < 3000) {
-        redirectTracker.current.count++;
-      } else {
-        redirectTracker.current.count = 1;
-      }
-    } else {
-      redirectTracker.current = { path: pathname, count: 1, lastTime: now };
-    }
-
-    if (redirectTracker.current.count > 3) {
-      logEvent(firestore, {
-        message: `Redirect loop detected on path: ${pathname}`,
-        type: 'redirect_loop',
-        severity: 'critical',
-        route: pathname,
-        userId: user?.uid
-      });
-    }
-    
-    redirectTracker.current.lastTime = now;
-  }, [pathname, firestore, user]);
+    errorEmitter.on('permission-error', handleFirestoreError);
+    return () => errorEmitter.off('permission-error', handleFirestoreError);
+  }, [firestore, pathname, user]);
 
   return null;
 }
