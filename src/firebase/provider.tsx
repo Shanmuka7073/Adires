@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, DependencyList } from 'react';
@@ -67,7 +66,7 @@ export const FirebaseProvider: React.FC<{
     return () => unsubscribe();
   }, [auth, firestore]);
 
-  // 🔥 DEBUG SYSTEM SYNC (Enables window console testing)
+  // Sync state to window for the test function
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).__DEBUG_USER__ = user;
@@ -76,29 +75,27 @@ export const FirebaseProvider: React.FC<{
     }
   }, [user, profile, authLoading, profileLoading]);
 
-  // 🔥 GLOBAL TEST INITIALIZATION
+  // INITIALIZE GLOBAL DEBUG SYSTEM
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      console.log("🔥 Debug system initialized");
+    console.log("🔥 Debug system initialized");
 
-      window.runAppTest = () => {
-        console.log("[TEST] Running system check");
+    (window as any).runAppTest = () => {
+      console.log("[TEST] Running system check");
 
-        const state = {
-          user: (window as any).__DEBUG_USER__,
-          accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
-          appReady: (window as any).__DEBUG_APP_READY__
-        };
-
-        console.log("[AUTH_STATE]", state);
-
-        if (!state.user) console.error("❌ No user");
-        if (!state.accountType) console.error("❌ Missing accountType");
-        if (!state.appReady) console.error("❌ App not ready");
-
-        console.log("✅ Test completed");
+      const state = {
+        user: (window as any).__DEBUG_USER__,
+        accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
+        appReady: (window as any).__DEBUG_APP_READY__
       };
-    }
+
+      console.log("[AUTH_STATE]", state);
+
+      if (!state.user) console.error("❌ No user");
+      if (!state.accountType) console.error("❌ Missing accountType");
+      if (!state.appReady) console.error("❌ App not ready");
+
+      console.log("✅ Test completed");
+    };
   }, []);
 
   const contextValue = useMemo(() => ({
