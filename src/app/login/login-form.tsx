@@ -5,11 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { NonBlockingLogin } from '@/firebase/non-blocking-login';
 
 /**
- * Wrapper for the NonBlockingLogin component to handle URL-based errors.
+ * Wrapper for the NonBlockingLogin component to handle URL-based errors and redirection context.
  */
 export default function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const redirectTo = searchParams.get('redirectTo');
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -19,7 +20,7 @@ export default function LoginForm() {
           <p className="text-center text-sm font-medium mt-1">{error}</p>
         </div>
       )}
-      <NonBlockingLogin />
+      <NonBlockingLogin redirectTo={redirectTo || undefined} />
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
  * AUTHORIZED ACCESS TERMINAL
  * Implements high-performance authentication with robust error feedback.
  */
-export function NonBlockingLogin() {
+export function NonBlockingLogin({ redirectTo }: { redirectTo?: string }) {
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
   
@@ -159,7 +159,7 @@ export function NonBlockingLogin() {
 
           <p className="text-center text-xs text-gray-500">
               New to the platform?{' '}
-              <Link href="/signup" className="font-bold text-primary hover:underline uppercase tracking-tighter">
+              <Link href={`/signup${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`} className="font-bold text-primary hover:underline uppercase tracking-tighter">
                   Create Account
               </Link>
           </p>

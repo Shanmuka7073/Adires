@@ -15,13 +15,15 @@ import { Loader2, Mail, Lock, Chrome } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 
 export default function SignupPage() {
   const { auth, firestore } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,7 +69,13 @@ export default function SignupPage() {
 
       // Clear context
       localStorage.removeItem('signup_context');
-      router.replace('/dashboard');
+      
+      // SMART REDIRECT
+      if (accountType === 'restaurant') {
+          router.replace('/dashboard');
+      } else {
+          router.replace(redirectTo || '/');
+      }
 
     } catch (error: any) {
         let message = "Could not create your account. Please try again.";
@@ -97,8 +105,11 @@ export default function SignupPage() {
       const userRef = doc(firestore, 'users', user.uid);
       const snap = await getDoc(userRef);
 
+      let finalAccountType = 'customer';
+
       if (!snap.exists()) {
           const accountType = signupSource === 'customer' ? 'customer' : 'restaurant';
+          finalAccountType = accountType;
           await setDoc(userRef, {
               id: user.uid,
               uid: user.uid,
@@ -115,6 +126,7 @@ export default function SignupPage() {
               description: `Account created as a ${accountType === 'restaurant' ? 'Merchant' : 'Member'}.`,
           });
       } else {
+          finalAccountType = snap.data()?.accountType || 'customer';
           toast({
               title: 'Welcome back!',
               description: "You've logged in with Google.",
@@ -122,7 +134,13 @@ export default function SignupPage() {
       }
 
       localStorage.removeItem('signup_context');
-      router.replace('/dashboard');
+      
+      // SMART REDIRECT
+      if (finalAccountType === 'restaurant') {
+          router.replace('/dashboard');
+      } else {
+          router.replace(redirectTo || '/');
+      }
     } catch (error: any) {
         toast({
             variant: 'destructive',
@@ -204,12 +222,14 @@ export default function SignupPage() {
               <span>Sign up with Google</span>
             </Button>
 
-            <p className="text-center text-xs text-gray-500">
-                Already have an account?{' '}
-                <Link href="/login" className="font-medium text-primary hover:underline">
-                    Log In
-                </Link>
-            </p>
+            <div className="text-center">
+                <p className="text-xs text-gray-500">
+                    Already have an account?{' '}
+                    <Link href={`/login${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`} className="font-medium text-primary hover:underline">
+                        Log In
+                    </Link>
+                </p>
+            </div>
           </CardContent>
         </Card>
       </div>
