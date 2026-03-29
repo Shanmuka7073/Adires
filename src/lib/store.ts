@@ -1,4 +1,3 @@
-
 'use client';
 
 import { create } from 'zustand';
@@ -105,13 +104,14 @@ export const useAppStore = create<AppState>()(
         set({ isFetchingStores: true, error: null });
         
         try {
+          // Graceful handling: proceed even if non-critical collections are missing
           const [storesSnap, aliasSnap] = await Promise.all([
             getDocs(query(collection(db, 'stores'), limit(50))),
-            getDocs(collection(db, 'voiceAliasGroups'))
+            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] }))
           ]);
 
           const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
-          const voiceAliasGroups = aliasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
+          const voiceAliasGroups = (aliasSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           
           const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
           initializeTranslations(locales);
@@ -121,7 +121,7 @@ export const useAppStore = create<AppState>()(
             locales,
             isInitialized: true,
             isFetchingStores: false,
-            readCount: get().readCount + storesSnap.docs.length + aliasSnap.docs.length
+            readCount: get().readCount + storesSnap.docs.length + (aliasSnap as any).docs.length
           });
 
           if (userId) {

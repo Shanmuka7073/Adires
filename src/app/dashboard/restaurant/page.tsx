@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -253,6 +252,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 setDoc(storeRef, storeData),
                 // ALSO SYNC ADDRESS TO PERSONAL PROFILE AS REQUESTED
                 setDoc(userRef, { 
+                    id: user.uid, // REQUIRED BY SECURITY RULES
                     accountType: 'restaurant',
                     address: data.address,
                     latitude: data.latitude,
@@ -293,7 +293,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                     </CardContent>
                     <div className="p-8 bg-gray-50 border-t border-black/5">
                         <Button type="submit" disabled={isSaving} className="w-full h-16 rounded-[2rem] font-black uppercase tracking-widest shadow-xl shadow-primary/20 text-sm">
-                            {isSaving ? <Loader2 className="animate-spin h-6 w-6 mr-2" /> : <><Sparkles className="h-6 w-6 mr-2" /> Next: Add My Menu</>}
+                            {isSaving ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <><Sparkles className="h-6 w-6 mr-2" /> Next: Add My Menu</>}
                         </Button>
                     </div>
                 </form>
