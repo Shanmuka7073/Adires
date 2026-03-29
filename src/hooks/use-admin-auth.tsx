@@ -40,7 +40,8 @@ export function useAdminAuth() {
       return isAdmin || isRestaurantOwner;
   }, [isAdmin, isRestaurantOwner]);
 
-  // CRITICAL: isLoading must account for isUserDataLoaded to prevent redirect loops
+  // CRITICAL: isLoading MUST account for isUserDataLoaded to prevent redirect loops
+  // If we have a user, we must wait for their profile data to be confirmed before concluding loading is done.
   const loading = isUserLoading || (!!user && isProfileLoading) || (!!user && !isUserDataLoaded) || !auth;
 
   return {

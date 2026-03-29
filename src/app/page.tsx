@@ -76,7 +76,6 @@ function HubNavigation() {
 
 export default function LocalBasketHomepage() {
   const { firestore, user } = useFirebase();
-  const router = useRouter();
   const { isMerchant, isAdmin, isLoading: isRoleLoading } = useAdminAuth();
   const { stores, isFetchingStores, fetchInitialData, isInitialized } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');

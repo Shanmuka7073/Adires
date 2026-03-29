@@ -143,12 +143,12 @@ export const useAppStore = create<AppState>()(
         
         try {
           const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
-          const stores = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
           
           const id = getOrGenerateDeviceId();
 
           set({
-            stores,
+            stores: storesList,
             isInitialized: true,
             isFetchingStores: false,
             deviceId: id,
@@ -234,8 +234,9 @@ export const useInitializeApp = () => {
                 await fetchInitialData(firestore, user?.uid);
             } else if (user?.uid && !isFetchingStores) {
                 await fetchUserStore(firestore, user.uid);
+            } else if (!user) {
+                setAppReady(true);
             }
-            setAppReady(true);
         };
 
         bootstrap();
@@ -243,3 +244,23 @@ export const useInitializeApp = () => {
 
     return { isLoading: isFetchingStores };
 };
+
+interface ProfileFormState {
+  form: UseFormReturn<ProfileFormValues> | null;
+  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
+}
+
+export const useProfileFormStore = create<ProfileFormState>((set) => ({
+  form: null,
+  setForm: (form) => set({ form }),
+}));
+
+interface MyStorePageState {
+  saveInventoryBtnRef: React.RefObject<HTMLButtonElement> | null;
+  setSaveInventoryBtnRef: (ref: React.RefObject<HTMLButtonElement> | null) => void;
+}
+
+export const useMyStorePageStore = create<MyStorePageState>((set) => ({
+  saveInventoryBtnRef: null,
+  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
+}));

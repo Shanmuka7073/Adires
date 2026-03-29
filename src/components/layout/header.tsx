@@ -82,7 +82,7 @@ function UserMenu() {
   const handleLogout = async () => {
     if (auth) {
         await signOut(auth);
-        resetApp();
+        resetApp(); // CRITICAL: Clear all persistent state on logout
         router.push('/login');
     }
   };
@@ -151,14 +151,14 @@ function UserMenu() {
 export function Header() {
   const pathname = usePathname();
   const { isCartOpen, setCartOpen, userStore } = useAppStore();
-  const { isMerchant, isAdmin, isLoading } = useAdminAuth();
+  const { isRestaurantOwner, isAdmin, isLoading } = useAdminAuth();
 
   if (pathname === '/') return null;
 
-  const showShoppingControls = !isMerchant && !isAdmin;
+  const showShoppingControls = !isRestaurantOwner && !isAdmin;
   
-  // BRAND LOGO LINK LOGIC
-  const logoHref = !isLoading && userStore ? (isAdmin ? '/dashboard/admin' : (isMerchant ? '/dashboard/restaurant' : '/')) : '/';
+  // BRAND LOGO LINK LOGIC: Stable redirection to specific dashboards
+  const logoHref = !isLoading && userStore ? (isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/')) : '/';
 
   const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
   const brandName = userStore?.name || "ADIRES";
@@ -180,7 +180,7 @@ export function Header() {
           <span className="font-black text-[10px] truncate uppercase">
             {brandName}
           </span>
-          {(isAdmin || isMerchant) && (
+          {(isAdmin || isRestaurantOwner) && (
             <div className="flex items-center gap-0.5">
               <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
               <span className="text-[7px] font-black text-green-600">V</span>
