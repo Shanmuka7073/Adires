@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { ReactNode, useEffect, useState } from 'react';
@@ -9,7 +10,6 @@ import { InstallProvider } from '@/components/install-provider';
 /**
  * CLIENT ROOT
  * Primary entry point for client-side providers.
- * Isolated from root-level proxy to prevent recursive import loops.
  */
 export function ClientRoot({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);

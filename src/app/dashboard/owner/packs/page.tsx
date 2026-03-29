@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -36,8 +37,8 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
     const { firestore } = useFirebase();
 
     useEffect(() => {
-        if (firestore && (masterProducts as any[]).length > 0) {
-            fetchProductPrices(firestore, (masterProducts as any[]).map(p => p.name));
+        if (firestore && masterProducts && masterProducts.length > 0) {
+            fetchProductPrices(firestore, masterProducts.map(p => p.name));
         }
     }, [firestore, masterProducts, fetchProductPrices]);
 
@@ -78,7 +79,7 @@ function AIPackGenerator({ storeId }: { storeId: string }) {
                 price: generatedPack.estimatedCost,
                 items: generatedPack.shoppingList.map(item => ({ name: item.itemName, quantity: item.quantity })),
                 schedule: generatedPack.schedule.map(day => ({
-                    day: Number(day.day), // ENSURE DAY IS A NUMBER
+                    day: Number(day.day),
                     mainItem: day.mainItem,
                     sideItem: day.sideItem
                   })),

@@ -7,7 +7,7 @@ import type { User as AppUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { useAppStore } from '@/lib/store';
 
-const ADMIN_EMAILS = ['shanmuka7073@gmail.com', 'admin@gmail.com', 'adires@gmail.com'];
+const ADMIN_EMAILS = ['admin@gmail.com', 'adires@gmail.com'];
 
 /**
  * UNIFIED AUTH GUARD

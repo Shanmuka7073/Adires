@@ -1,8 +1,9 @@
+
 'use client';
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { Firestore, collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
 import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
 import { initializeTranslations, Locales, buildLocalesFromAliasGroups } from './locales';
 import { generalCommands as defaultGeneralCommands } from './locales/commands';
@@ -37,6 +38,7 @@ export interface AppState {
   // Fetching
   fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
   fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
+  fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   
   // Helpers
   locales: Locales;
@@ -77,10 +79,6 @@ export const useAppStore = create<AppState>()(
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
       setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
-      /**
-       * SECURE LOGOUT PROTOCOL
-       * Purges all memory-resident and cached state to prevent session bleeding.
-       */
       resetApp: () => {
           set({
               stores: [],
@@ -115,7 +113,6 @@ export const useAppStore = create<AppState>()(
             readCount: get().readCount + storesSnap.docs.length
           });
 
-          // Trigger nested profile sync if a user is logged in
           if (userId) {
               await get().fetchUserStore(db, userId);
           } else {
@@ -151,12 +148,23 @@ export const useAppStore = create<AppState>()(
             console.error("fetchUserStore failed:", error);
             set({ error: error as Error, isFetchingUserStore: false, isUserDataLoaded: true, appReady: true });
         }
+      },
+
+      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
+          const prices: Record<string, ProductPrice | null> = {};
+          for (const name of productNames) {
+              const docRef = doc(db, 'productPrices', name.toLowerCase());
+              const snap = await getDoc(docRef);
+              if (snap.exists()) {
+                  prices[name.toLowerCase()] = snap.data() as ProductPrice;
+              }
+          }
+          set({ productPrices: { ...get().productPrices, ...prices } });
       }
     }),
     {
       name: 'adires-ops-storage', 
       storage: createJSONStorage(() => localStorage),
-      // PERSISTENCE POLICY: Strictly exclude user/business data to ensure clean slate on re-login
       partialize: (state) => ({ 
           language: state.language,
           deviceId: state.deviceId
@@ -164,12 +172,3 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
-
-/**
- * IDENTITY INITIALIZATION HOOK
- * Synchronizes operational hubs with authenticated identity.
- */
-export const useInitializeApp = () => {
-    const { fetchInitialData, isInitialized, isFetchingStores } = useAppStore();
-    // Implementation deferred to turned-level lifecycle managers (e.g. useAdminAuth)
-};

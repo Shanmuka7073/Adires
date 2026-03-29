@@ -99,7 +99,7 @@ export default function DecisionHubPage() {
         <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-700">
             <div className="flex justify-between items-end border-b pb-10 border-black/5">
                 <div>
-                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Decision Hub</h1>
                     <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Administrative Operational Intelligence</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => startRefresh(fetchStats)} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
