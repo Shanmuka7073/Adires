@@ -5,26 +5,28 @@ import { NextResponse } from "next/server";
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 /**
- * Dynamic Manifest API
- * Uses Firestore REST API to bypass Admin SDK issues and provides valid remote icon URLs.
+ * Dynamic Manifest API (Hardened)
+ * Strips extensions and fetches real business identity for the PWA Install prompt.
  */
 export async function GET(
   request: Request,
   { params }: { params: { storeId: string } }
 ) {
-  const { storeId } = params;
+  // 1. Strip .webmanifest or .json extensions from the ID
+  const storeId = params.storeId.replace(/\.(webmanifest|json)$/, "");
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
   if (!storeId || !projectId) {
     return new NextResponse("Missing context", { status: 400 });
   }
 
-  let name = storeId.toUpperCase();
+  let name = "Adires Hub";
   let imageUrl = ADIRES_LOGO;
-  let themeColor = "#90EE90";
+  let themeColor = "#10B981"; // Primary Green
   let backgroundColor = "#ffffff";
 
   try {
+    // 2. Fetch business identity directly from Firestore REST API for reliability
     const storeRes = await fetch(
       `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stores/${storeId}`,
       { next: { revalidate: 60 } } 
@@ -33,19 +35,21 @@ export async function GET(
     if (storeRes.ok) {
       const data = await storeRes.json();
       const fields = data.fields;
+      
+      // Use the actual business name and logo
       if (fields?.name?.stringValue) name = fields.name.stringValue;
       if (fields?.imageUrl?.stringValue) imageUrl = fields.imageUrl.stringValue;
     }
   } catch (error) {
-    console.error(`Manifest REST error for ${storeId}:`, error);
+    console.error(`[MANIFEST_ERROR] Failed for ${storeId}:`, error);
   }
 
   const manifest = {
-    id: `adires-v5-${storeId}`, 
+    id: `adires-business-${storeId}`, 
     name: name,
     short_name: name.substring(0, 12),
-    description: `Official app for ${name}`,
-    start_url: `/menu/${storeId}?v=5`,
+    description: `Official digital hub for ${name}. Order, book, and manage directly.`,
+    start_url: `/menu/${storeId}?install=true`,
     scope: `/menu/${storeId}`,
     display: "standalone",
     orientation: "portrait",
@@ -76,7 +80,7 @@ export async function GET(
   return NextResponse.json(manifest, {
     headers: {
       "Content-Type": "application/manifest+json",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Cache-Control": "public, max-age=60",
     },
   });
 }

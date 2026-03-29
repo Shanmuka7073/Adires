@@ -2,9 +2,8 @@
 import type { Metadata } from "next";
 
 /**
- * Dynamic Metadata for Restaurant Menus
- * Uses REST API for high reliability in production environments.
- * Points to a dynamic .webmanifest route to resolve 404 issues.
+ * Dynamic Metadata for Restaurant/Salon Menus
+ * Points to the dynamic manifest route to ensure "Install App" shows correct branding.
  */
 export async function generateMetadata({ params }: { params: { storeId: string } }): Promise<Metadata> {
   const { storeId } = params;
@@ -19,11 +18,12 @@ export async function generateMetadata({ params }: { params: { storeId: string }
     if (response.ok) {
       const data = await response.json();
       const storeName = data.fields?.name?.stringValue || storeId;
-      const description = data.fields?.description?.stringValue || 'Digital Menu';
+      const description = data.fields?.description?.stringValue || 'Digital Menu & Appointment Hub';
 
       return {
         title: `${storeName} | Adires`,
         description: description,
+        // Point to the specific dynamic manifest for this business
         manifest: `/manifest/${storeId}.webmanifest`
       };
     }
