@@ -1,0 +1,24 @@
+
+{
+    "check-price": {
+        "en": [
+            "price of",
+            "cost of",
+            "what's the price of",
+            "how much for",
+            "rate for"
+        ],
+        "te": [
+            "ధర",
+            "రేటు",
+            "cost entha",
+            "rate entha",
+            "price entha"
+        ],
+        "hi": [
+            "कीमत क्या है",
+            "दाम क्या है",
+            "rate kya hai"
+        ]
+    }
+}

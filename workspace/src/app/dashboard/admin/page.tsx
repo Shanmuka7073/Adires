@@ -1,173 +1,158 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Store, ShoppingBag, ArrowRight, Mic, List, FileText, Server, BookOpen, Beaker, Bot, FileSignature, Shield, BrainCircuit, Fingerprint, Voicemail, KeyRound, Bug, AlertTriangle } from 'lucide-react';
+import { 
+    Users, 
+    Store, 
+    ShoppingBag, 
+    Server, 
+    BarChart3,
+    Shield,
+    Loader2,
+    RefreshCw,
+    Wrench,
+    Activity,
+    Mic
+} from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { useMemo, useEffect } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { collection, query, where } from 'firebase/firestore';
-import type { Order, Store as StoreType, ProductPrice, ProductVariant } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/locales';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import { useAppStore } from '@/lib/store';
+import { getPlatformAnalytics } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string, value: string | number, icon: React.ElementType, loading?: boolean }) {
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t(title)}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+        <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-40">{title}</span>
+                <Icon className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-                {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{value}</div>}
+                {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-3xl font-black tracking-tighter">{value}</div>}
             </CardContent>
         </Card>
     )
 }
 
-function CreateMasterStoreCard() {
+function AdminActionCard({ title, description, href, icon: Icon, highlight = false }: { title: string, description: string, href: string, icon: React.ElementType, highlight?: boolean }) {
     return (
-        <Alert variant="destructive" className="mb-8">
-            <AlertTitle>{t('action-required-create-master-store')}</AlertTitle>
-            <AlertDescription>
-                {t('the-master-store-for-setting-platform-wide')}
-                <Button asChild className="mt-4">
-                    <Link href="/dashboard/owner/my-store">
-                        {t('create-master-store')} <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                </Button>
-            </AlertDescription>
-        </Alert>
-    )
-}
-
-function AdminActionCard({ title, description, href, icon: Icon }: { title: string, description: string, href: string, icon: React.ElementType }) {
-    return (
-        <Link href={href} className="block hover:shadow-lg transition-shadow rounded-lg">
-            <Card>
-                <CardHeader>
+        <Link href={href} className="block group">
+            <Card className={cn(
+                "rounded-3xl border-0 shadow-lg hover:shadow-2xl transition-all h-full bg-white overflow-hidden border-2 border-transparent hover:border-primary/10",
+                highlight && "ring-2 ring-primary/20 border-primary/10 bg-primary/5"
+            )}>
+                <CardHeader className="p-6">
                     <div className="flex items-center gap-4">
-                        <Icon className="h-8 w-8 text-primary" />
-                        <CardTitle>{t(title)}</CardTitle>
+                        <div className={cn(
+                            "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner transition-colors",
+                            highlight ? "bg-primary text-white" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
+                        )}>
+                            <Icon className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-sm font-black uppercase tracking-tight">{title}</CardTitle>
+                            <CardDescription className="text-[10px] font-bold opacity-40 uppercase mt-1 leading-tight">{description}</CardDescription>
+                        </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <CardDescription>{t(description)}</CardDescription>
-                </CardContent>
             </Card>
         </Link>
     );
 }
 
 export default function AdminDashboardPage() {
-    const { firestore } = useFirebase();
-    const router = useRouter();
     const { isAdmin, isLoading: isAdminLoading } = useAdminAuth();
+    const router = useRouter();
+    const { toast } = useToast();
+    const [data, setData] = useState<any>(null);
+    const [isRefreshing, startRefresh] = useTransition();
 
-    // Queries for stats
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-    const storesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'stores'), where('isClosed', '!=', true)) : null, [firestore]);
-    const deliveredOrdersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'orders'), where('status', '==', 'Delivered')) : null, [firestore]);
-    
-    const adminStoreQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'stores'), where('name', '==', 'LocalBasket'));
-    }, [firestore]);
-
-
-    const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
-    const { data: stores, isLoading: storesLoading } = useCollection(storesQuery);
-    const { data: deliveredOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
-    const { data: adminStores, isLoading: adminStoreLoading } = useCollection<StoreType>(adminStoreQuery);
-
-    const masterStoreExists = useMemo(() => adminStores && adminStores.length > 0, [adminStores]);
-
-    const stats = useMemo(() => ({
-        totalUsers: users?.length ?? 0,
-        totalStores: stores?.length ?? 0,
-        totalOrdersDelivered: deliveredOrders?.length ?? 0,
-    }), [users, stores, deliveredOrders]);
-
-    const statsLoading = isAdminLoading || usersLoading || storesLoading || ordersLoading;
+    const fetchStats = async () => {
+        try {
+            const stats = await getPlatformAnalytics();
+            setData(stats);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Sync failed' });
+        }
+    };
 
     useEffect(() => {
         if (!isAdminLoading && !isAdmin) {
             router.replace('/dashboard');
+        } else if (isAdmin) {
+            fetchStats();
         }
     }, [isAdminLoading, isAdmin, router]);
 
-    if (isAdminLoading || adminStoreLoading || !isAdmin) {
-        return <p>Loading admin dashboard...</p>
+    if (isAdminLoading || !isAdmin) {
+        return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto opacity-20" /></div>;
     }
 
-    const statItems = [
-        { title: 'total-users', value: stats.totalUsers, icon: Users },
-        { title: 'total-stores', value: stats.totalStores, icon: Store },
-        { title: 'orders-delivered', value: stats.totalOrdersDelivered, icon: ShoppingBag },
-    ];
-
-
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6">
-            <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold font-headline">{t('admin-dashboard')}</h1>
-                <p className="text-lg text-muted-foreground mt-2">{t('a-high-level-overview-of-your-application')}</p>
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-700">
+            <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                <div>
+                    <h1 className="text-6xl font-black font-headline tracking-tighter uppercase italic leading-none">Decision Hub</h1>
+                    <p className="font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">Operational Command Center</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => startRefresh(fetchStats)} disabled={isRefreshing} className="rounded-full h-10 px-4 border-2 font-black text-[10px] uppercase tracking-widest shadow-sm">
+                    <RefreshCw className={cn("mr-2 h-3.5 w-3.5", isRefreshing && "animate-spin")} /> Sync Data
+                </Button>
             </div>
             
-            {!masterStoreExists && <CreateMasterStoreCard />}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {statItems.map(item => (
-                    <StatCard 
-                        key={item.title} 
-                        title={item.title}
-                        value={item.value}
-                        icon={item.icon}
-                        loading={statsLoading}
-                    />
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard title="Revenue Today" value={`₹${data?.periods?.today?.revenue || 0}`} icon={BarChart3} loading={!data} />
+                <StatCard title="Total Users" value={data?.totalUsers || 0} icon={Users} loading={!data} />
+                <StatCard title="Total Stores" value={data?.totalStores || 0} icon={Store} loading={!data} />
+                <StatCard title="Active Jobs" value={data?.activeSessions || 0} icon={ShoppingBag} loading={!data} />
             </div>
 
-            <div className="mt-16">
-                 <h2 className="text-2xl font-bold text-center mb-8 font-headline">{t('admin-tools')}</h2>
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-                     <AdminActionCard 
+            <div className="space-y-6">
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1 text-primary flex items-center gap-2">
+                    <Activity className="h-3 w-3" /> Intelligence & Controls
+                 </h2>
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <AdminActionCard 
+                        title="Voice Intel"
+                        description="Audit failed commands & global aliases."
+                        href="/dashboard/admin/voice-intelligence"
+                        icon={Mic}
+                        highlight={true}
+                    />
+                    <AdminActionCard 
+                        title="Nuke & Sync Audit"
+                        description="Fix Index failures and clear ghost data."
+                        href="/dashboard/admin/offline-audit"
+                        icon={Wrench}
+                    />
+                    <AdminActionCard 
                         title="System Status"
-                        description="Check the health of backend services and APIs."
+                        description="Live health check of cloud services."
                         href="/dashboard/admin/system-status"
                         icon={Server}
                     />
-                     <AdminActionCard 
-                        title="View App Pitch"
-                        description="Review and share the official app pitch document."
-                        href="/dashboard/admin/pitch"
-                        icon={FileText}
-                    />
+                </div>
+            </div>
+
+            <div className="space-y-6 pt-6">
+                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 px-1">Inventory Modules</h2>
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <AdminActionCard 
-                        title="App Overview"
-                        description="Get a complete breakdown of the app's features and design."
-                        href="/dashboard/admin/app-overview"
-                        icon={FileSignature}
-                    />
-                    <AdminActionCard 
-                        title="manage-master-store-and-products"
-                        description="add-or-edit-products-in-the-master-catalog"
+                        title="Market Catalog"
+                        description="Global product management."
                         href="/dashboard/owner/my-store"
-                        icon={Store}
-                    />
-                     <AdminActionCard 
-                        title="View Product List"
-                        description="See a complete list of all products available on the platform."
-                        href="/dashboard/admin/product-list"
-                        icon={List}
+                        icon={ShoppingBag}
                     />
                     <AdminActionCard
                         title="Security Rules"
-                        description="View and copy the current Firestore security rules for debugging."
+                        description="Firestore permission audit."
                         href="/dashboard/admin/security-rules"
                         icon={Shield}
                     />

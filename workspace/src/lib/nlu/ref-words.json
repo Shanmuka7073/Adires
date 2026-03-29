@@ -1,0 +1,31 @@
+{
+  "position": {
+    "en": {
+      "first": 0, "1st": 0, "second": 1, "2nd": 1,
+      "third": 2, "3rd": 2, "last": -1, "next": "next",
+      "previous": "prev", "middle": "mid"
+    },
+    "te": {
+      "మొదటి": 0, "మొదటిది": 0, "రెండవది": 1,
+      "మూడవది": 2, "చివరి": -1, "తరువాత": "next",
+      "ముందు": "prev", "మధ్యలో": "mid"
+    },
+    "hi": {
+      "पहला": 0, "पहली": 0, "दूसरा": 1,
+      "तीसरा": 2, "आखिरी": -1, "अगला": "next",
+      "पिछला": "prev", "बीचवाला": "mid"
+    }
+  },
+  "attributes": {
+    "cheap": "CHEAP",
+    "costly": "EXPENSIVE",
+    "expensive": "EXPENSIVE",
+    "big": "BIG",
+    "small": "SMALL"
+  },
+  "deictic": {
+    "en": { "this": "THIS", "that": "THAT" },
+    "te": { "ఇది": "THIS", "అది": "THAT" },
+    "hi": { "ये": "THIS", "वह": "THAT" }
+  }
+}

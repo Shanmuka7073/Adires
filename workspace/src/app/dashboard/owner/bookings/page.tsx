@@ -1,0 +1,320 @@
+
+'use client';
+
+import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import type { Booking, Store } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { format, isToday } from 'date-fns';
+import { 
+    CalendarCheck, 
+    CheckCircle2, 
+    Clock, 
+    User, 
+    Phone, 
+    TrendingUp, 
+    ArrowRight, 
+    Loader2, 
+    Scissors,
+    AlertCircle,
+    XCircle,
+    PlayCircle,
+    RefreshCw,
+    ClipboardList,
+    MapPin,
+    MessageSquare
+} from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { useAppStore } from '@/lib/store';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { updateBookingStatus } from '@/app/actions';
+import Link from 'next/link';
+
+function BookingDetailsDialog({ booking, isOpen, onOpenChange }: { booking: Booking | null, isOpen: boolean, onOpenChange: (open: boolean) => void }) {
+    if (!booking) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-md rounded-[2.5rem] border-0 shadow-2xl overflow-hidden p-0 bg-white">
+                <DialogHeader className="p-6 bg-primary/5 border-b border-black/5">
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-gray-950">Session Intelligence</DialogTitle>
+                    <DialogDescription className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">
+                        Appointment ID: #{booking.id.slice(-8).toUpperCase()}
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="p-6 space-y-6">
+                    {/* CLIENT IDENTITY */}
+                    <section className="space-y-3">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Client Identity</h4>
+                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-black/5">
+                            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                <User className="h-6 w-6" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="font-black text-sm uppercase text-gray-950 truncate leading-none">{booking.customerName}</p>
+                                <a href={`tel:${booking.phone}`} className="text-xs font-bold text-primary flex items-center gap-1.5 mt-2 hover:underline">
+                                    <Phone className="h-3 w-3" /> {booking.phone}
+                                </a>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* APPOINTMENT LOGISTICS */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Service Particulars</h4>
+                            <div className="p-4 rounded-2xl border-2 border-black/5 bg-white space-y-1">
+                                <p className="font-black text-[11px] uppercase text-gray-950 truncate leading-none">{booking.serviceName}</p>
+                                <p className="text-[9px] font-bold text-primary uppercase tracking-tighter">
+                                    ₹{booking.price.toFixed(0)} • {booking.duration}m Duration
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1">Timing Window</h4>
+                            <div className="p-4 rounded-2xl border-2 border-black/5 bg-white space-y-1">
+                                <p className="font-black text-[11px] uppercase text-gray-950 leading-none">{format(new Date(booking.date), 'dd MMM yyyy')}</p>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{booking.time}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CLIENT BRIEF / NOTES */}
+                    {booking.notes && (
+                        <section className="space-y-2">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest opacity-40 px-1 flex items-center gap-1.5">
+                                <MessageSquare className="h-3 w-3" /> Client Brief
+                            </h4>
+                            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-100 text-xs font-bold text-amber-900 leading-relaxed italic">
+                                "{booking.notes}"
+                            </div>
+                        </section>
+                    )}
+
+                    {/* STATUS BANNER */}
+                    <div className="pt-4 border-t border-dashed flex justify-between items-center">
+                        <span className="text-[10px] font-black uppercase opacity-40 tracking-widest">Pipeline Status</span>
+                        <Badge className={cn(
+                            "rounded-md font-black uppercase text-[9px] tracking-widest px-3 py-1 shadow-sm border-0",
+                            booking.status === 'Completed' ? 'bg-green-500 text-white' : 
+                            booking.status === 'In Progress' ? 'bg-amber-500 text-white animate-pulse' : 
+                            booking.status === 'Booked' ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'
+                        )}>
+                            {booking.status}
+                        </Badge>
+                    </div>
+                </div>
+
+                <div className="p-6 bg-gray-50 border-t border-black/5 flex gap-2 pb-10">
+                    <Button variant="outline" className="w-full h-12 rounded-xl font-black uppercase text-[10px] tracking-widest border-2" onClick={() => onOpenChange(false)}>
+                        Dismiss Details
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function BookingActionRow({ 
+    booking, 
+    onUpdate, 
+    onShowDetails 
+}: { 
+    booking: Booking, 
+    onUpdate: () => void,
+    onShowDetails: (b: Booking) => void
+}) {
+    const [isUpdating, startUpdate] = useTransition();
+
+    const handleAction = (status: Booking['status']) => {
+        startUpdate(async () => {
+            const res = await updateBookingStatus(booking.id, status);
+            if (res.success) {
+                onUpdate();
+            }
+        });
+    };
+
+    return (
+        <TableRow className={cn("hover:bg-muted/30 transition-colors", booking.status === 'Completed' && "opacity-50")}>
+            <TableCell className="py-6 cursor-pointer group" onClick={() => onShowDetails(booking)}>
+                <p className="font-black text-xs uppercase text-gray-950 group-hover:text-primary transition-colors">{booking.customerName}</p>
+                <p className="text-[10px] font-bold opacity-40 uppercase tracking-tighter">{booking.serviceName}</p>
+            </TableCell>
+            <TableCell>
+                <p className="font-black text-xs uppercase text-primary leading-none">{booking.time}</p>
+                <p className="text-[8px] font-bold opacity-40 uppercase mt-1">{format(new Date(booking.date), 'dd MMM')}</p>
+            </TableCell>
+            <TableCell>
+                <Badge className={cn(
+                    "text-[8px] font-black uppercase h-5 border-0 shadow-sm",
+                    booking.status === 'Completed' ? 'bg-green-500 text-white' : 
+                    booking.status === 'In Progress' ? 'bg-amber-500 text-white animate-pulse' : 
+                    booking.status === 'Booked' ? 'bg-blue-500 text-white' : 'bg-gray-400 text-white'
+                )}>{booking.status}</Badge>
+            </TableCell>
+            <TableCell className="text-right pr-6">
+                <div className="flex justify-end gap-1">
+                    {booking.status === 'Booked' && (
+                        <button onClick={() => handleAction('In Progress')} disabled={isUpdating} className="h-8 w-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-200 transition-all">
+                            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                        </button>
+                    )}
+                    {booking.status === 'In Progress' && (
+                        <button onClick={() => handleAction('Completed')} disabled={isUpdating} className="h-8 w-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-all">
+                            {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        </button>
+                    )}
+                    {booking.status !== 'Completed' && booking.status !== 'Cancelled' && (
+                        <button onClick={() => handleAction('Cancelled')} disabled={isUpdating} className="h-8 w-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200 transition-all">
+                            <XCircle className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+            </TableCell>
+        </TableRow>
+    );
+}
+
+export default function SalonBookingsPage() {
+    const { firestore, user } = useFirebase();
+    const { userStore, stores, fetchInitialData, isInitialized } = useAppStore();
+    const [hasMounted, setHasMounted] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+
+    useEffect(() => { setHasMounted(true); }, []);
+
+    useEffect(() => {
+        if (hasMounted && firestore && !isInitialized) {
+            fetchInitialData(firestore, user?.uid);
+        }
+    }, [firestore, isInitialized, fetchInitialData, user?.uid, hasMounted]);
+
+    const myStore = useMemo(() => {
+        if (userStore) return userStore;
+        return stores.find(s => s.ownerId === user?.uid) || null;
+    }, [userStore, stores, user?.uid]);
+
+    const bookingsQuery = useMemoFirebase(() => {
+        if (!hasMounted || !firestore || !myStore || !user) return null;
+    
+        return query(
+            collection(firestore, 'bookings'),
+            where('storeId', '==', myStore.id),
+            orderBy('date', 'desc'),
+            orderBy('time', 'desc'),
+            limit(100)
+        );
+    }, [firestore, myStore, hasMounted, user]);
+
+    const { data: bookings, isLoading, refetch } = useCollection<Booking>(bookingsQuery);
+
+    const stats = useMemo(() => {
+        if (!bookings) return { today: 0, revenue: 0, total: 0 };
+        const todayBookings = bookings.filter(b => isToday(new Date(b.date)));
+        const completedRevenue = bookings.filter(b => b.status === 'Completed').reduce((acc, b) => acc + b.price, 0);
+        return { today: todayBookings.length, revenue: completedRevenue, total: bookings.length };
+    }, [bookings]);
+
+    if (!hasMounted) return <div className="p-12 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>;
+
+    if (isInitialized && !myStore) {
+        return (
+            <div className="container mx-auto py-32 px-4 text-center space-y-4">
+                <AlertCircle className="h-12 w-12 mx-auto text-amber-500 opacity-20" />
+                <p className="font-black uppercase tracking-widest text-xs opacity-40">Store Identity Not Found</p>
+                <Button asChild variant="outline" className="rounded-xl"><Link href="/dashboard/restaurant">Setup My Business</Link></Button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12 pb-32 animate-in fade-in duration-500">
+            <BookingDetailsDialog 
+                booking={selectedBooking}
+                isOpen={!!selectedBooking}
+                onOpenChange={(open) => !open && setSelectedBooking(null)}
+            />
+
+            <div className="flex justify-between items-end border-b pb-10 border-black/5">
+                <div>
+                    <h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic leading-none text-gray-950">Salon Pulse</h1>
+                    <p className="text-muted-foreground font-black mt-2 uppercase text-[10px] tracking-[0.3em] opacity-40">{myStore?.name || 'Loading Hub'} • Appointment Hub</p>
+                </div>
+                <button onClick={() => refetch && refetch()} className="h-10 w-10 rounded-full border-2 border-black/5 flex items-center justify-center active:scale-90 transition-all hover:bg-white shadow-sm">
+                    <RefreshCw className={cn("h-4 w-4 opacity-40", isLoading && "animate-spin")} />
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+                    <div className="p-6 space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Revenue (Closed)</p>
+                        <p className="text-4xl font-black tracking-tighter text-primary italic">₹{stats.revenue.toFixed(0)}</p>
+                    </div>
+                </Card>
+                <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+                    <div className="p-6 space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Today's Sessions</p>
+                        <p className="text-4xl font-black tracking-tighter text-gray-950 italic">{stats.today}</p>
+                    </div>
+                </Card>
+                <Card className="rounded-[2rem] border-0 shadow-lg bg-white overflow-hidden">
+                    <div className="p-6 space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Total Pipeline</p>
+                        <p className="text-4xl font-black tracking-tighter text-blue-600 italic">{stats.total}</p>
+                    </div>
+                </Card>
+            </div>
+
+            <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white">
+                {isLoading ? (
+                    <div className="p-20 text-center opacity-20"><Loader2 className="animate-spin h-8 w-8 mx-auto" /></div>
+                ) : !bookings || bookings.length === 0 ? (
+                    <div className="p-32 text-center opacity-30 flex flex-col items-center gap-4">
+                        <CalendarCheck className="h-16 w-16 mx-auto opacity-20" />
+                        <div className="space-y-1">
+                            <p className="font-black uppercase tracking-widest text-[10px]">Zero appointments scheduled</p>
+                            <p className="text-[8px] font-bold opacity-60 uppercase">Share your QR code to start receiving bookings</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader className="bg-black/5">
+                                <TableRow>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40 pl-6">Client / Service</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Appointment</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest opacity-40">Status</TableHead>
+                                    <TableHead className="text-right text-[10px] font-black uppercase tracking-widest opacity-40 pr-6">Ops</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {bookings.map(b => (
+                                    <BookingActionRow 
+                                        key={b.id} 
+                                        booking={b} 
+                                        onUpdate={() => refetch && refetch()} 
+                                        onShowDetails={setSelectedBooking}
+                                    />
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </Card>
+        </div>
+    );
+}

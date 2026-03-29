@@ -1,64 +1,68 @@
-
-'use server';
-
 import { initializeApp, getApps, App, cert, type AppOptions } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
+import { getMessaging, Messaging } from 'firebase-admin/messaging';
 
 interface AdminServices {
   app: App;
   auth: Auth;
   db: Firestore;
+  storage: ReturnType<typeof getStorage>;
+  messaging: Messaging;
 }
 
-// This is a global singleton to ensure we only initialize the admin app once.
 let adminServices: AdminServices | null = null;
 
-/**
- * Derives the Firebase Admin AppOptions from environment variables.
- * Prioritizes the SERVICE_ACCOUNT secret for full production authority.
- */
 function getAppOptions(): AppOptions {
-    const serviceAccountString = process.env.SERVICE_ACCOUNT;
+    let serviceAccountString = process.env.SERVICE_ACCOUNT;
     
     if (!serviceAccountString) {
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
         };
     }
 
     try {
+        serviceAccountString = serviceAccountString.trim();
+        if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
+            serviceAccountString = serviceAccountString.slice(1, -1);
+        }
+
         const serviceAccount = JSON.parse(serviceAccountString);
+        
         return {
             credential: cert(serviceAccount),
             projectId: serviceAccount.project_id,
+            storageBucket: `${serviceAccount.project_id}.appspot.com`,
         };
     } catch (e: any) {
+        console.error("CRITICAL: Failed to parse SERVICE_ACCOUNT secret:", e.message);
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
         };
     }
 }
 
-export async function getAdminServices(): Promise<AdminServices> {
-  // If the services have already been initialized, return them immediately.
+export function getAdminServices(): AdminServices {
+  if (typeof window !== 'undefined') {
+    throw new Error('getAdminServices can only be called on the server.');
+  }
+
   if (adminServices) {
     return adminServices;
   }
 
-  const appOptions = getAppOptions();
+  const options = getAppOptions();
+  const app = getApps().length ? getApps()[0] : initializeApp(options);
 
-  // If no apps are initialized, this is the first time.
-  // If apps exist, we get the existing default app. This handles Next.js hot-reloading.
-  const app = getApps().length
-    ? getApps()[0]
-    : initializeApp(appOptions);
-
-  // Store the initialized services in the global singleton.
   adminServices = {
-    app: app,
+    app,
     auth: getAuth(app),
     db: getFirestore(app),
+    storage: getStorage(app),
+    messaging: getMessaging(app),
   };
 
   return adminServices;

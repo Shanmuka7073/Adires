@@ -39,17 +39,17 @@ export function ServerStatusCard({ title, status, description, iconName }: { tit
     const Icon = iconMap[iconName];
 
     return (
-        <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    {Icon && <Icon className="h-5 w-5" />}
+        <Card className="rounded-[2rem] border-0 shadow-lg overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="flex items-center gap-2 font-black uppercase text-sm tracking-tight">
+                    {Icon && <Icon className="h-4 w-4 text-primary" />}
                     {title}
                 </CardTitle>
-                <CardDescription>{description}</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase opacity-40">{description}</CardDescription>
             </CardHeader>
-            <CardContent>
-                <p className={cn("font-bold text-lg", getStatusColor(status.status))}>{status.status}</p>
-                <p className="text-xs text-muted-foreground">{status.message}</p>
+            <CardContent className="pt-6">
+                <p className={cn("font-black text-2xl uppercase tracking-tighter", getStatusColor(status.status))}>{status.status}</p>
+                <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">{status.message}</p>
             </CardContent>
         </Card>
     );
@@ -66,17 +66,17 @@ export function ClientStatusCard() {
     }, [firestore, auth, firebaseApp]);
 
     return (
-         <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Monitor className="h-5 w-5" />
-                    Client Database (Your Browser)
+         <Card className="rounded-[2rem] border-0 shadow-lg overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 pb-4">
+                <CardTitle className="flex items-center gap-2 font-black uppercase text-sm tracking-tight">
+                    <Monitor className="h-4 w-4 text-primary" />
+                    Client Database
                 </CardTitle>
-                <CardDescription>Status of your browser's connection to Firestore.</CardDescription>
+                <CardDescription className="text-[10px] font-bold uppercase opacity-40">Local Browser Connection</CardDescription>
             </CardHeader>
-            <CardContent>
-                <p className={cn("font-bold text-lg", getStatusColor(clientStatus.status))}>{clientStatus.status}</p>
-                <p className="text-xs text-muted-foreground">{clientStatus.message}</p>
+            <CardContent className="pt-6">
+                <p className={cn("font-black text-2xl uppercase tracking-tighter", getStatusColor(clientStatus.status))}>{clientStatus.status}</p>
+                <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">{clientStatus.message}</p>
             </CardContent>
         </Card>
     )

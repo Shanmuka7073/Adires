@@ -219,7 +219,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                 </div>
                 <div className="mt-3 pt-2 border-t border-black/5">
                     <p className="text-[8px] font-black uppercase opacity-40 tracking-widest mb-0.5">Business Bio</p>
-                    <p className="text-gray-600 font-bold text-[10px] leading-tight truncate">{store.description}</p>
+                    <p className="text-gray-600 font-bold text-[10px] leading-.tight truncate">{store.description}</p>
                 </div>
             </CardContent>
         </Card>

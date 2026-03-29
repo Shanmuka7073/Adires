@@ -1,0 +1,132 @@
+
+{
+  "entities": {
+    "Store": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Store",
+      "type": "object",
+      "description": "Represents a local store that lists products on LocalBasket.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "teluguName": { "type": "string" },
+        "description": { "type": "string" },
+        "address": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "imageId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "isClosed": { "type": "boolean" },
+        "tables": { "type": "array", "items": { "type": "string" } },
+        "liveVideoUrl": { "type": "string", "format": "uri" },
+        "upiId": { "type": "string" }
+      },
+      "required": ["id", "name", "description", "address", "ownerId", "imageId", "latitude", "longitude"]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product listed by a store.",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "imageId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageHint": { "type": "string" }
+      },
+      "required": ["id", "storeId", "name", "imageId"]
+    },
+    "Menu": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "Menu",
+        "type": "object",
+        "description": "Represents a restaurant menu.",
+        "properties": {
+            "id": { "type": "string" },
+            "storeId": { "type": "string" },
+            "theme": { "type": "object" },
+            "items": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["id", "storeId", "items"]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["groceries", "restaurant", "employee"] },
+        "imageUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "fcmToken": { "type": "string" },
+        "authenticators": { "type": "array" },
+        "currentChallenge": { "type": "string" }
+      },
+      "required": ["id", "firstName", "lastName", "email", "address", "phoneNumber"]
+    },
+    "CachedRecipe": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Cached Details",
+      "type": "object",
+      "description": "Represents a cached list of components and steps for a specific item to reduce AI calls.",
+      "properties": {
+        "id": { "type": "string" },
+        "dishName": { "type": "string" },
+        "itemType": { "type": "string", "enum": ["food", "service", "product"] },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "string" }
+            }
+          }
+        },
+        "steps": {
+           "type": "array",
+           "items": { "type": "object" }
+        },
+        "nutrition": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "dishName", "components", "steps", "createdAt"]
+    },
+    "Order": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "orderDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "storeId", "orderDate", "totalAmount", "status"]
+    },
+    "EmployeeProfile": { "type": "object", "required": ["userId", "storeId", "employeeId", "role", "hireDate", "salaryRate", "salaryType"] },
+    "AttendanceRecord": { "type": "object", "required": ["id", "employeeId", "storeId", "workDate", "status"] },
+    "SalarySlip": { "type": "object", "required": ["id", "employeeId", "storeId", "periodStart", "periodEnd", "netPay"] }
+  },
+  "auth": { "providers": ["password"] },
+  "firestore": {
+    "structure": [
+      { "path": "/users/{userId}", "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" } } },
+      { "path": "/stores/{storeId}", "definition": { "entityName": "Store", "schema": { "$ref": "#/backend/entities/Store" } } },
+      { "path": "/cachedRecipes/{recipeId}", "definition": { "entityName": "CachedRecipe", "schema": { "$ref": "#/backend/entities/CachedRecipe" } } },
+      { "path": "/orders/{orderId}", "definition": { "entityName": "Order", "schema": { "$ref": "#/backend/entities/Order" } } },
+      { "path": "/employeeProfiles/{userId}", "definition": { "entityName": "EmployeeProfile", "schema": { "$ref": "#/entities/EmployeeProfile" } } }
+    ]
+  }
+}

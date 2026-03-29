@@ -2,11 +2,10 @@
 'use client';
 
 import Link from 'next/link';
-import { UserCircle, Globe, LogOut, LayoutDashboard, ShoppingBag, Truck } from 'lucide-react';
+import { UserCircle, LogOut, LayoutDashboard, CheckCircle2, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CartIcon } from '@/components/cart/cart-icon';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/firebase';
 import {
   DropdownMenu,
@@ -15,65 +14,40 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { getAuth, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState } from 'react';
 import { t } from '@/lib/locales';
 import { useAppStore } from '@/lib/store';
+import Image from 'next/image';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { useVoiceCommanderContext } from './voice-commander-context';
+import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
 
-const ADMIN_EMAIL = 'admin@gmail.com';
-
-const dashboardLinks = [
-    { href: '/dashboard/owner/orders', label: 'store-orders', icon: ShoppingBag },
-    { href: '/dashboard/delivery/deliveries', label: 'deliveries', icon: Truck },
-]
-
-function LanguageSwitcher() {
-    const { language, setLanguage } = useAppStore();
-
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                    <Globe className="h-5 w-5" />
-                    <span className="sr-only">Change language</span>
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Select Language</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
-                    <DropdownMenuRadioItem value="en">
-                        English
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="te">
-                        Telugu
-                    </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 function UserMenu() {
-  const { user, isUserLoading } = useFirebase();
-  const isAdmin = user && user.email === ADMIN_EMAIL;
-  const dashboardHref = isAdmin ? '/dashboard/admin' : '/dashboard';
+  const { user, isUserLoading, auth } = useFirebase();
+  const { isAdmin, isRestaurantOwner } = useAdminAuth();
+  const { resetApp } = useAppStore();
+  const router = useRouter();
+  
+  const dashboardHref = isAdmin ? '/dashboard/admin' : (isRestaurantOwner ? '/dashboard/restaurant' : '/dashboard');
 
   const handleLogout = async () => {
-    const auth = getAuth();
-    await signOut(auth);
+    if (auth) {
+        await signOut(auth);
+        resetApp(); 
+        router.push('/login');
+    }
   };
 
-  if (isUserLoading) {
-    return <Skeleton className="h-10 w-10 rounded-full" />;
-  }
+  if (isUserLoading) return <Skeleton className="h-7 w-7 rounded-full" />;
 
   if (!user) {
     return (
-      <Button asChild variant="outline">
+      <Button asChild variant="outline" size="sm" className="rounded-lg h-7 px-2 font-black text-[8px] uppercase tracking-widest border-2">
         <Link href="/login">{t('login')}</Link>
       </Button>
     );
@@ -82,57 +56,66 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="rounded-full">
+        <Button variant="secondary" size="icon" className="rounded-full h-8 w-8 border-2 border-primary/10">
           <UserCircle className="h-5 w-5" />
-          <span className="sr-only">Toggle user menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t('my-account')}</DropdownMenuLabel>
-        <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-56 rounded-2xl overflow-hidden">
+        <DropdownMenuLabel className="font-bold">{t('my-account')}</DropdownMenuLabel>
+        <DropdownMenuItem disabled className="text-xs opacity-60">{user.email}</DropdownMenuItem>
         <DropdownMenuSeparator />
         <Link href={dashboardHref} passHref>
-          <DropdownMenuItem>
+          <DropdownMenuItem className="rounded-lg cursor-pointer">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               <span>{t('dashboard')}</span>
           </DropdownMenuItem>
         </Link>
-        {!isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('roles')}</DropdownMenuLabel>
-            {dashboardLinks.map(({ href, label, icon: Icon }) => (
-                <Link key={href} href={href} passHref>
-                    <DropdownMenuItem>
-                        <Icon className="mr-2 h-4 w-4" />
-                        <span>{t(label)}</span>
-                    </DropdownMenuItem>
-                </Link>
-            ))}
-          </>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>{t('logout')}</DropdownMenuItem>
+         <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg cursor-pointer mt-1">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>{t('logout')}</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
 export function Header() {
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { setCartOpen, isCartOpen, userStore } = useAppStore();
+  const { isAdmin, isRestaurantOwner, user } = useAdminAuth();
+  const { onToggleVoice, voiceEnabled } = useVoiceCommanderContext();
+
+  const logoUrl = userStore?.imageUrl || ADIRES_LOGO;
+  const brandName = userStore?.name || "ADIRES";
+
+  const logoHref = useMemo(() => {
+    if (!user) return "/";
+    if (isAdmin) return "/dashboard/admin";
+    if (isRestaurantOwner) return "/dashboard/restaurant";
+    return "/dashboard";
+  }, [user, isAdmin, isRestaurantOwner]);
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-      <Link
-        href="/"
-        className="flex items-center gap-2 text-lg font-semibold"
-      >
-        <span className="font-headline text-primary font-black uppercase italic">Adires</span>
+    <header className="sticky top-0 z-50 flex h-10 items-center gap-1 border-b bg-background/90 backdrop-blur px-2">
+      <Link href={logoHref} className="flex items-center gap-1 min-w-0">
+        <div className="relative w-6 h-6 rounded-full overflow-hidden border bg-white">
+          <Image src={logoUrl} alt="Logo" width={24} height={24} className="object-cover w-full h-full" priority />
+        </div>
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          <span className="font-black text-[10px] truncate uppercase">{brandName}</span>
+          {(isAdmin || isRestaurantOwner) && (
+            <div className="flex items-center gap-0.5">
+              <CheckCircle2 className="h-2 w-2 text-green-600 fill-current" />
+              <span className="text-[7px] font-black text-green-600">V</span>
+            </div>
+          )}
+        </div>
       </Link>
-      
-      <div className="flex items-center gap-2 md:gap-4">
-        <LanguageSwitcher />
-        <CartIcon open={isCartOpen} onOpenChange={setIsCartOpen} />
+      <div className="flex-1" />
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full", voiceEnabled && "bg-primary text-white animate-pulse")} onClick={onToggleVoice}>
+            <Mic className="h-4 w-4" />
+        </Button>
+        <CartIcon open={isCartOpen} onOpenChange={setCartOpen} />
         <UserMenu />
       </div>
     </header>

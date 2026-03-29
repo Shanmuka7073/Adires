@@ -3,53 +3,51 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
-import { Store, Product, ProductPrice, VoiceAliasGroup } from './types';
-import { useFirebase } from '@/firebase';
-import { useEffect, RefObject } from 'react';
-import { UseFormReturn } from 'react-hook-form';
-import { t as translate, initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from '@/lib/locales';
-import { generalCommands as defaultGeneralCommands, CommandGroup } from '@/lib/locales/commands';
-
-
-export interface ProfileFormValues {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  [key: string]: any;
-}
+import { Firestore, collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { Store, Product, ProductPrice, VoiceAliasGroup, CommandGroup } from './types';
+import { initializeTranslations, Locales, getAllAliases as getAliasesFromLocales, buildLocalesFromAliasGroups } from './locales';
+import { generalCommands as defaultGeneralCommands } from './locales/commands';
 
 export interface AppState {
   stores: Store[];
-  masterProducts: Product[];
-  productPrices: Record<string, ProductPrice | null>;
-  locales: Locales;
-  commands: Record<string, CommandGroup>;
-  loading: boolean;
+  userStore: Store | null; 
+  isFetchingStores: boolean;
+  isFetchingUserStore: boolean;
   isInitialized: boolean;
-  appReady: boolean; // Flag to indicate if the app is ready to be shown
+  isUserDataLoaded: boolean;
+  appReady: boolean;
   error: Error | null;
   language: string;
+  activeStoreId: string | null;
+  deviceId: string | null; 
+  isCartOpen: boolean;
+  readCount: number;
+  writeCount: number;
+  
+  // Actions
+  incrementReadCount: (count?: number) => void;
+  incrementWriteCount: (count?: number) => void;
   setLanguage: (lang: string) => void;
-  fetchInitialData: (db: Firestore) => Promise<void>;
+  setActiveStoreId: (storeId: string | null) => void;
+  setUserStore: (store: Store | null) => void;
+  setAppReady: (ready: boolean) => void;
+  setDeviceId: (id: string) => void;
+  setCartOpen: (open: boolean) => void;
+  resetApp: () => void;
+  
+  // Fetching
+  fetchInitialData: (db: Firestore, userId?: string) => Promise<void>;
+  fetchUserStore: (db: Firestore, userId: string) => Promise<void>;
+  
+  // Helpers
+  locales: Locales;
+  commands: Record<string, CommandGroup>;
+  getAllAliases: (key: string) => Record<string, string[]>;
+  masterProducts: Product[];
+  productPrices: Record<string, ProductPrice | null>;
   fetchProductPrices: (db: Firestore, productNames: string[]) => Promise<void>;
   getProductName: (product: Product) => string;
-  getAllAliases: (key: string) => Record<string, string[]>;
-  setLocales: (newLocales: Locales) => void;
-  setCommands: (newCommands: Record<string, CommandGroup>) => void;
-  setActiveStoreId: (storeId: string | null) => void;
-  setAppReady: (isReady: boolean) => void; // Setter for the app ready flag
 }
-
-const getInitialLanguage = (): string => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('app-language') || 'en';
-  }
-  return 'en';
-};
-
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -57,164 +55,114 @@ export const useAppStore = create<AppState>()(
       stores: [],
       masterProducts: [],
       productPrices: {},
+      userStore: null,
       locales: {},
-      commands: {},
-      loading: false,
+      commands: defaultGeneralCommands,
+      isFetchingStores: false,
+      isFetchingUserStore: false,
       isInitialized: false,
+      isUserDataLoaded: false,
       appReady: false,
       error: null,
-      language: getInitialLanguage(),
+      language: 'en',
+      activeStoreId: null,
+      deviceId: null, 
+      isCartOpen: false,
+      readCount: 0,
+      writeCount: 0,
 
-      setLanguage: (lang: string) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('app-language', lang);
-        }
-        set({ language: lang });
-      },
+      incrementReadCount: (count = 1) => set(state => ({ readCount: state.readCount + count })),
+      incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
-      setLocales: (newLocales: Locales) => set({ locales: newLocales }),
-      setCommands: (newCommands: Record<string, CommandGroup>) => set({ commands: newCommands }),
-      
-      setActiveStoreId: (storeId: string | null) => {
-          set({ activeStoreId: storeId } as any);
-      },
-      
+      setLanguage: (lang: string) => set({ language: lang }),
+      setUserStore: (store: Store | null) => set({ userStore: store }),
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
+      setDeviceId: (id: string) => set({ deviceId: id }),
+      setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
+      setCartOpen: (open: boolean) => set({ isCartOpen: open }),
 
-      fetchInitialData: async (db: Firestore) => {
-        if (get().loading || get().isInitialized) return; 
-
-        set({ loading: true, error: null });
-        
-        try {
-          const [storesSnap, aliasDocs, commandDocs] = await Promise.all([
-            getDocs(collection(db, 'stores')),
-            getDocs(collection(db, 'voiceAliasGroups')),
-            getDocs(collection(db, 'voiceCommands'))
-          ]);
-
-          const stores = storesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store));
-          const masterProducts: Product[] = []; // Grocery catalog purged
-
-          const voiceAliasGroups = aliasDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
-          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-          
-          const dbCommands = commandDocs.docs.reduce((acc, doc) => {
-              acc[doc.id] = doc.data() as CommandGroup;
-              return acc;
-          }, {} as Record<string, CommandGroup>);
-          
-          const enrichedCommands = { ...defaultGeneralCommands, ...dbCommands };
-
-          initializeTranslations(locales); 
-
+      resetApp: () => {
           set({
-            stores,
-            masterProducts,
-            locales,
-            commands: enrichedCommands,
-            isInitialized: true,
-            loading: false,
-            appReady: true,
+              stores: [],
+              userStore: null,
+              isInitialized: false,
+              isUserDataLoaded: false,
+              activeStoreId: null,
+              isCartOpen: false,
+              isFetchingStores: false,
+              isFetchingUserStore: false,
+              readCount: 0,
+              writeCount: 0,
+              error: null
           });
-          
-        } catch (error) {
-          console.error("Failed to fetch initial app data:", error);
-          set({ error: error as Error, loading: false, appReady: true });
-        }
-      },
-      
-      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const { productPrices } = get();
-          const namesToFetch = productNames.filter(name => name && productPrices[name.toLowerCase()] === undefined);
-
-          if (namesToFetch.length === 0) return;
-          
-          try {
-              const pricesToUpdate: Record<string, ProductPrice | null> = {};
-              const batchSize = 30;
-
-              for (let i = 0; i < namesToFetch.length; i += batchSize) {
-                  const batchNames = namesToFetch.slice(i, i + batchSize).map(n => n.toLowerCase());
-                  if (batchNames.length > 0) {
-                      const priceQuery = query(collection(db, 'productPrices'), where('productName', 'in', batchNames));
-                      const priceSnapshot = await getDocs(priceQuery);
-                      
-                      const fetchedPrices = new Map(priceSnapshot.docs.map(doc => [doc.id, doc.data() as ProductPrice]));
-                      
-                      batchNames.forEach(name => {
-                          pricesToUpdate[name] = fetchedPrices.get(name) || null;
-                      });
-                  }
-              }
-
-              set(state => ({
-                  productPrices: { ...state.productPrices, ...pricesToUpdate }
-              }));
-          } catch (error) {
-              console.error("Failed to fetch product prices:", error);
+          if (typeof window !== 'undefined') {
+              localStorage.removeItem('adires-ops-storage');
           }
       },
 
-      getProductName: (product: Product) => {
-        if (!product || !product.name) return '';
-        const lang = get().language;
-        return translate(product.name.toLowerCase().replace(/ /g, '-'), lang);
+      fetchInitialData: async (db: Firestore, userId?: string) => {
+        if (get().isFetchingStores) return;
+        set({ isFetchingStores: true, error: null });
+        
+        try {
+          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
+          const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
+          
+          set({
+            stores: storesList,
+            isInitialized: true,
+            isFetchingStores: false,
+            readCount: get().readCount + storesSnap.docs.length
+          });
+
+          if (userId) {
+              await get().fetchUserStore(db, userId);
+          } else {
+              set({ isUserDataLoaded: true, appReady: true });
+          }
+          
+        } catch (error) {
+          console.error("fetchInitialData failed:", error);
+          set({ error: error as Error, isFetchingStores: false, isInitialized: true, isUserDataLoaded: true, appReady: true });
+        }
       },
 
-      getAllAliases: (key: string) => {
-        return getAliasesFromLocales(get().locales, key);
-      }
+      fetchUserStore: async (db: Firestore, userId: string) => {
+        if (!userId || get().isFetchingUserStore) return;
+        set({ isFetchingUserStore: true, error: null });
+
+        try {
+            const q = query(collection(db, 'stores'), where('ownerId', '==', userId), limit(1));
+            const snap = await getDocs(q);
+            
+            const storeData = snap.docs.length > 0 
+                ? { id: snap.docs[0].id, ...snap.docs[0].data() } as Store 
+                : null;
+
+            set({
+                userStore: storeData,
+                isFetchingUserStore: false,
+                isUserDataLoaded: true,
+                appReady: true,
+                readCount: get().readCount + 1
+            });
+        } catch (error) {
+            console.error("fetchUserStore failed:", error);
+            set({ error: error as Error, isFetchingUserStore: false, isUserDataLoaded: true, appReady: true });
+        }
+      },
+
+      fetchProductPrices: async () => Promise.resolve(),
+      getProductName: (product: Product) => product.name || '',
+      getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
-      name: 'localbasket-app-storage-ws',
+      name: 'adires-ops-storage', 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
-          stores: state.stores,
-          locales: state.locales,
-          commands: state.commands,
           language: state.language,
-          isInitialized: state.isInitialized,
+          deviceId: state.deviceId
       }),
     }
   )
 );
-
-
-export const useInitializeApp = () => {
-  const { firestore } = useFirebase();
-  const { fetchInitialData, isInitialized, loading, setAppReady } = useAppStore();
-
-  useEffect(() => {
-    if (firestore && !isInitialized && !loading) {
-      fetchInitialData(firestore).then(() => {
-        setAppReady(true);
-      });
-    } else if (isInitialized) {
-      setAppReady(true);
-    }
-  }, [firestore, isInitialized, loading, fetchInitialData, setAppReady]);
-
-  return { isLoading: !isInitialized && loading };
-};
-
-
-interface ProfileFormState {
-  form: UseFormReturn<ProfileFormValues> | null;
-  setForm: (form: UseFormReturn<ProfileFormValues> | null) => void;
-}
-
-export const useProfileFormStore = create<ProfileFormState>((set) => ({
-  form: null,
-  setForm: (form) => set({ form }),
-}));
-
-interface MyStorePageState {
-  saveInventoryBtnRef: RefObject<HTMLButtonElement> | null;
-  setSaveInventoryBtnRef: (ref: RefObject<HTMLButtonElement> | null) => void;
-}
-
-export const useMyStorePageStore = create<MyStorePageState>((set) => ({
-  saveInventoryBtnRef: null,
-  setSaveInventoryBtnRef: (ref) => set({ saveInventoryBtnRef: ref }),
-}));

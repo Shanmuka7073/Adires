@@ -2,146 +2,147 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Server, BrainCircuit, Database, ShieldAlert, Store as StoreIcon, Users } from 'lucide-react';
-import { ServerStatusCard, ClientStatusCard } from './status-cards';
+import { Server, Database, ShieldAlert, RefreshCw, Globe, Lock, Smartphone, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { getSystemStatus } from '@/app/actions';
-import { useState, useEffect } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect, useTransition, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
-interface SystemStatus {
-  llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
-  serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
-  userCount: number | 'N/A';
-  storeCount: number | 'N/A';
+interface ServerStatus {
+    status: 'ok' | 'error' | 'loading';
+    llmStatus: 'Online' | 'Offline' | 'Degraded' | 'Unknown';
+    serverDbStatus: 'Online' | 'Offline' | 'Unavailable' | 'Loading';
+    errorMessage?: string | null;
+    identity?: string;
+    projectId?: string;
+    counts: { users: number; stores: number };
 }
 
 export default function SystemStatusPage() {
-  const [status, setStatus] = useState<SystemStatus>({
-    llmStatus: 'Offline',
+  const [status, setStatus] = useState<ServerStatus>({ 
+    status: 'loading',
+    llmStatus: 'Unknown', 
     serverDbStatus: 'Loading',
-    userCount: 'N/A',
-    storeCount: 'N/A',
+    counts: { users: 0, stores: 0 }
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, startFetchingTransition] = useTransition();
+  const clientProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+  const fetchStatus = useCallback(async () => {
+    startFetchingTransition(async () => {
+      try {
+        const result = await getSystemStatus();
+        setStatus({
+            status: result.status as 'ok' | 'error' | 'loading',
+            llmStatus: (result as any).llmStatus || 'Offline',
+            serverDbStatus: (result as any).serverDbStatus || 'Online',
+            errorMessage: (result as any).errorMessage || null,
+            identity: (result as any).identity,
+            projectId: (result as any).projectId,
+            counts: result.counts || { users: 0, stores: 0 },
+        });
+      } catch (error) {
+        setStatus({ 
+            status: 'error',
+            llmStatus: 'Offline', 
+            serverDbStatus: 'Offline', 
+            errorMessage: (error as Error).message,
+            counts: { users: 0, stores: 0 }
+        });
+      }
+    });
+  }, []);
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      // Don't set loading to true for background refreshes
-      try {
-        const serverStatus = await getSystemStatus()
-        const normalizeStatus = (status: string | undefined): SystemStatus['llmStatus'] => {
-          if (status === 'Online' || status === 'Offline' || status === 'Degraded') {
-            return status;
-          }
-          return 'Unknown';
-        };
-
-        if (serverStatus.status === 'ok') {
-          setStatus({
-            llmStatus: normalizeStatus(serverStatus.llmStatus),
-                serverDbStatus: 'Online',
-                userCount: (serverStatus.counts as any).users ?? 'N/A',
-                storeCount: (serverStatus.counts as any).stores ?? 'N/A',
-            });
-        } else {
-             setStatus({
-                llmStatus: 'Offline',
-                serverDbStatus: 'Unavailable',
-                userCount: 'N/A',
-                storeCount: 'N/A',
-            });
-        }
-      } catch (error) {
-        console.error("Failed to fetch system status:", error);
-        setStatus(prev => ({
-            ...prev,
-            llmStatus: 'Offline',
-            serverDbStatus: 'Unavailable',
-            userCount: 'N/A',
-            storeCount: 'N/A',
-        }));
-      } finally {
-        // Only set loading to false on the initial load
-        if (isLoading) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // Fetch immediately on mount
     fetchStatus();
-
-    // Then, set up an interval to refetch every 5 seconds
-    const intervalId = setInterval(fetchStatus, 5000);
-
-    // Cleanup function to clear the interval when the component unmounts
-    return () => clearInterval(intervalId);
-  }, [isLoading]); // Rerunning this effect is safe if isLoading changes, but it won't after the first load.
-
-  const StatusDisplay = ({ isLoading, children }: { isLoading: boolean, children: React.ReactNode }) => {
-    return isLoading ? <Skeleton className="h-8 w-24" /> : <div className="text-3xl font-bold">{children}</div>;
-  };
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
   return (
-    <div className="p-8 space-y-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">
-        System Status Dashboard
-      </h1>
-      <p className="text-gray-600">
-        Real-time health check of critical application components. This page automatically refreshes every 5 seconds.
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <ServerStatusCard
-          title="LLM Service (Gemini)"
-          status={{ status: status.llmStatus, message: `AI features are currently disabled.` }}
-          iconName="BrainCircuit"
-          description="Handles all AI-powered features."
-        />
-        <ServerStatusCard
-          title="Server Database (Admin)"
-          status={{status: status.serverDbStatus, message: `Admin SDK connection is ${status.serverDbStatus.toLowerCase()}.`}}
-          iconName="Database"
-          description="Connection health for server-side actions."
-        />
-        
-        <ClientStatusCard />
-
-        <ServerStatusCard
-          title="Authentication Service"
-          status={{status: 'Online', message: "Client and Admin Auth services are online."}} 
-          iconName="ShieldAlert"
-          description="Status of Firebase Authentication services."
-        />
-      </div>
-      
-       <div className="pt-4">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Usage Metrics
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-5 w-5 text-indigo-500" />
-            </CardHeader>
-            <CardContent>
-              <StatusDisplay isLoading={isLoading}>{status.userCount}</StatusDisplay>
-              <p className="text-xs text-gray-500">Users with stored credentials</p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Stores</CardTitle>
-              <StoreIcon className="h-5 w-5 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <StatusDisplay isLoading={isLoading}>{status.storeCount}</StatusDisplay>
-              <p className="text-xs text-gray-500">Stores created on the platform</p>
-            </CardContent>
-          </Card>
+    <div className="p-8 space-y-12 bg-gray-50 min-h-screen pb-32">
+       <div className="flex justify-between items-center border-b pb-6 border-black/5">
+        <div>
+            <h1 className="text-4xl font-black text-gray-950 uppercase italic tracking-tighter">
+                Infrastructure Hub
+            </h1>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+                CONNECTED TO: <span className="text-primary">{clientProjectId || 'Environment Pending'}</span>
+            </p>
         </div>
+        <Button onClick={fetchStatus} disabled={isFetching} variant="outline" className="rounded-xl h-12 px-6 border-2 shadow-sm font-black text-[10px] uppercase tracking-widest">
+          <RefreshCw className={cn("h-4 w-4 mr-2", isFetching && "animate-spin")} /> Re-Scan
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+         <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
+                <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
+                    <Lock className="h-4 w-4 text-primary" />
+                    Client Project ID
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-8">
+                <p className="font-black text-2xl uppercase tracking-tighter text-gray-950">{clientProjectId || 'MISSING'}</p>
+                <div className="mt-4 space-y-1">
+                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Environment Target</p>
+                    <p className="text-xs font-black text-gray-700">Client-side Public SDK</p>
+                </div>
+            </CardContent>
+        </Card>
+
+        <Card className="rounded-[2rem] border-0 shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 pb-4 border-b border-black/5">
+                <CardTitle className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
+                    <Globe className="h-4 w-4 text-primary" />
+                    Server Project ID
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-8">
+                <p className={cn("font-black text-2xl uppercase tracking-tighter", status.status === 'error' ? 'text-red-500' : 'text-primary')}>
+                    {status.projectId || 'FETCHING...'}
+                </p>
+                <div className="mt-4 space-y-1">
+                    <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest">Admin SDK Identity</p>
+                    <p className="text-xs font-black text-gray-700 truncate">{status.identity || 'Verifying credentials...'}</p>
+                </div>
+            </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-12">
+          {status.status === 'error' && (
+              <div className="space-y-6">
+                  <div className="p-8 rounded-[2.5rem] bg-red-50 border-2 border-red-100 flex items-start gap-4 shadow-lg text-red-900">
+                      <ShieldAlert className="h-8 w-8 text-red-600 mt-1 shrink-0" />
+                      <div>
+                          <h3 className="font-black uppercase text-sm tracking-tight">Identity Verification Failed</h3>
+                          <p className="text-xs font-bold opacity-60 leading-relaxed mt-2 uppercase tracking-wide">
+                              The server failed to initialize the Admin SDK. Check your SERVICE_ACCOUNT environment variable.
+                          </p>
+                          <div className="mt-6 p-5 bg-black/10 rounded-2xl text-[10px] font-mono overflow-auto max-w-full border border-red-200">
+                              <p className="font-black uppercase opacity-40 mb-2">RAW EXCEPTION:</p>
+                              {status.errorMessage}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
+          
+          <Card className="rounded-[2.5rem] border-0 shadow-xl bg-white p-8 space-y-6">
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] opacity-40">Live Document Audit</h3>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-1 text-indigo-600">Global Users</p>
+                      <p className="text-2xl font-black text-gray-950">{status.counts.users}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-muted/30 border border-black/5">
+                      <p className="text-[8px] font-black uppercase opacity-40 mb-1 text-green-600">Merchant Hubs</p>
+                      <p className="text-2xl font-black text-gray-950">{status.counts.stores}</p>
+                  </div>
+              </div>
+          </Card>
       </div>
     </div>
   );

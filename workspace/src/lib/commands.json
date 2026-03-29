@@ -1,0 +1,275 @@
+
+{
+  "smartOrder": {
+    "display": "Smart Order (Product, Store, Destination)",
+    "reply": "Okay, preparing your quick order.",
+    "aliases": [
+      "order {quantity} of {product} from {store} to {destination}",
+      "order {quantity} {product} from {store} to {destination}",
+      "send {quantity} of {product} from {store} to {destination}",
+      "send {quantity} {product} from {store} to {destination}",
+      "order {product} from {store} to {destination}",
+      "send {product} from {store} to {destination}",
+      "order {quantity} of {product} from {store}",
+      "order {product} from {store}"
+    ]
+  },
+  "quickOrder": {
+    "display": "Quick Order an Item from a Store",
+    "reply": "Okay, preparing your quick order.",
+    "aliases": [
+      "order {quantity} of {product} from {store}",
+      "order {quantity} {product} from {store}",
+      "get {quantity} of {product} from {store}",
+      "get {quantity} {product} from {store}",
+      "buy {quantity} of {product} from {store}",
+      "buy {quantity} {product} from {store}",
+      "order {product} from {store}",
+      "get {product} from {store}",
+      "buy {product} from {store}"
+    ]
+  },
+  "quickOrderConfirm": {
+    "display": "Confirm the quick order",
+    "reply": "Placing your order now.",
+    "aliases": [
+      "confirm order",
+      "confirm",
+      "ok",
+      "done",
+      "alright",
+      "yes",
+      "place order"
+    ]
+  },
+  "recordOrder": {
+    "display": "Record a shopping list by voice",
+    "reply": "I'm ready. Please list the items you need for your order.",
+    "aliases": [
+      "record my order",
+      "take my order",
+      "voice order",
+      "new voice order",
+      "create a shopping list"
+    ]
+  },
+  "orderItem": {
+    "display": "Order an Item (Template)",
+    "reply": "Adding it to your cart.",
+    "aliases": [
+      "add {quantity} of {product}",
+      "add {quantity} {product}",
+      "get {quantity} of {product}",
+      "get {quantity} {product}",
+      "buy {quantity} of {product}",
+      "buy {quantity} {product}",
+      "i want {quantity} of {product}",
+      "i want {quantity} {product}",
+      "had {quantity} of {product}",
+      "had {quantity} {product}",
+      "add one {product}",
+      "get one {product}",
+      "had one {product}",
+      "{quantity} {product}",
+      "oka product quantity",
+      "oka {product} {quantity}",
+      "add chicken",
+      "i want chicken",
+      "chicken kavali",
+      "naaku chicken kavali"
+    ]
+  },
+  "home": {
+    "display": "Navigate to Home",
+    "reply": "Okay, taking you to the home page.",
+    "aliases": [
+      "go home",
+      "home page",
+      "main screen",
+      "go to home",
+      "back to start",
+      "open homepage",
+      "return home",
+      "show home",
+      "open home",
+      "home"
+    ]
+  },
+  "stores": {
+    "display": "Browse All Stores",
+    "reply": "Showing all available stores.",
+    "aliases": [
+      "go to stores",
+      "browse stores",
+      "show all stores",
+      "open store list",
+      "find stores",
+      "explore shops",
+      "nearby shops",
+      "shop list"
+    ]
+  },
+  "dashboard": {
+    "display": "View Dashboard",
+    "reply": "Opening your dashboard.",
+    "aliases": [
+      "go to dashboard",
+      "open dashboard",
+      "my dashboard",
+      "show my stats",
+      "open my panel",
+      "go to control panel",
+      "dashboard"
+    ]
+  },
+  "cart": {
+    "display": "View Your Cart",
+    "reply": "Opening your shopping cart.",
+    "aliases": [
+      "go to cart",
+      "open cart",
+      "show cart",
+      "view my cart",
+      "see my basket",
+      "go to basket",
+      "open shopping cart",
+      "my items"
+    ]
+  },
+  "orders": {
+    "display": "View My Orders",
+    "reply": "Here are your past orders.",
+    "aliases": [
+      "my orders",
+      "go to my orders",
+      "open my orders",
+      "show my orders",
+      "view orders",
+      "check my orders",
+      "open order history",
+      "see past orders",
+      "my purchases"
+    ]
+  },
+  "deliveries": {
+    "display": "View Deliveries",
+    "reply": "Opening the delivery dashboard.",
+    "aliases": [
+      "deliveries",
+      "my deliveries",
+      "go to deliveries",
+      "open deliveries",
+      "track deliveries",
+      "check delivery status",
+      "see my delivery list",
+      "delivery updates",
+      "delivery dashboard",
+      "deliverys",
+      "delivery"
+    ]
+  },
+  "myStore": {
+    "display": "Create or Manage My Store",
+    "reply": "Opening your store management page.",
+    "aliases": [
+      "create my store",
+      "my store",
+      "manage my store",
+      "new store",
+      "register my store",
+      "make a store",
+      "open my shop",
+      "go to seller page"
+    ]
+  },
+  "checkout": {
+    "display": "Proceed to Checkout",
+    "reply": "Okay, let's proceed to checkout.",
+    "aliases": [
+      "proceed to checkout",
+      "go to checkout",
+      "checkout now",
+      "open checkout",
+      "start checkout",
+      "finish my order",
+      "complete purchase",
+      "pay now",
+      "check out",
+      "checkout",
+      "proceedcheck out",
+      "proceed to check out",
+      "proceed checkout",
+      "చెకౌట్‌కి వెళ్ళు",
+      "చెకౌట్‌ ప్రారంభించు",
+      "ఆర్డర్‌ పూర్తి చేయి",
+      "చెల్లింపు చేయి",
+      "చెల్లించు",
+      "కొనుగోలు పూర్తి చేయి",
+      "చెకౌట్‌ చేయి",
+      "చెకౌట్‌ మొదలు పెట్టు",
+      "ఆర్డర్‌ సమర్పించు",
+      "పేమెంట్‌ చేయి"
+    ]
+  },
+  "placeOrder": {
+    "display": "Place the order",
+    "reply": "Placing your order now.",
+    "aliases": [
+      "place order",
+      "submit order",
+      "finish and pay",
+      "complete my order",
+      "place the order",
+      "placeorder",
+      "orderplace",
+      "please order",
+      "submit",
+      "fine",
+      "order"
+    ]
+  },
+  "saveChanges": {
+    "display": "Save Changes",
+    "reply": "Saving your changes.",
+    "aliases": [
+      "save changes",
+      "submit form",
+      "confirm changes",
+      "save my profile",
+      "update profile",
+      "save"
+    ]
+  },
+  "refresh": {
+    "display": "Refresh the page",
+    "reply": "Refreshing.",
+    "aliases": [
+      "refresh the page",
+      "reload page",
+      "reload app",
+      "refresh screen",
+      "restart page",
+      "refresh",
+      "reload",
+      "restart"
+    ]
+  },
+  "homeAddress": {
+    "display": "Use Home Address",
+    "reply": "Using your saved home address.",
+    "aliases": [
+      "home address",
+      "use my home address",
+      "deliver to home"
+    ]
+  },
+  "currentLocation": {
+    "display": "Use Current Location",
+    "reply": "Okay, finding your current location for delivery.",
+    "aliases": [
+      "current location",
+      "use my current location",
+      "deliver here"
+    ]
+  }
+}

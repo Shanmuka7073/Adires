@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useState, useTransition, useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,117 +11,57 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { Store, Product, ProductPrice, User as AppUser, ProductVariant } from '@/lib/types';
-import { useFirebase, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, query, where, addDoc, writeBatch, doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import type { Store } from '@/lib/types';
+import { useFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Share2, MapPin, Trash2, AlertCircle, Upload, Image as ImageIcon, Loader2, Sparkles, PlusCircle, Edit, Link2, QrCode, Save } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+  Share2,
+  MapPin,
+  ImageIcon,
+  Loader2,
+  Edit3,
+  Save,
+} from 'lucide-react';
 import Link from 'next/link';
-import { t } from '@/lib/locales';
-import { useAppStore, useMyStorePageStore } from '@/lib/store';
-import { Badge } from '@/components/ui/badge';
-import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAppStore } from '@/lib/store';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const createSlug = (text: string) => {
-    if(!text) return '';
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-') 
-      .replace(/[^\w-]+/g, '') 
-      .replace(/--+/g, '-') 
-      .replace(/^-+/, '') 
-      .replace(/-+$/, ''); 
-};
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 const storeSchema = z.object({
   name: z.string().min(3, 'Store name must be at least 3 characters'),
-  teluguName: z.string().optional(),
-  description: z
-    .string()
-    .min(10, 'Description must be at least 10 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-  longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-});
-
-const locationSchema = z.object({
-    latitude: z.coerce.number().min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-    longitude: z.coerce.number().min(-180, "Invalid longitude").max(180, "Invalid longitude"),
-});
-
-const variantSchema = z.object({
-  sku: z.string(),
-  weight: z.string().min(1, 'Weight is required'),
-  price: z.coerce.number().positive('Price must be a positive number'),
-  stock: z.coerce.number().int().nonnegative('Stock must be a positive integer'),
-});
-
-const productSchema = z.object({
-  name: z.string().min(3, 'Product name is required'),
-  description: z.string().optional(),
-  category: z.string().min(1, "Category is required"),
-  imageUrl: z.string().optional(),
-  variants: z.array(variantSchema).min(1, 'At least one price variant is required'),
+  latitude: z.coerce.number(),
+  longitude: z.coerce.number(),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
-type ProductFormValues = z.infer<typeof productSchema>;
-type LocationFormValues = z.infer<typeof locationSchema>;
 
 function StoreImageUploader({ store }: { store: Store }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isSaving, startSaveTransition] = useTransition();
     const [imageUrl, setImageUrl] = useState(store.imageUrl || '');
 
@@ -141,9 +81,6 @@ function StoreImageUploader({ store }: { store: Store }) {
             const updateData = { imageUrl: imageUrl };
 
             updateDoc(storeRef, updateData)
-                .then(() => {
-                    toast({ title: 'Image URL Updated!' });
-                })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -151,95 +88,44 @@ function StoreImageUploader({ store }: { store: Store }) {
                         requestResourceData: updateData,
                     }));
                 });
+            
+            toast({ title: 'Image Queued!' });
+            incrementWriteCount(1);
         });
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('store-image')}</CardTitle>
-                <CardDescription>Update your store's image by pasting a URL.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="w-full aspect-video relative rounded-md overflow-hidden border bg-muted">
-                    {imageUrl ? (
-                        <Image src={imageUrl} alt={store.name} fill className="object-cover" />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full bg-muted/50 text-muted-foreground">
-                            <ImageIcon className="h-10 w-10 mb-2" />
-                            <p className="text-sm">{t('no-image-set')}</p>
-                        </div>
-                    )}
+        <Card className="rounded-[1.5rem] border-0 shadow-lg overflow-hidden bg-white">
+            <CardContent className="p-3 space-y-3">
+                <div className="flex justify-between items-center">
+                    <h3 className="text-[9px] font-black uppercase tracking-widest opacity-40">Storefront Visual</h3>
+                    <div className="flex gap-1.5">
+                        <Input
+                            placeholder="Direct URL..."
+                            value={imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                            disabled={isSaving}
+                            className="h-8 rounded-lg border-2 bg-muted/20 text-[10px] w-40"
+                        />
+                        <Button 
+                            size="sm"
+                            onClick={handleSave} 
+                            disabled={isSaving} 
+                            className="h-8 rounded-lg font-black uppercase text-[8px] tracking-widest px-3 shadow-md"
+                        >
+                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                            Update
+                        </Button>
+                    </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="store-image-url">Image URL</Label>
-                    <Input
-                        id="store-image-url"
-                        placeholder="https://example.com/your-store.jpg"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        disabled={isSaving}
+                <div className="w-full h-24 relative rounded-xl overflow-hidden border bg-muted">
+                    <Image 
+                        src={imageUrl || store.imageUrl || ADIRES_LOGO} 
+                        alt="Storefront" 
+                        fill 
+                        className="object-cover" 
                     />
                 </div>
-                <Button onClick={handleSave} disabled={isSaving} className="w-full">
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Image URL
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
-
-function PromoteStore({ store }: { store: Store }) {
-    const { toast } = useToast();
-
-    const handleShare = async () => {
-        if (!('contacts' in navigator && 'select' in (navigator as any).contacts)) {
-            toast({
-                variant: 'destructive',
-                title: 'API Not Supported',
-                description: 'Your browser does not support the Contact Picker API.',
-            });
-            return;
-        }
-
-        try {
-            const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: true });
-
-            if (contacts.length === 0) return;
-
-            const phoneNumbers = contacts.flatMap((c: any) => c.tel || []);
-            const shareText = `Check out my store, ${store.name}, on the Adires app! Visit here: ${window.location.origin}/stores/${store.id}`;
-            
-            if (phoneNumbers.length > 0) {
-                 window.open(`sms:${phoneNumbers.join(',')}?&body=${encodeURIComponent(shareText)}`, '_blank');
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'No Phone Numbers Found',
-                });
-            }
-        } catch (ex) {
-            toast({
-                variant: 'destructive',
-                title: 'Share Error',
-            });
-        }
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('promote-your-store')}</CardTitle>
-                <CardDescription>
-                    {t('share-your-store-with-your-phone-contacts')}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleShare} className="w-full">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    {t('share-with-contacts')}
-                </Button>
             </CardContent>
         </Card>
     );
@@ -247,24 +133,27 @@ function PromoteStore({ store }: { store: Store }) {
 
 function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
     const { firestore } = useFirebase();
+    const { incrementWriteCount } = useAppStore();
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    const form = useForm<Omit<StoreFormValues, 'latitude' | 'longitude'>>({
-        resolver: zodResolver(storeSchema.omit({ latitude: true, longitude: true })),
-        defaultValues: { name: store.name, teluguName: store.teluguName || '', description: store.description, address: store.address },
+    
+    const form = useForm<StoreFormValues>({
+        resolver: zodResolver(storeSchema),
+        defaultValues: {
+            name: store.name,
+            description: store.description,
+            address: store.address,
+            latitude: store.latitude,
+            longitude: store.longitude,
+        },
     });
     
-    const onSubmit = (data: Omit<StoreFormValues, 'latitude' | 'longitude'>) => {
+    const onSubmit = (data: StoreFormValues) => {
         if (!firestore) return;
         startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
             updateDoc(storeRef, data)
-                .then(() => {
-                    toast({ title: "Saved!" });
-                    setIsOpen(false);
-                    onUpdate();
-                })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -272,138 +161,97 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         requestResourceData: data,
                     }));
                 });
+            
+            toast({ title: "Changes Queued!" });
+            incrementWriteCount(1);
+            setIsOpen(false);
+            onUpdate();
         });
     };
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-                <CardTitle>Business Information</CardTitle>
+        <Card className="rounded-[1.5rem] border-0 shadow-lg overflow-hidden bg-white">
+            <CardHeader className="flex flex-row justify-between items-center bg-primary/5 border-b border-black/5 p-3">
+                <div>
+                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-gray-950">Business Profile</CardTitle>
+                </div>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                    <DialogTrigger asChild><Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-2"/> Edit</Button></DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader><DialogTitle>Edit Store Details</DialogTitle></DialogHeader>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="rounded-lg font-black text-[8px] uppercase tracking-widest border-2 h-7 px-3 gap-1">
+                            <Edit3 className="h-3 w-3" /> Edit
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[2rem] border-0 shadow-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="font-black uppercase">Edit Profile</DialogTitle>
+                        </DialogHeader>
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Name</FormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
-                                <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Textarea {...field}/></FormControl></FormItem>)}/>
-                                <Button type="submit" disabled={isPending}>Save</Button>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
+                                <FormField control={form.control} name="name" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[9px] uppercase font-black opacity-40">Store Name</FormLabel><FormControl><Input {...field} className="h-10 rounded-xl border-2" /></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="address" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[9px] uppercase font-black opacity-40">Address</FormLabel><FormControl><Input {...field} className="h-10 rounded-xl border-2" /></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="description" render={({ field }) => (
+                                    <FormItem><FormLabel className="text-[9px] uppercase font-black opacity-40">Bio</FormLabel><FormControl><Textarea {...field} className="min-h-[80px] rounded-xl border-2" /></FormControl></FormItem>
+                                )}/>
+                                <Button type="submit" disabled={isPending} className="w-full h-11 rounded-xl font-black uppercase tracking-widest text-[9px]">
+                                    {isPending ? 'Syncing...' : 'Save Updates'}
+                                </Button>
                             </form>
                         </Form>
                     </DialogContent>
                 </Dialog>
             </CardHeader>
-            <CardContent className="text-sm space-y-2"><p><strong>Address:</strong> {store.address}</p><p><strong>Description:</strong> {store.description}</p></CardContent>
+            <CardContent className="p-3">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-0.5">
+                        <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Address</p>
+                        <p className="font-bold text-gray-700 text-[11px] leading-tight truncate">{store.address}</p>
+                    </div>
+                    <div className="space-y-0.5 text-right">
+                        <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">GPS Meta</p>
+                        <p className="font-mono font-bold text-primary flex items-center justify-end gap-1 text-[10px]">
+                            <MapPin className="h-2.5 w-2.5" /> {store.latitude?.toFixed(2)}, {store.longitude?.toFixed(2)}
+                        </p>
+                    </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-black/5">
+                    <p className="text-[8px] font-black uppercase opacity-40 tracking-widest mb-0.5">Business Bio</p>
+                    <p className="text-gray-600 font-bold text-[10px] leading-tight truncate">{store.description}</p>
+                </div>
+            </CardContent>
         </Card>
     );
-}
-
-function UpdateLocationForm({ store, onUpdate }: { store: Store, onUpdate: () => void }) {
-    const { firestore } = useFirebase();
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-    const form = useForm<LocationFormValues>({ resolver: zodResolver(locationSchema), defaultValues: { latitude: store.latitude || 0, longitude: store.longitude || 0 } });
-    
-    const handleGetLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                form.setValue('latitude', position.coords.latitude, { shouldValidate: true });
-                form.setValue('longitude', position.coords.longitude, { shouldValidate: true });
-                toast({ title: "Location Fetched!" });
-            });
-        }
-    };
-
-    const onSubmit = (data: LocationFormValues) => {
-        if (!firestore) return;
-        startTransition(() => {
-            const storeRef = doc(firestore, 'stores', store.id);
-            updateDoc(storeRef, data).then(() => { toast({ title: "Updated!" }); onUpdate(); });
-        });
-    };
-
-    return (
-        <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Location Missing</AlertTitle>
-            <AlertDescription>GPS coordinates required for mapping.</AlertDescription>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="latitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} />
-                        <FormField control={form.control} name="longitude" render={({ field }) => (<FormItem><FormControl><Input type="number" step="any" {...field} /></FormControl></FormItem>)} />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={handleGetLocation}>Get GPS</Button>
-                        <Button type="submit" disabled={isPending}>Save</Button>
-                    </div>
-                </form>
-            </Form>
-        </Alert>
-    );
-}
-
-function DangerZone({ store }: { store: Store }) {
-    const { firestore } = useFirebase();
-    const [isClosing, startCloseTransition] = useTransition();
-    const { toast } = useToast();
-    const handleCloseStore = () => {
-        if (!firestore) return;
-        startCloseTransition(async () => {
-            await updateDoc(doc(firestore, 'stores', store.id), { isClosed: true });
-            toast({ title: "Store Closed" });
-        });
-    };
-    return (
-        <Card className="border-destructive">
-            <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
-            <CardContent><Button variant="destructive" onClick={handleCloseStore} disabled={isClosing}>Close Store</Button></CardContent>
-        </Card>
-    );
-}
-
-function ManageStoreView({ store, isAdmin, onUpdate }: { store: Store; isAdmin: boolean, onUpdate: () => void }) {
-    if (store.isClosed) return <Alert variant="destructive"><AlertTitle>Closed</AlertTitle><AlertDescription>Store is hidden.</AlertDescription></Alert>;
-    
-    const needsLocationUpdate = !store.latitude || !store.longitude;
-
-    return (
-      <div className="space-y-8">
-        {needsLocationUpdate && <UpdateLocationForm store={store} onUpdate={onUpdate} />}
-        <StoreDetails store={store} onUpdate={onUpdate} />
-        <div className="grid md:grid-cols-2 gap-8">
-            <StoreImageUploader store={store} />
-            <PromoteStore store={store} />
-        </div>
-        <DangerZone store={store} />
-      </div>
-    )
 }
 
 export default function MyStorePage() {
-    const { user, isUserLoading, firestore } = useFirebase();
-    const router = useRouter();
-    const { isAdmin, isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-    const { stores, userStore, fetchInitialData } = useAppStore();
+    const { user, firestore } = useFirebase();
+    const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
+    const { userStore, fetchUserStore } = useAppStore();
 
-    const myStore = useMemo(() => userStore || stores.find(s => s.ownerId === user?.uid), [userStore, stores, user?.uid]);
+    useEffect(() => {
+        if (firestore && user && !userStore) {
+            fetchUserStore(firestore, user.uid);
+        }
+    }, [firestore, user, userStore, fetchUserStore]);
 
-    useEffect(() => { if (!isUserLoading && !user) router.push('/login'); }, [isUserLoading, user, router]);
-    useEffect(() => { if (firestore && user && !myStore) fetchInitialData(firestore, user.uid); }, [firestore, user, myStore, fetchInitialData]);
+    if (isRoleLoading) return <div className="p-12 text-center h-[80vh] flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
 
-    if (isUserLoading || isRoleLoading) return <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-20" /></div>;
-
-    if (!myStore) return (
-        <div className="container mx-auto py-12 p-6 text-center">
-            <h1 className="text-3xl font-black mb-4">No Store Found</h1>
-            <Button asChild><Link href="/dashboard">Return to Dashboard</Link></Button>
-        </div>
-    );
+    if (!userStore) return <div className="p-12 text-center py-32"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store not found.</p></div>;
 
     return (
-        <div className="container mx-auto py-12 px-4 md:px-6 space-y-12">
-            <div className="border-b pb-8"><h1 className="text-5xl font-black font-headline tracking-tighter uppercase italic">{myStore.name}</h1><p className="text-muted-foreground font-black text-[10px] tracking-widest uppercase opacity-40">Store Control Panel</p></div>
-            <ManageStoreView store={myStore} isAdmin={isAdmin} onUpdate={() => fetchInitialData(firestore!, user?.uid)} />
+        <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 gap-3">
+                <StoreDetails store={userStore} onUpdate={() => fetchUserStore(firestore!, user!.uid)} />
+                <StoreImageUploader store={userStore} />
+                <Button asChild variant="outline" className="w-full h-11 rounded-xl border-2 border-primary/20 bg-primary/5 text-primary font-black uppercase text-[9px] tracking-widest hover:bg-primary/10 shadow-sm transition-all active:scale-95">
+                    <Link href="/dashboard/owner/menu-manager">
+                        <ImageIcon className="mr-2 h-4 w-4" /> Go to Digital Menu
+                    </Link>
+                </Button>
+            </div>
         </div>
     );
 }

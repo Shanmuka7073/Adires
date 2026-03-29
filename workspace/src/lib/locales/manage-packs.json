@@ -1,0 +1,15 @@
+
+{
+    "managePacks": {
+        "en": [
+            "manage packs",
+            "grocery packs",
+            "edit packs",
+            "show packs"
+        ],
+        "te": [
+            "ప్యాక్‌లను నిర్వహించు",
+            "కిరాణా ప్యాక్‌లు"
+        ]
+    }
+}
