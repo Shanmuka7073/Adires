@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -14,7 +13,14 @@ import { useAppStore } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
+const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
+
+/**
+ * QUICK POS TERMINAL
+ * Updated header to include business branding (Logo & Correct Name).
+ */
 export default function QuickPOSPage() {
     const { firestore, user } = useFirebase();
     const router = useRouter();
@@ -119,14 +125,19 @@ export default function QuickPOSPage() {
 
     return (
         <div className="h-screen flex flex-col bg-[#FDFCF7]">
-            <div className="p-4 bg-white border-b flex items-center justify-between gap-4 shrink-0">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full h-10 w-10">
+            <div className="p-4 bg-white border-b flex items-center justify-between gap-4 shrink-0 shadow-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full h-10 w-10 shrink-0">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
-                    <div className="min-w-0">
-                        <h1 className="text-lg font-black uppercase tracking-tight truncate leading-none">Rapid POS</h1>
-                        <p className="text-[8px] font-bold opacity-40 uppercase mt-1">Direct Counter Billing</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative h-9 w-9 rounded-full overflow-hidden border-2 border-primary/10 bg-white shrink-0 shadow-sm">
+                            <Image src={myStore?.imageUrl || ADIRES_LOGO} alt="Logo" fill className="object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-sm font-black uppercase tracking-tight truncate leading-none text-gray-950 italic">{myStore?.name || 'Rapid POS'}</h1>
+                            <p className="text-[8px] font-bold opacity-40 uppercase mt-1 leading-none">Counter Terminal</p>
+                        </div>
                     </div>
                 </div>
                 <div className="flex-1 max-w-xs relative">
@@ -135,7 +146,7 @@ export default function QuickPOSPage() {
                         placeholder="Search items..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="h-10 rounded-xl border-2 pl-9 font-bold"
+                        className="h-10 rounded-xl border-2 pl-9 font-bold bg-muted/10 border-black/5"
                     />
                 </div>
             </div>

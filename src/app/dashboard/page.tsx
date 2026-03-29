@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -41,7 +40,7 @@ import Link from 'next/link';
 
 /**
  * UNIFIED MERCHANT HUB
- * The setup gate has been removed. Merchants land directly on their operational tools.
+ * Redundant POS link removed as it is accessible via the "+" button in Live Orders.
  */
 export default function UnifiedDashboardPage() {
     const { user, firestore } = useFirebase();
@@ -65,13 +64,6 @@ export default function UnifiedDashboardPage() {
     const serviceLinks = useMemo(() => {
         const isSalon = userStore?.businessType === 'salon';
         return [
-            { 
-                title: 'POS Terminal', 
-                description: 'Counter billing & walk-ins', 
-                href: '/dashboard/owner/pos', 
-                icon: Monitor, 
-                highlight: true 
-            },
             { 
                 title: isSalon ? 'Live Bookings' : 'Live Orders', 
                 description: isSalon ? 'Appointments queue' : 'Active table sessions', 
@@ -102,6 +94,12 @@ export default function UnifiedDashboardPage() {
                 description: 'Manage storefront & photo', 
                 href: '/dashboard/owner/my-store', 
                 icon: Store 
+            },
+            {
+                title: 'Offline Audit',
+                description: 'Check local data persistence',
+                href: '/dashboard/offline-audit',
+                icon: Smartphone
             }
         ];
     }, [userStore]);
