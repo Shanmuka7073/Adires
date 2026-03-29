@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -74,7 +75,7 @@ export const useAppStore = create<AppState>()(
       incrementWriteCount: (count = 1) => set(state => ({ writeCount: state.writeCount + count })),
 
       setLanguage: (lang: string) => set({ language: lang }),
-      setUserStore: (store: Store | null) => set({ userStore: store }),
+      setUserStore: (store: Store | null) => set({ userStore: store, isUserDataLoaded: true }),
       setAppReady: (isReady: boolean) => set({ appReady: isReady }),
       setDeviceId: (id: string) => set({ deviceId: id }),
       setActiveStoreId: (storeId: string | null) => set({ activeStoreId: storeId }),
@@ -104,24 +105,14 @@ export const useAppStore = create<AppState>()(
         set({ isFetchingStores: true, error: null });
         
         try {
-          // Graceful handling: proceed even if non-critical collections are missing
-          const [storesSnap, aliasSnap] = await Promise.all([
-            getDocs(query(collection(db, 'stores'), limit(50))),
-            getDocs(collection(db, 'voiceAliasGroups')).catch(() => ({ docs: [] }))
-          ]);
-
+          const storesSnap = await getDocs(query(collection(db, 'stores'), limit(50)));
           const storesList = storesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Store));
-          const voiceAliasGroups = (aliasSnap as any).docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as VoiceAliasGroup));
           
-          const locales = buildLocalesFromAliasGroups(voiceAliasGroups);
-          initializeTranslations(locales);
-
           set({
             stores: storesList,
-            locales,
             isInitialized: true,
             isFetchingStores: false,
-            readCount: get().readCount + storesSnap.docs.length + (aliasSnap as any).docs.length
+            readCount: get().readCount + storesSnap.docs.length
           });
 
           if (userId) {
@@ -161,21 +152,9 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      fetchProductPrices: async (db: Firestore, productNames: string[]) => {
-          const prices: Record<string, ProductPrice | null> = {};
-          for (const name of productNames) {
-              const docRef = doc(db, 'productPrices', name.toLowerCase());
-              const snap = await getDoc(docRef);
-              if (snap.exists()) {
-                  prices[name.toLowerCase()] = snap.data() as ProductPrice;
-              }
-          }
-          set({ productPrices: { ...get().productPrices, ...prices } });
-      },
-
-      getAllAliases: (key: string) => {
-        return getAliasesFromLocales(get().locales, key);
-      }
+      fetchProductPrices: async () => Promise.resolve(),
+      getProductName: (product: Product) => product.name || '',
+      getAllAliases: (key: string) => getAliasesFromLocales(get().locales, key)
     }),
     {
       name: 'adires-ops-storage', 

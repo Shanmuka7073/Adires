@@ -12,7 +12,6 @@ import {
     ArrowRight, 
     Store, 
     ShoppingBag, 
-    BarChart3, 
     Smartphone,
     MessageSquare,
     CalendarCheck,
@@ -26,7 +25,8 @@ import {
     Sparkles,
     Zap,
     Monitor,
-    XCircle
+    XCircle,
+    CheckCircle2
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -45,7 +45,7 @@ import { doc, collection, serverTimestamp, setDoc, writeBatch } from 'firebase/f
 import GlobalLoader from '@/components/layout/global-loader';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { extractMenuItems } from '@/ai/flows/extract-menu-items-flow';
-import type { MenuItem, MenuTheme } from '@/lib/types';
+import type { MenuItem, MenuTheme, Store as StoreType } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
 
@@ -61,7 +61,7 @@ type CreateStoreFormValues = z.infer<typeof createStoreSchema>;
 function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComplete: () => void }) {
     const { toast } = useToast();
     const { firestore } = useFirebase();
-    const { incrementWriteCount } = useAppStore();
+    const { incrementWriteCount, setUserStore } = useAppStore();
     const [isProcessing, startProcessing] = useTransition();
     const [isSaving, startSave] = useTransition();
     const [extractedData, setExtractedData] = useState<{items: MenuItem[], theme: MenuTheme, businessType: 'restaurant' | 'salon' | 'grocery'} | null>(null);
@@ -98,14 +98,15 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
             const batch = writeBatch(firestore);
             const menuRef = doc(collection(firestore, `stores/${storeId}/menus`));
             
-            batch.set(menuRef, { 
+            const menuData = { 
                 id: menuRef.id, 
                 storeId, 
                 items: extractedData.items, 
                 theme: extractedData.theme,
                 createdAt: serverTimestamp()
-            });
+            };
 
+            batch.set(menuRef, menuData);
             batch.update(doc(firestore, 'stores', storeId), { 
                 businessType: extractedData.businessType,
                 updatedAt: serverTimestamp()
@@ -120,7 +121,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
 
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
-            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center text-left">
                 <div className="h-16 w-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary mb-4">
                     <Camera className="h-8 w-8" />
                 </div>
@@ -132,7 +133,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                 {extractedData ? (
                     <div className="space-y-6">
                         <div className="p-4 rounded-2xl bg-indigo-50 border-2 border-indigo-100 flex items-center justify-between">
-                            <div>
+                            <div className="text-left">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">AI Classification</p>
                                 <p className="text-xl font-black uppercase tracking-tight text-indigo-900 italic">{extractedData.businessType}</p>
                             </div>
@@ -154,7 +155,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
                                 <TableBody>
                                     {extractedData.items.map((i, idx) => (
                                         <TableRow key={idx} className="border-b last:border-0 border-black/5">
-                                            <TableCell className="font-bold text-xs uppercase">{i.name}</TableCell>
+                                            <TableCell className="font-bold text-xs uppercase text-left">{i.name}</TableCell>
                                             <TableCell className="text-right font-black text-primary">₹{i.price}</TableCell>
                                         </TableRow>
                                     ))}
@@ -189,7 +190,7 @@ function MenuOnboardingTool({ storeId, onComplete }: { storeId: string, onComple
     );
 }
 
-function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void }) {
+function CreateStoreForm({ onComplete }: { onComplete: (storeData: StoreType) => void }) {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -225,30 +226,35 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
             const storeRef = doc(firestore, 'stores', storeId);
             const userRef = doc(firestore, 'users', user.uid);
 
+            const storeData: any = {
+                id: storeId,
+                ownerId: user.uid,
+                name: data.name,
+                address: data.address,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                isClosed: false,
+                imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+
             await Promise.all([
-                setDoc(storeRef, {
-                    id: storeId,
-                    ownerId: user.uid,
-                    name: data.name,
-                    address: data.address,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    isClosed: false,
-                    imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                }),
+                setDoc(storeRef, storeData),
                 setDoc(userRef, { 
                     id: user.uid, 
                     accountType: 'restaurant',
+                    firstName: data.name.split(' ')[0], // Placeholder first name for consistency
+                    lastName: data.name.split(' ').slice(1).join(' ') || 'Merchant',
                     address: data.address,
                     latitude: data.latitude,
-                    longitude: data.longitude
+                    longitude: data.longitude,
+                    updatedAt: serverTimestamp()
                 }, { merge: true })
             ]);
 
             toast({ title: "Basic Profile Created", description: "Next: Confirm your business type via menu scan." });
-            onComplete(storeId);
+            onComplete(storeData);
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
         } finally {
@@ -258,7 +264,7 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
 
     return (
         <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto mt-12 mb-20">
-            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center text-left">
                 <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Business Hub Setup</CardTitle>
                 <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-40">Step 1: Registration</CardDescription>
             </CardHeader>
@@ -266,10 +272,16 @@ function CreateStoreForm({ onComplete }: { onComplete: (storeId: string) => void
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <CardContent className="p-8 space-y-6">
                         <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Grand Hub" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                            <FormItem className="text-left">
+                                <FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel>
+                                <FormControl><Input {...field} placeholder="e.g. Grand Hub" className="h-12 rounded-xl border-2 font-bold" /></FormControl>
+                            </FormItem>
                         )} />
                         <FormField control={form.control} name="address" render={({ field }) => (
-                            <FormItem><FormLabel className="text-[10px] font-black uppercase opacity-40">Location Address</FormLabel><FormControl><Input {...field} placeholder="Full physical location" className="h-12 rounded-xl border-2 font-bold" /></FormControl></FormItem>
+                            <FormItem className="text-left">
+                                <FormLabel className="text-[10px] font-black uppercase opacity-40">Location Address</FormLabel>
+                                <FormControl><Input {...field} placeholder="Full physical location" className="h-12 rounded-xl border-2 font-bold" /></FormControl>
+                            </FormItem>
                         )} />
                         <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-12 rounded-xl border-2 font-black uppercase text-[10px] tracking-widest">
                             {isDetecting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <MapPin className="h-4 w-4 mr-2" />}
@@ -291,7 +303,7 @@ export default function UnifiedDashboardPage() {
     const { user, firestore } = useFirebase();
     const { isMerchant, isAdmin, isCustomer, isLoading } = useAdminAuth();
     const router = useRouter();
-    const { userStore, fetchUserStore, isInitialized, isUserDataLoaded } = useAppStore();
+    const { userStore, fetchUserStore, isInitialized, isUserDataLoaded, setUserStore } = useAppStore();
 
     useEffect(() => {
         if (isLoading) return;
@@ -317,18 +329,18 @@ export default function UnifiedDashboardPage() {
         ];
     }, [userStore]);
 
-    if (isLoading || !isUserDataLoaded) return <GlobalLoader />;
+    if (isLoading || (!isUserDataLoaded && user)) return <GlobalLoader />;
     
-    // CUSTOMER VIEW: Access Denied (Non-mandatory redirect)
+    // CUSTOMER VIEW
     if (isCustomer) {
         return (
-            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500">
+            <div className="container mx-auto py-24 px-4 text-center space-y-6 max-w-md animate-in fade-in duration-500 text-left">
                 <div className="h-20 w-20 rounded-[2.5rem] bg-destructive/10 flex items-center justify-center mx-auto text-destructive">
                     <XCircle className="h-10 w-10" />
                 </div>
                 <div className="space-y-2">
                     <h1 className="text-3xl font-black uppercase tracking-tight italic">Merchant Access</h1>
-                    <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed">
+                    <p className="text-sm font-bold text-gray-500 uppercase tracking-widest opacity-60 leading-relaxed text-center">
                         This operational hub is reserved for verified store owners and employees.
                     </p>
                 </div>
@@ -343,7 +355,10 @@ export default function UnifiedDashboardPage() {
     if (!userStore && isInitialized) {
         return (
             <div className="container mx-auto px-4 py-12 max-w-4xl animate-in fade-in duration-700">
-                <CreateStoreForm onComplete={() => firestore && fetchUserStore(firestore, user!.uid)} />
+                <CreateStoreForm onComplete={(data) => {
+                    // OPTIMISTIC UPDATE: Set store locally immediately to trigger next step
+                    setUserStore(data);
+                }} />
             </div>
         );
     }
@@ -357,7 +372,7 @@ export default function UnifiedDashboardPage() {
     }
 
     return (
-        <div className="container mx-auto px-3 py-6 max-w-2xl space-y-6 pb-24 animate-in fade-in duration-500">
+        <div className="container mx-auto px-3 py-6 max-w-2xl space-y-6 pb-24 animate-in fade-in duration-500 text-left">
             <div className="flex items-center gap-4 border-b pb-6 border-black/5">
                 <div className="h-14 w-14 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner border-2 border-white">
                     {userStore?.businessType === 'salon' ? <Scissors className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
