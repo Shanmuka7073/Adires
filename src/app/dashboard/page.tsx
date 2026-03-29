@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -17,12 +18,10 @@ import {
     Utensils,
     Scissors,
     Loader2,
-    RefreshCw,
-    BarChart3,
-    Users,
-    CheckCircle2,
+    Zap,
     XCircle,
-    Zap
+    BarChart3,
+    Users
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 import { useRouter } from 'next/navigation';
@@ -127,21 +126,26 @@ export default function UnifiedDashboardPage() {
             {/* BRAND HEADER */}
             <div className="flex items-center justify-between pb-6 border-b border-black/5">
                 <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-3xl bg-[#f0fff4] flex items-center justify-center text-primary shadow-inner border-2 border-white">
+                    <div className={cn(
+                        "h-14 w-14 rounded-3xl flex items-center justify-center shadow-inner border-2 border-white transition-colors",
+                        userStore ? "bg-[#f0fff4] text-primary" : "bg-muted text-muted-foreground opacity-20"
+                    )}>
                         {userStore?.businessType === 'salon' ? <Scissors className="h-7 w-7" /> : <Utensils className="h-7 w-7" />}
                     </div>
                     <div className="text-left">
                         <h1 className="text-xl font-black uppercase tracking-tight text-gray-950 leading-none italic">
-                            {userStore?.name || 'MY HUB'}
+                            {userStore?.name || 'SETUP REQUIRED'}
                         </h1>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-2">
-                            OPERATIONAL CONTROL
+                            {userStore ? 'OPERATIONAL CONTROL' : 'IDENTITY PENDING'}
                         </p>
                     </div>
                 </div>
-                <div className="inline-flex items-center rounded-full border border-primary/10 bg-[#f0fff4] px-3 py-1 text-primary font-black text-[9px] uppercase gap-1.5 shadow-sm">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ONLINE
-                </div>
+                {userStore && (
+                    <div className="inline-flex items-center rounded-full border border-primary/10 bg-[#f0fff4] px-3 py-1 text-primary font-black text-[9px] uppercase gap-1.5 shadow-sm">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> ONLINE
+                    </div>
+                )}
             </div>
 
             {/* ACTION CARDS GRID */}
@@ -150,7 +154,8 @@ export default function UnifiedDashboardPage() {
                     <Link href={card.href} key={card.href} className="group block">
                         <Card className={cn(
                             "rounded-[1.5rem] border-0 shadow-lg transition-all active:scale-[0.98] bg-white border-2 border-transparent hover:border-primary/10",
-                            card.highlight && "bg-[#f0fff4] border-primary/20 ring-1 ring-primary/10"
+                            card.highlight && "bg-[#f0fff4] border-primary/20 ring-1 ring-primary/10",
+                            !userStore && card.href === '/dashboard/owner/my-store' && "ring-2 ring-primary animate-pulse"
                         )}>
                             <div className="flex items-center gap-5 p-5">
                                 <div className={cn(
@@ -182,7 +187,9 @@ export default function UnifiedDashboardPage() {
                     <div className="relative z-10 space-y-2 text-left">
                         <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">System Pulse</h3>
                         <p className="text-sm font-bold opacity-60 leading-relaxed uppercase">
-                            All operational terminals are currently synchronized with the regional dispatch network.
+                            {userStore 
+                                ? 'All operational terminals are currently synchronized with the regional dispatch network.'
+                                : 'Please complete your business setup in the "My Store" section to activate live features.'}
                         </p>
                     </div>
                 </Card>

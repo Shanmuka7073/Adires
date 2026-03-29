@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -13,12 +14,14 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Dialog,
@@ -27,19 +30,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import type { Store } from '@/lib/types';
-import { useFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import type { Store, User as AppUser } from '@/lib/types';
+import { useFirebase, errorEmitter, FirestorePermissionError, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
-  Share2,
   MapPin,
   ImageIcon,
   Loader2,
   Edit3,
   Save,
+  Rocket,
+  LocateFixed,
+  Store as StoreIcon,
+  CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
@@ -48,14 +55,174 @@ import { useAdminAuth } from '@/hooks/use-admin-auth';
 const ADIRES_LOGO = "https://i.ibb.co/fVkfNjkz/file-0000000094f07208b303c1fd91d3731b.png";
 
 const storeSchema = z.object({
-  name: z.string().min(3, 'Store name must be at least 3 characters'),
+  name: z.string().min(2, 'Store name is required'),
+  businessType: z.enum(['restaurant', 'salon', 'grocery']),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   address: z.string().min(10, 'Please enter a valid address'),
-  latitude: z.coerce.number(),
-  longitude: z.coerce.number(),
+  latitude: z.coerce.number().refine(n => n !== 0, "GPS Location is required"),
+  longitude: z.coerce.number().refine(n => n !== 0, "GPS Location is required"),
 });
 
 type StoreFormValues = z.infer<typeof storeSchema>;
+
+function InitializeStoreForm({ onComplete }: { onComplete: (storeId: string) => void }) {
+    const { user, firestore } = useFirebase();
+    const { toast } = useToast();
+    const { setUserStore, incrementWriteCount } = useAppStore();
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDetecting, setIsDetecting] = useState(false);
+
+    const form = useForm<StoreFormValues>({
+        resolver: zodResolver(storeSchema),
+        defaultValues: {
+            name: 'CHADE',
+            businessType: 'restaurant',
+            description: 'Professional hub for rapid operations and local commerce.',
+            address: '',
+            latitude: 0,
+            longitude: 0,
+        }
+    });
+
+    const handleDetectLocation = () => {
+        if (!navigator.geolocation) {
+            toast({ variant: 'destructive', title: "Not Supported", description: "Your browser does not support GPS." });
+            return;
+        }
+        setIsDetecting(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                form.setValue('latitude', pos.coords.latitude, { shouldValidate: true });
+                form.setValue('longitude', pos.coords.longitude, { shouldValidate: true });
+                setIsDetecting(false);
+                toast({ title: "GPS Locked", description: "Coordinates captured successfully." });
+            },
+            (err) => {
+                setIsDetecting(false);
+                toast({ variant: 'destructive', title: "GPS Error", description: "Could not capture your location. Check browser permissions." });
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
+    const onSubmit = async (data: StoreFormValues) => {
+        if (!user || !firestore) return;
+        setIsSaving(true);
+        try {
+            const storeId = doc(collection(firestore, 'stores')).id;
+            const storeRef = doc(firestore, 'stores', storeId);
+            const userRef = doc(firestore, 'users', user.uid);
+
+            const storeData: Store = {
+                id: storeId,
+                ownerId: user.uid,
+                name: data.name,
+                businessType: data.businessType,
+                description: data.description,
+                address: data.address,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                isClosed: false,
+                imageId: `store-${Math.floor(Math.random() * 3) + 1}`,
+                imageUrl: ADIRES_LOGO
+            };
+
+            await Promise.all([
+                setDoc(storeRef, { ...storeData, createdAt: serverTimestamp() }),
+                setDoc(userRef, { accountType: 'restaurant', address: data.address }, { merge: true })
+            ]);
+
+            // Optimistic update for instant branding visibility
+            setUserStore(storeData);
+            incrementWriteCount(1);
+            
+            toast({ title: "Business Launched!", description: "Your operational hub is now live." });
+            onComplete(storeId);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Setup Failed", description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Card className="rounded-[2.5rem] border-0 shadow-2xl overflow-hidden bg-white max-w-2xl mx-auto animate-in zoom-in-95 duration-500">
+            <CardHeader className="bg-primary/5 border-b border-black/5 p-8 text-center">
+                <div className="h-16 w-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary mb-4">
+                    <Rocket className="h-8 w-8" />
+                </div>
+                <CardTitle className="text-2xl font-black uppercase tracking-tight">Launch Business Hub</CardTitle>
+                <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-40">Initialize your digital storefront</CardDescription>
+            </CardHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <CardContent className="p-8 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Business Name</FormLabel>
+                                    <FormControl><Input {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="businessType" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Category</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-12 rounded-xl border-2 font-bold"><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent className="rounded-xl border-2">
+                                            <SelectItem value="restaurant" className="rounded-lg">Restaurant / Cafe</SelectItem>
+                                            <SelectItem value="salon" className="rounded-lg">Salon / Spa</SelectItem>
+                                            <SelectItem value="grocery" className="rounded-lg">Retail / Grocery</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] font-black uppercase opacity-40">Short Bio</FormLabel>
+                                <FormControl><Textarea {...field} className="min-h-[80px] rounded-2xl border-2 font-medium" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+
+                        <div className="space-y-4">
+                            <FormField control={form.control} name="address" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] font-black uppercase opacity-40">Operational Address</FormLabel>
+                                    <FormControl><Input placeholder="Full street address" {...field} className="h-12 rounded-xl border-2 font-bold" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            
+                            <div className="p-4 rounded-2xl bg-muted/30 border-2 border-dashed border-black/5 flex flex-col items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <MapPin className={cn("h-4 w-4", form.watch('latitude') !== 0 ? "text-green-600" : "opacity-20")} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-40">
+                                        {form.watch('latitude') !== 0 ? `GPS LOCKED: ${form.watch('latitude').toFixed(4)}, ${form.watch('longitude').toFixed(4)}` : 'GPS REQUIRED FOR DISPATCH'}
+                                    </span>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={handleDetectLocation} disabled={isDetecting} className="w-full h-11 rounded-xl font-black uppercase text-[10px] tracking-widest border-2 bg-white">
+                                    {isDetecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <LocateFixed className="h-4 w-4 mr-2" />}
+                                    Sync GPS Coordinates
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                    <div className="p-8 bg-gray-50 border-t border-black/5 pb-12">
+                        <Button type="submit" disabled={isSaving} className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
+                            {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CheckCircle2 className="h-5 w-5 mr-2" />}
+                            Go Live as Merchant
+                        </Button>
+                    </div>
+                </form>
+            </Form>
+        </Card>
+    );
+}
 
 function StoreImageUploader({ store, onUpdate }: { store: Store, onUpdate?: () => void }) {
     const { toast } = useToast();
@@ -77,11 +244,12 @@ function StoreImageUploader({ store, onUpdate }: { store: Store, onUpdate?: () =
         startSaveTransition(async () => {
             if (!firestore) return;
             const storeRef = doc(firestore, 'stores', store.id);
-            const updateData = { imageUrl: imageUrl };
+            const updateData = { imageUrl: imageUrl, updatedAt: serverTimestamp() };
 
             updateDoc(storeRef, updateData)
                 .then(() => {
                     if (onUpdate) onUpdate();
+                    toast({ title: 'Visual Updated!' });
                 })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -91,10 +259,6 @@ function StoreImageUploader({ store, onUpdate }: { store: Store, onUpdate?: () =
                     }));
                 });
             
-            toast({ 
-                title: 'Visual Updated!', 
-                description: 'Your storefront image has been synchronized.' 
-            });
             incrementWriteCount(1);
         });
     };
@@ -147,6 +311,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         resolver: zodResolver(storeSchema),
         defaultValues: {
             name: store.name,
+            businessType: store.businessType || 'restaurant',
             description: store.description,
             address: store.address,
             latitude: store.latitude,
@@ -158,7 +323,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
         if (!firestore) return;
         startTransition(() => {
             const storeRef = doc(firestore, 'stores', store.id);
-            updateDoc(storeRef, data)
+            updateDoc(storeRef, { ...data, updatedAt: serverTimestamp() })
                 .catch((e) => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
                         path: storeRef.path,
@@ -167,7 +332,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     }));
                 });
             
-            toast({ title: "Profile Updated!", description: "Business details have been saved." });
+            toast({ title: "Profile Synchronized!" });
             incrementWriteCount(1);
             setIsOpen(false);
             onUpdate();
@@ -177,9 +342,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
     return (
         <Card className="rounded-[1.5rem] border-0 shadow-lg overflow-hidden bg-white">
             <CardHeader className="flex flex-row justify-between items-center bg-primary/5 border-b border-black/5 p-3">
-                <div>
-                    <CardTitle className="text-[10px] font-black uppercase tracking-widest text-gray-950">Business Profile</CardTitle>
-                </div>
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest text-gray-950">Business Profile</CardTitle>
                 <Dialog open={isOpen} onOpenChange={setIsOpen}>
                     <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="rounded-lg font-black text-[8px] uppercase tracking-widest border-2 h-7 px-3 gap-1">
@@ -188,7 +351,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                     </DialogTrigger>
                     <DialogContent className="rounded-[2rem] border-0 shadow-2xl">
                         <DialogHeader>
-                            <DialogTitle className="font-black uppercase">Edit Profile</DialogTitle>
+                            <DialogTitle className="font-black uppercase">Edit Business Hub</DialogTitle>
                         </DialogHeader>
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
@@ -211,7 +374,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
             </CardHeader>
             <CardContent className="p-3">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 text-left">
                         <p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Address</p>
                         <p className="font-bold text-gray-700 text-[11px] leading-tight truncate">{store.address}</p>
                     </div>
@@ -222,9 +385,9 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
                         </p>
                     </div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-black/5">
+                <div className="mt-3 pt-2 border-t border-black/5 text-left">
                     <p className="text-[8px] font-black uppercase opacity-40 tracking-widest mb-0.5">Business Bio</p>
-                    <p className="text-gray-600 font-bold text-[10px] leading-.tight truncate">{store.description}</p>
+                    <p className="text-gray-600 font-bold text-[10px] leading-tight truncate">{store.description}</p>
                 </div>
             </CardContent>
         </Card>
@@ -234,7 +397,7 @@ function StoreDetails({ store, onUpdate }: { store: Store, onUpdate: () => void 
 export default function MyStorePage() {
     const { user, firestore } = useFirebase();
     const { isRestaurantOwner, isLoading: isRoleLoading } = useAdminAuth();
-    const { userStore, fetchUserStore } = useAppStore();
+    const { userStore, fetchUserStore, isUserDataLoaded } = useAppStore();
 
     useEffect(() => {
         if (firestore && user && !userStore) {
@@ -244,7 +407,15 @@ export default function MyStorePage() {
 
     if (isRoleLoading) return <div className="p-12 text-center h-[80vh] flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-20" /></div>;
 
-    if (!userStore) return <div className="p-12 text-center py-32"><p className="font-black uppercase tracking-widest text-xs opacity-40">Store not found.</p></div>;
+    if (!userStore && isUserDataLoaded) {
+        return (
+            <div className="container mx-auto py-12 px-4 animate-in fade-in duration-700">
+                <InitializeStoreForm onComplete={() => firestore && fetchUserStore(firestore, user!.uid)} />
+            </div>
+        );
+    }
+
+    if (!userStore) return null;
 
     return (
         <div className="container mx-auto py-3 px-3 space-y-3 pb-24 animate-in fade-in duration-500">
