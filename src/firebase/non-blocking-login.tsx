@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Mail, Lock, Chrome } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 /**
  * NON-BLOCKING LOGIN COMPONENT
@@ -113,6 +114,12 @@ export function NonBlockingLogin() {
               {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Open Dashboard'}
             </Button>
           </form>
+          <p className="text-center text-xs text-gray-500">
+              Don't have an account?{' '}
+              <Link href="/signup" className="font-medium text-primary hover:underline">
+                  Sign Up
+              </Link>
+          </p>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
