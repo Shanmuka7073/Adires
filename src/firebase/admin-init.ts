@@ -1,3 +1,5 @@
+'use server';
+
 import { initializeApp, getApps, App, cert, type AppOptions } from 'firebase-admin/app';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
@@ -15,72 +17,76 @@ interface AdminServices {
 let adminServices: AdminServices | null = null;
 
 /**
- * HARDENED CREDENTIAL LOADER
- * Resolves "Internal Server Error" by ensuring the SERVICE_ACCOUNT
- * environment variable is correctly parsed and validated.
+ * Provides a hardened, safely-parsed configuration for the Firebase Admin SDK.
+ * This function is critical for ensuring server-side stability.
  */
-function getAppOptions(): AppOptions {
-    let serviceAccountString = process.env.SERVICE_ACCOUNT;
-    const fallbackBucket = `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'adires'}.appspot.com`;
-    
-    if (!serviceAccountString) {
-        return {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            storageBucket: fallbackBucket,
-        };
+function getAdminAppOptions(): AppOptions {
+  const serviceAccountString = process.env.SERVICE_ACCOUNT;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+  if (!serviceAccountString) {
+    // If no service account is provided, fall back to Application Default Credentials.
+    // This is useful for environments like Google Cloud Run and Vercel.
+    console.warn('SERVICE_ACCOUNT not found. Falling back to Application Default Credentials.');
+    if (!projectId) {
+      throw new Error('Firebase Admin initialization failed: NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set.');
+    }
+    return { projectId, storageBucket: `${projectId}.appspot.com` };
+  }
+
+  try {
+    const serviceAccount = JSON.parse(serviceAccountString);
+
+    // The private_key field often has escaped newlines (\n) when set as an environment variable.
+    // JSON.parse handles this, but some systems might double-escape. This ensures it's correct.
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     }
 
-    try {
-        // Handle cases where the secret might be wrapped in extra quotes
-        serviceAccountString = serviceAccountString.trim();
-        if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
-            serviceAccountString = serviceAccountString.slice(1, -1);
-        }
-
-        const serviceAccount = JSON.parse(serviceAccountString);
-        
-        // Final validation of required service account fields
-        if (!serviceAccount.project_id || !serviceAccount.private_key) {
-            throw new Error("Missing critical fields in service account JSON.");
-        }
-
-        return {
-            credential: cert(serviceAccount),
-            projectId: serviceAccount.project_id,
-            storageBucket: `${serviceAccount.project_id}.appspot.com`,
-        };
-    } catch (e: any) {
-        console.error("ADMIN_SDK_INIT_ERROR:", e.message);
-        return {
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            storageBucket: fallbackBucket,
-        };
-    }
+    return {
+      credential: cert(serviceAccount),
+      projectId: serviceAccount.project_id,
+      storageBucket: `${serviceAccount.project_id}.appspot.com`,
+    };
+  } catch (error: any) {
+    // A failure to parse the service account is a critical, fatal error.
+    // Throwing an error here stops the application from starting in a broken state,
+    // preventing confusing client-side hydration errors.
+    throw new Error(
+      `Failed to parse SERVICE_ACCOUNT JSON: ${error.message}. Check your environment variables.`
+    );
+  }
 }
 
 /**
- * Returns the initialized Firebase Admin services.
- * Now Async to ensure safe initialization across all server contexts.
+ * Initializes and returns the Firebase Admin services, ensuring it only happens once.
+ * This function is the single entry point for accessing server-side Firebase services.
  */
 export async function getAdminServices(): Promise<AdminServices> {
   if (typeof window !== 'undefined') {
-    throw new Error('getAdminServices can only be called on the server.');
+    throw new Error('getAdminServices() cannot be called on the client.');
   }
 
   if (adminServices) {
     return adminServices;
   }
 
-  const options = getAppOptions();
-  const app = getApps().length ? getApps()[0] : initializeApp(options);
+  try {
+    const options = getAdminAppOptions();
+    const app = getApps().length === 0 ? initializeApp(options) : getApps()[0];
 
-  adminServices = {
-    app,
-    auth: getAuth(app),
-    db: getFirestore(app),
-    storage: getStorage(app),
-    messaging: getMessaging(app),
-  };
-
-  return adminServices;
+    adminServices = {
+      app,
+      auth: getAuth(app),
+      db: getFirestore(app),
+      storage: getStorage(app),
+      messaging: getMessaging(app),
+    };
+    
+    return adminServices;
+  } catch (error: any) {
+    // This catch block will now provide a clear, top-level error message if initialization fails.
+    console.error('FATAL: Firebase Admin SDK initialization failed.', error);
+    throw new Error(`The server failed to initialize the Admin SDK: ${error.message}`);
+  }
 }

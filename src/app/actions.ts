@@ -1,12 +1,8 @@
-sage); 
-  }
-}
-
+"use server";
 import { getAdminServices } from '@/firebase/admin-init';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Order, MenuItem, CartItem, Booking, EmployeeProfile, AttendanceRecord, SiteConfig, OrderItem, User } from '@/lib/types';
 import { format, addMinutes, isAfter, parse, startOfDay, setHours, setMinutes } from 'date-fns';
-import { getIngredientsForDishFlow } from '@/ai/flows/recipe-ingredients-flow';
 
 /**
  * DEEP SERIALIZATION UTILITY
@@ -68,10 +64,6 @@ export async function getSystemStatus() {
         counts: { users: 0, stores: 0 } 
     };
   }
-}
-
-export async function getIngredientsForDish(input: { dishName: string; language: 'en' | 'te' }) {
-    return getIngredientsForDishFlow(input);
 }
 
 export async function sendChatNotification(recipientId: string, senderName: string, message: string) {
@@ -507,8 +499,7 @@ export async function placeRestaurantOrder(cartItems: CartItem[], total: number,
             customerName: guestInfo.name,
             phone: guestInfo.phone,
             tableNumber: guestInfo.tableNumber,
-            status: 'Pending',
-            isActive: true,
+            status: 'Pending',            isActive: true,
             orderDate: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
             storeId: cartItems[0]?.product.storeId,
@@ -562,4 +553,6 @@ export async function getSalarySlipData(slipId: string, userId: string, storeId?
     const userDoc = await db.collection('users').doc(userId).get();
     return sanitizeForClient({ slip, employee: { ...empDoc.data(), ...userDoc.data() }, attendance: slip?.attendance || {} });
   } catch (error: any) { 
-    throw new Error(error.mes
+    throw new Error(error.message);
+  }
+}

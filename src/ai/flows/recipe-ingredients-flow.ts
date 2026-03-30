@@ -10,7 +10,7 @@ import { getCachedRecipe, cacheRecipe } from '@/lib/recipe-cache';
 import type { GetIngredientsOutput } from './recipe-ingredients-types';
 
 export async function getIngredientsForDishFlow(input: { dishName: string; language: 'en' | 'te', existingRecipe?: GetIngredientsOutput }): Promise<GetIngredientsOutput> {
-  const { db } = getAdminServices();
+  const { db } = await getAdminServices();
   
   const language = input.language || 'en';
 

@@ -6,9 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ChefHat, Loader2, Sparkles, Volume2, Copy, StopCircle, Salad, Search, MessageCircle } from 'lucide-react';
-import { getIngredientsForDish } from '@/app/actions';
 import type { GetIngredientsOutput, InstructionStep, Store, User } from '@/lib/types';
-import { generateVoiceReply } from '@/ai/flows/generate-voice-reply-flow';
 import { t as translate } from '@/lib/locales';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -110,20 +108,25 @@ export function RecipeCard() {
         
         startGeneration(async () => {
             try {
-                const response = await getIngredientsForDish({ dishName, language: lang });
-                if (response && response.isSuccess) {
-                    const normalized: GetIngredientsOutput = {
-                      ...response,
-                      itemType: response.itemType as "food" | "product" | "service"
-                    };
-                  
-                    setRecipeData(prev => ({
-                      ...prev,
-                      [lang]: normalized
-                    }));
-                  }
-                else toast({ variant: 'destructive', title: 'Details Not Found' });
+                const response = await fetch('/api/ingredients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dishName, language: lang }),
+                });
+
+                if (!response.ok) {
+                  throw new Error('Network response was not ok');
+                }
+
+                const data: GetIngredientsOutput = await response.json();
+
+                if (data && data.isSuccess) {
+                    setRecipeData(prev => ({ ...prev, [lang]: data }));
+                } else {
+                    toast({ variant: 'destructive', title: data.title || 'Details Not Found' });
+                }
             } catch (error) {
+                console.error("Failed to fetch ingredients:", error);
                 toast({ variant: 'destructive', title: 'An Error Occurred' });
             }
         });
@@ -148,7 +151,18 @@ export function RecipeCard() {
         if (!textToSpeak || isSpeaking) return;
         setIsSpeaking(true);
         try {
-            const result = await generateVoiceReply({ text: textToSpeak, language: currentLanguage });
+            const response = await fetch('/api/generate-voice-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: textToSpeak, language: currentLanguage }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate audio');
+            }
+
+            const result = await response.json();
+
             if (result.audioDataUri && audioRef.current) {
                 audioRef.current.src = result.audioDataUri;
                 audioRef.current.play();

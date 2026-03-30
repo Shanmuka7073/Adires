@@ -4,7 +4,7 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development', // Disable SW in development to prevent NetworkOnly errors
   buildExcludes: [
-    /middleware-manifest\.json$/, 
+    /middleware-manifest\.json$/,
     /app-build-manifest\.json$/,
     /precache-manifest\..*\.js$/,
   ],
@@ -66,12 +66,24 @@ const nextConfig = {
     if (!isServer) {
         config.resolve.fallback = {
             ...config.resolve.fallback,
-            net: false,
-            dns: false,
-            tls: false,
-            fs: false,
-            child_process: false,
-            http2: false,
+            "async_hooks": false,
+            "buffer": false,
+            "events": false,
+            "fs": false,
+            "https": false,
+            "http": false,
+            "net": false,
+            "path": false,
+            "perf_hooks": false,
+            "process": false,
+            "stream/web": false,
+            "stream": false,
+            "url": false,
+            "util": false,
+            "zlib": false,
+            "@opentelemetry/context-async-hooks": false,
+            "@opentelemetry/exporter-jaeger": false,
+            "jaeger-client": false,
         };
     }
     
