@@ -1,16 +1,2 @@
-# Dependencies
+.env.local
 node_modules
-
-# Build artifacts
-.next
-dist
-build
-
-# NPM cache
-.npm
-
-# Logs
-*.log
-
-# Temporary files
-temp
