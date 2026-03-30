@@ -28,8 +28,13 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
-    match /app_logs/{logId} {
+    match /error_logs/{logId} {
       allow create: if true; // Allow logging errors even for unauthenticated users
+      allow read, delete: if isAdmin();
+    }
+
+    match /app_logs/{logId} {
+      allow create: if true;
       allow read, delete: if isAdmin();
     }
 
@@ -46,16 +51,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /roles_storeOwners/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
-    }
-
     match /stores/{storeId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() || isAdmin(); // Simplified for MVP
+      allow update: if isSignedIn() || isAdmin();
       allow delete: if isAdmin();
 
       match /products/{productId} {
@@ -120,11 +119,6 @@ service cloud.firestore {
     }
     
     match /voiceAliasGroups/{groupId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /voiceCommands/{commandKey} {
       allow read: if true;
       allow write: if isAdmin();
     }

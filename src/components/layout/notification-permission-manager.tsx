@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useEffect } from 'react';
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { useFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getFirebaseConfig } from '@/app/actions';
 
@@ -50,7 +49,9 @@ export function NotificationPermissionManager() {
 
           if (currentToken) {
             const userDocRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userDocRef, { fcmToken: currentToken });
+            // FIXED: Use setDoc with merge: true instead of updateDoc to prevent "No document to update" error
+            // This ensures that even if the user document hasn't been created yet, the token can still be stored.
+            await setDoc(userDocRef, { fcmToken: currentToken }, { merge: true });
             console.log('FCM: Token synchronized with user profile.');
           }
         } catch (err: any) {

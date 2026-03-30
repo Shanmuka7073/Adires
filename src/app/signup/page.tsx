@@ -44,6 +44,7 @@ function SignupContent() {
 
           const accountType = signupSource === 'customer' ? 'customer' : 'restaurant';
 
+          // FIXED: Use merge: true to avoid overwriting tokens set by NotificationManager during registration
           await setDoc(doc(firestore, "users", user.uid), {
             id: user.uid,
             email: user.email,
@@ -53,7 +54,7 @@ function SignupContent() {
             lastName: '',
             phoneNumber: '',
             address: ''
-          });
+          }, { merge: true });
 
           toast({ title: 'Account Created' });
           // Routing is handled by global AuthGuard

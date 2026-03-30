@@ -6,6 +6,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "_preinstall": "./cleanup.sh",
+    "_predev": "./cleanup.sh",
     "dev": "next dev",
     "build": "NODE_ENV=production next build",
     "start": "next start",

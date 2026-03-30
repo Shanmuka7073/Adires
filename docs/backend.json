@@ -1,644 +1,100 @@
+
 {
   "entities": {
-    "UserProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
-      "type": "object",
-      "description": "Represents a user of the LocalBasket application, who can be a customer or a store owner. Authentication details are managed by an external system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the user.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The phone number of the user."
-        },
-        "defaultDeliveryAddressId": {
-          "type": "string",
-          "description": "Reference to the user's default delivery address. (Relationship: UserProfile 1:N Address)"
-        },
-        "deliveryAddressIds": {
-          "type": "array",
-          "description": "References to multiple delivery addresses associated with the user. (Relationship: UserProfile 1:N Address)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "isStoreOwner": {
-          "type": "boolean",
-          "description": "Indicates if the user is a store owner."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "isStoreOwner",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
     "Store": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Store",
       "type": "object",
-      "description": "Represents a local grocery store registered on the LocalBasket platform.",
+      "description": "Represents a local store that lists products on LocalBasket.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Store entity."
-        },
-        "ownerId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who owns this store. (Relationship: UserProfile 1:N Store)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the store."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the store."
-        },
-        "addressId": {
-          "type": "string",
-          "description": "Reference to the physical address of the store. (Relationship: Store 1:1 Address)"
-        },
-        "contactPhoneNumber": {
-          "type": "string",
-          "description": "The contact phone number for the store."
-        },
-        "contactEmail": {
-          "type": "string",
-          "description": "The contact email address for the store.",
-          "format": "email"
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if the store is currently active and accepting orders."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to the store's logo or main image.",
-          "format": "uri"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the store profile was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the store profile was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "teluguName": { "type": "string" },
+        "description": { "type": "string" },
+        "address": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "imageId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "isClosed": { "type": "boolean" },
+        "tables": { "type": "array", "items": { "type": "string" } },
+        "liveVideoUrl": { "type": "string", "format": "uri" },
+        "upiId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "ownerId",
-        "name",
-        "addressId",
-        "contactPhoneNumber",
-        "contactEmail",
-        "isActive",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "description", "address", "ownerId", "imageId", "latitude", "longitude"]
     },
     "Product": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a product offered for sale by a specific store.",
+      "description": "Represents a product listed by a store.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
-        "storeId": {
-          "type": "string",
-          "description": "Reference to the Store that sells this product. (Relationship: Store 1:N Product)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the product."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the product."
-        },
-        "price": {
-          "type": "number",
-          "description": "The current price of the product."
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to an image of the product.",
-          "format": "uri"
-        },
-        "category": {
-          "type": "string",
-          "description": "The category the product belongs to (e.g., 'Fruits', 'Dairy', 'Bakery')."
-        },
-        "stockQuantity": {
-          "type": "number",
-          "description": "The current quantity of the product available in stock.",
-          "format": "int"
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if the product is currently active and available for purchase."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the product was listed.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the product information was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "imageId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageHint": { "type": "string" }
       },
-      "required": [
-        "id",
-        "storeId",
-        "name",
-        "price",
-        "category",
-        "stockQuantity",
-        "isActive",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "storeId", "name", "imageId"]
     },
-    "Address": {
+    "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Address",
+      "title": "User",
       "type": "object",
-      "description": "Represents a physical address, used for both store locations and user delivery addresses.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Address entity."
-        },
-        "street": {
-          "type": "string",
-          "description": "The street name and house number."
-        },
-        "city": {
-          "type": "string",
-          "description": "The city of the address."
-        },
-        "stateProvince": {
-          "type": "string",
-          "description": "The state or province of the address."
-        },
-        "postalCode": {
-          "type": "string",
-          "description": "The postal code of the address."
-        },
-        "country": {
-          "type": "string",
-          "description": "The country of the address."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "Geographical latitude of the address, used for location services."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "Geographical longitude of the address, used for location services."
-        },
-        "addressLabel": {
-          "type": "string",
-          "description": "A user-friendly label for the address (e.g., 'Home', 'Work', 'Main Store Branch')."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the address was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the address was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["groceries", "restaurant", "employee"] },
+        "imageUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "fcmToken": { "type": "string" }
       },
-      "required": [
-        "id",
-        "street",
-        "city",
-        "stateProvince",
-        "postalCode",
-        "country",
-        "latitude",
-        "longitude",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "firstName", "lastName", "email", "address", "phoneNumber"]
     },
-    "ShoppingCart": {
+    "ErrorLog": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ShoppingCart",
+      "title": "ErrorLog",
       "type": "object",
-      "description": "Represents a user's temporary collection of products selected for purchase.",
+      "description": "Captured runtime system errors.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ShoppingCart entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who owns this shopping cart. (Relationship: UserProfile 1:1 ShoppingCart)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the shopping cart was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the shopping cart was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "message": { "type": "string" },
+        "stack": { "type": "string" },
+        "url": { "type": "string" },
+        "userId": { "type": "string" },
+        "accountType": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "userId",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "ShoppingCartItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ShoppingCartItem",
-      "type": "object",
-      "description": "Represents a single product entry within a user's shopping cart.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ShoppingCartItem entity."
-        },
-        "cartId": {
-          "type": "string",
-          "description": "Reference to the ShoppingCart this item belongs to. (Relationship: ShoppingCart 1:N ShoppingCartItem)"
-        },
-        "productId": {
-          "type": "string",
-          "description": "Reference to the Product added to the cart. (Relationship: Product 1:N ShoppingCartItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The quantity of the product in the cart.",
-          "format": "int"
-        },
-        "priceAtAddition": {
-          "type": "number",
-          "description": "The price of the product at the time it was added to the cart, to account for potential price changes."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the item was added to the shopping cart.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the shopping cart item was last updated (e.g., quantity changed).",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "cartId",
-        "productId",
-        "quantity",
-        "priceAtAddition",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["message", "url", "timestamp"]
     },
     "Order": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Order",
       "type": "object",
-      "description": "Represents a confirmed purchase transaction made by a user from a store.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Order entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who placed the order. (Relationship: UserProfile 1:N Order)"
-        },
-        "storeId": {
-          "type": "string",
-          "description": "Reference to the Store from which the order was placed. (Relationship: Store 1:N Order)"
-        },
-        "deliveryAddressId": {
-          "type": "string",
-          "description": "Reference to the Address selected for this specific order's delivery. (Relationship: Order 1:1 Address)"
-        },
-        "orderDate": {
-          "type": "string",
-          "description": "Timestamp when the order was placed.",
-          "format": "date-time"
-        },
-        "totalAmount": {
-          "type": "number",
-          "description": "The total monetary amount of the order, including all items and any fees."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the order (e.g., 'Pending', 'Confirmed', 'Processing', 'Out for Delivery', 'Delivered', 'Cancelled')."
-        },
-        "deliveryInstructions": {
-          "type": "string",
-          "description": "Any special instructions provided by the user for delivery."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the order record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the order record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "orderDate": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "userId",
-        "storeId",
-        "deliveryAddressId",
-        "orderDate",
-        "totalAmount",
-        "status",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "OrderItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "OrderItem",
-      "type": "object",
-      "description": "Represents a single product entry within a placed order.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the OrderItem entity."
-        },
-        "orderId": {
-          "type": "string",
-          "description": "Reference to the Order this item belongs to. (Relationship: Order 1:N OrderItem)"
-        },
-        "productId": {
-          "type": "string",
-          "description": "Reference to the Product purchased. (Relationship: Product 1:N OrderItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The quantity of the product purchased.",
-          "format": "int"
-        },
-        "priceAtPurchase": {
-          "type": "number",
-          "description": "The price of the product at the time of purchase."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the order item was created as part of an order.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the order item record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "orderId",
-        "productId",
-        "quantity",
-        "priceAtPurchase",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "userId", "storeId", "orderDate", "totalAmount", "status"]
     }
   },
-  "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
-  },
+  "auth": { "providers": ["password"] },
   "firestore": {
     "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores user profiles. Each document is uniquely identified by the user's Firebase Authentication UID. Access is strictly private to the authenticated user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user, corresponding to Firebase Authentication UID."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/addresses/{addressId}",
-        "definition": {
-          "entityName": "Address",
-          "schema": {
-            "$ref": "#/backend/entities/Address"
-          },
-          "description": "Stores delivery addresses specific to a user. Access is strictly private to the user. Includes denormalized 'userId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who owns this address."
-            },
-            {
-              "name": "addressId",
-              "description": "The unique ID of the user's delivery address."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_storeOwners/{userId}",
-        "definition": {
-          "entityName": "StoreOwnerRole",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "A collection used to track users who are store owners for Database Access Control (DBAC). The mere existence of a document at this path indicates the corresponding userId is a store owner. Adheres to 'existence over content' for roles.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who has the store owner role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/stores/{storeId}",
-        "definition": {
-          "entityName": "Store",
-          "schema": {
-            "$ref": "#/backend/entities/Store"
-          },
-          "description": "Stores information about local grocery stores. Store details are publicly readable, but write/update access is restricted to the 'ownerId' of the store, who must also be a designated store owner.",
-          "params": [
-            {
-              "name": "storeId",
-              "description": "The unique ID of the store."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/stores/{storeId}/products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/backend/entities/Product"
-          },
-          "description": "Stores products offered by a specific store. Products are publicly readable, but management (create/update/delete) is restricted to the store's owner. Includes denormalized 'storeOwnerId' for authorization independence.",
-          "params": [
-            {
-              "name": "storeId",
-              "description": "The unique ID of the parent store."
-            },
-            {
-              "name": "productId",
-              "description": "The unique ID of the product."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/stores/{storeId}/address",
-        "definition": {
-          "entityName": "Address",
-          "schema": {
-            "$ref": "#/backend/entities/Address"
-          },
-          "description": "Stores the physical address for a specific store. This address is publicly readable as part of store details. Write/update access is restricted to the store's owner. Includes denormalized 'storeId' and 'storeOwnerId' for authorization independence.",
-          "params": [
-            {
-              "name": "storeId",
-              "description": "The unique ID of the parent store."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/cart",
-        "definition": {
-          "entityName": "ShoppingCart",
-          "schema": {
-            "$ref": "#/backend/entities/ShoppingCart"
-          },
-          "description": "Stores the current shopping cart for a user (1:1 relationship). Access is strictly private to the user. Includes denormalized 'userId' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who owns this shopping cart."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/cart/items/{cartItemId}",
-        "definition": {
-          "entityName": "ShoppingCartItem",
-          "schema": {
-            "$ref": "#/backend/entities/ShoppingCartItem"
-          },
-          "description": "Stores individual items within a user's shopping cart. Access is strictly private to the user. Includes denormalized 'userId' for authorization independence, referring to the grand-parent user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user who owns the shopping cart."
-            },
-            {
-              "name": "cartItemId",
-              "description": "The unique ID of the shopping cart item."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/orders/{orderId}",
-        "definition": {
-          "entityName": "Order",
-          "schema": {
-            "$ref": "#/backend/entities/Order"
-          },
-          "description": "Stores confirmed purchase orders. Orders are accessible by the customer who placed the order ('userId') and the owner of the store from which the order was placed ('storeOwnerId'). Includes denormalized 'storeOwnerId' for authorization independence and QAPs for both user roles.",
-          "params": [
-            {
-              "name": "orderId",
-              "description": "The unique ID of the order."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/orders/{orderId}/items/{orderItemId}",
-        "definition": {
-          "entityName": "OrderItem",
-          "schema": {
-            "$ref": "#/backend/entities/OrderItem"
-          },
-          "description": "Stores individual items within a placed order. Accessible by the customer of the parent order and the store owner of the parent order. Includes denormalized 'orderUserId' and 'orderStoreOwnerId' for authorization independence and QAPs.",
-          "params": [
-            {
-              "name": "orderId",
-              "description": "The unique ID of the parent order."
-            },
-            {
-              "name": "orderItemId",
-              "description": "The unique ID of the order item."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure for LocalBasket prioritizes Authorization Independence and Query-Accurate Permissions (QAPs) through consistent path design and strategic denormalization. By following structural segregation, documents with different security postures (e.g., user-private vs. store-public data) are placed in distinct collections or subcollections. Authorization logic is made explicit by including relevant IDs directly in documents, avoiding expensive and problematic 'get()' calls in security rules.\n\n**Authorization Independence:**\n\n1.  **User-owned data:** All data directly under `/users/{userId}` (e.g., `UserProfile`, `User Addresses`, `ShoppingCart`, `ShoppingCartItems`) implicitly uses `request.auth.uid == userId` for authorization. For user addresses, shopping carts, and shopping cart items, the `userId` is explicitly denormalized into the document, making each document's access self-contained and atomic, eliminating any need to fetch parent data for authorization checks.\n2.  **Store-owned data:** For `Product` documents (under `/stores/{storeId}/products`) and `Store Address` documents (under `/stores/{storeId}/address`), the `storeOwnerId` is denormalized directly from the parent `Store` document. This allows security rules to evaluate product and store address ownership without needing a 'get()' on the parent `Store` document.\n3.  **Collaborative data (Orders, Order Items):** The `Order` entity (at `/orders/{orderId}`) denormalizes `storeOwnerId` (from the associated Store) in addition to its `userId`. `OrderItem` documents (under `/orders/{orderId}/items`) further denormalize both `orderUserId` and `orderStoreOwnerId`. This allows both customers and store owners to access their respective orders and order items without performing any cross-collection 'get()' operations, upholding atomic authorization.\n4.  **Global Roles:** Store owner roles are managed in a dedicated top-level collection (`/roles_storeOwners/{userId}`). Authorization rules can check for the existence of a document at this path for `request.auth.uid`, adhering to the 'existence over content' principle for global roles without violating Authorization Independence for data hierarchies.\n\n**Query-Accurate Permissions (QAPs):**\n\n1.  **Public Collections:** `/stores` and `/stores/{storeId}/products` are designed for public read access, allowing efficient listing without requiring complex filtering logic in rules. The rules simply allow 'list' access.\n2.  **User-Specific Collections:** `/users/{userId}/addresses` and `/users/{userId}/cart/items` are secured by the path itself, ensuring that a user can only query their own data, fulfilling QAPs implicitly.\n3.  **Mixed-Access Collections:** The `/orders` collection supports QAPs for both customers and store owners. A customer can query orders where `userId == request.auth.uid`, and a store owner can query orders where `storeOwnerId == request.auth.uid`. Since `userId` and `storeOwnerId` are denormalized in the `Order` document, rules can efficiently filter on these fields, enabling secure list operations where the client's query matches the rule's authorization criteria."
+      { "path": "/users/{userId}", "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" } } },
+      { "path": "/stores/{storeId}", "definition": { "entityName": "Store", "schema": { "$ref": "#/backend/entities/Store" } } },
+      { "path": "/error_logs/{logId}", "definition": { "entityName": "ErrorLog", "schema": { "$ref": "#/backend/entities/ErrorLog" } } }
+    ]
   }
 }

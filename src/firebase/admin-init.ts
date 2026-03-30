@@ -16,22 +16,22 @@ let adminServices: AdminServices | null = null;
 
 /**
  * HARDENED CREDENTIAL LOADER
- * Resolves "Could not load default credentials" by ensuring the SERVICE_ACCOUNT
- * environment variable is correctly parsed even if it contains escaped characters.
+ * Resolves "Internal Server Error" by ensuring the SERVICE_ACCOUNT
+ * environment variable is correctly parsed and validated.
  */
 function getAppOptions(): AppOptions {
     let serviceAccountString = process.env.SERVICE_ACCOUNT;
+    const fallbackBucket = `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'adires'}.appspot.com`;
     
     if (!serviceAccountString) {
-        console.warn("ADMIN_SDK: SERVICE_ACCOUNT missing. Falling back to basic project config. Some features may fail.");
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-            storageBucket: `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.appspot.com`,
+            storageBucket: fallbackBucket,
         };
     }
 
     try {
-        // Handle cases where the secret might be wrapped in extra quotes from Vercel/Terminal
+        // Handle cases where the secret might be wrapped in extra quotes
         serviceAccountString = serviceAccountString.trim();
         if (serviceAccountString.startsWith('"') && serviceAccountString.endsWith('"')) {
             serviceAccountString = serviceAccountString.slice(1, -1);
@@ -39,20 +39,30 @@ function getAppOptions(): AppOptions {
 
         const serviceAccount = JSON.parse(serviceAccountString);
         
+        // Final validation of required service account fields
+        if (!serviceAccount.project_id || !serviceAccount.private_key) {
+            throw new Error("Missing critical fields in service account JSON.");
+        }
+
         return {
             credential: cert(serviceAccount),
             projectId: serviceAccount.project_id,
             storageBucket: `${serviceAccount.project_id}.appspot.com`,
         };
     } catch (e: any) {
-        console.error("CRITICAL: Failed to parse SERVICE_ACCOUNT secret:", e.message);
+        console.error("ADMIN_SDK_INIT_ERROR:", e.message);
         return {
             projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+            storageBucket: fallbackBucket,
         };
     }
 }
 
-export function getAdminServices(): AdminServices {
+/**
+ * Returns the initialized Firebase Admin services.
+ * Now Async to ensure safe initialization across all server contexts.
+ */
+export async function getAdminServices(): Promise<AdminServices> {
   if (typeof window !== 'undefined') {
     throw new Error('getAdminServices can only be called on the server.');
   }

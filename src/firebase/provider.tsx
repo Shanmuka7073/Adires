@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect, DependencyList } from 'react';
@@ -6,6 +5,7 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, getDoc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import type { User as AppUser } from '@/lib/types';
+import { logRuntimeError } from '@/lib/monitoring/error-logger';
 
 export interface FirebaseContextState {
   firebaseApp: FirebaseApp;
@@ -19,15 +19,10 @@ export interface FirebaseContextState {
   error: Error | null;
 }
 
-// Return type for useFirebase() includes the full state
 export interface FirebaseServicesAndUser extends FirebaseContextState {}
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-/**
- * CENTRALIZED IDENTITY PROVIDER
- * Enforces Auth -> Profile fetch sequence using UID as the document key.
- */
 export const FirebaseProvider: React.FC<{
   children: ReactNode;
   firebaseApp: FirebaseApp;
@@ -40,7 +35,77 @@ export const FirebaseProvider: React.FC<{
   const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // GLOBAL DEBUG SYSTEM
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log("🔥 Debug system initialized");
+
+      window.runAppTest = function () {
+        console.log("[TEST] Running system check");
+
+        const state = {
+          user: (window as any).__DEBUG_USER__,
+          accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
+          appReady: (window as any).__DEBUG_APP_READY__
+        };
+
+        console.log("[AUTH_STATE]", state);
+
+        if (!state.user) console.error("❌ No user");
+        if (!state.accountType) console.error("❌ Missing accountType");
+        if (!state.appReady) console.error("❌ App not ready");
+
+        console.log("✅ Test completed");
+      };
+
+      console.log("✅ runAppTest attached to window:", window.runAppTest);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__DEBUG_USER__ = user;
+      (window as any).__DEBUG_ACCOUNT_TYPE__ = profile?.accountType;
+      (window as any).__DEBUG_APP_READY__ = !authLoading && !profileLoading;
+    }
+  }, [user, profile, authLoading, profileLoading]);
+
+  // GLOBAL ERROR LISTENERS
+  useEffect(() => {
+    if (!firestore) return;
+
+    const handleError = (event: ErrorEvent) => {
+      logRuntimeError(firestore, {
+        message: event.message || 'Unknown runtime error',
+        stack: event.error?.stack,
+        url: window.location.href,
+        userId: user?.uid,
+        accountType: profile?.accountType
+      });
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      logRuntimeError(firestore, {
+        message: event.reason?.message || 'Unhandled Promise Rejection',
+        stack: event.reason?.stack,
+        url: window.location.href,
+        userId: user?.uid,
+        accountType: profile?.accountType
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, [firestore, user, profile]);
+
+  useEffect(() => {
+    if (!auth || !firestore) return;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setAuthLoading(false);
@@ -48,34 +113,26 @@ export const FirebaseProvider: React.FC<{
       if (firebaseUser) {
         setProfileLoading(true);
         try {
-          // ALWAYS fetch using Firebase Auth UID as the document ID
           const userRef = doc(firestore, 'users', firebaseUser.uid);
-          
-          // Fetch document data
           const docSnap = await getDoc(userRef);
-          
-          // Debug logs for environment verification
+
           console.log("[UID]", firebaseUser.uid);
           console.log("[DOC_ID_FETCHED]", userRef.id);
           console.log("[PROFILE_DATA]", docSnap.data());
 
           if (docSnap.exists()) {
             const data = docSnap.data();
-            
-            // Extract accountType safely with a default fallback
-            const accountType = data?.accountType || "user";
-            
             setProfile({ 
                 ...data, 
                 id: docSnap.id,
-                accountType 
+                accountType: data?.accountType || "user"
             } as AppUser);
           } else {
-            console.warn("[AUTH] Profile document missing for UID:", firebaseUser.uid);
+            console.warn("[PROFILE_NOT_FOUND] No Firestore document for UID:", firebaseUser.uid);
             setProfile(null);
           }
         } catch (err: any) {
-          console.error("Profile load failed:", err);
+          console.error("[PROFILE_FETCH_ERROR]", err);
           setError(err);
         } finally {
           setProfileLoading(false);
@@ -88,40 +145,6 @@ export const FirebaseProvider: React.FC<{
 
     return () => unsubscribe();
   }, [auth, firestore]);
-
-  // Sync state to window for the test function
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__DEBUG_USER__ = user;
-      (window as any).__DEBUG_ACCOUNT_TYPE__ = profile?.accountType;
-      (window as any).__DEBUG_APP_READY__ = !authLoading && !profileLoading;
-    }
-  }, [user, profile, authLoading, profileLoading]);
-
-  // INITIALIZE GLOBAL DEBUG SYSTEM
-  useEffect(() => {
-    console.log("🔥 Debug system initialized");
-
-    (window as any).runAppTest = function () {
-      console.log("[TEST] Running system check");
-
-      const state = {
-        user: (window as any).__DEBUG_USER__,
-        accountType: (window as any).__DEBUG_ACCOUNT_TYPE__,
-        appReady: (window as any).__DEBUG_APP_READY__
-      };
-
-      console.log("[AUTH_STATE]", state);
-
-      if (!state.user) console.error("❌ No user");
-      if (!state.accountType) console.error("❌ Missing accountType");
-      if (!state.appReady) console.error("❌ App not ready");
-
-      console.log("✅ Test completed");
-    };
-
-    console.log("✅ runAppTest attached to window:", (window as any).runAppTest);
-  }, []);
 
   const contextValue = useMemo(() => ({
     firebaseApp,
@@ -161,9 +184,7 @@ type MemoFirebase <T> = T & {__memo?: boolean};
 
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
   const memoized = useMemo(factory, deps);
-  
   if(typeof memoized !== 'object' || memoized === null) return memoized;
   (memoized as MemoFirebase<T>).__memo = true;
-  
   return memoized;
 }
